@@ -26,7 +26,9 @@ Storyteller, the makers of ArtCraft. ArtCraft and the app names are theirs.
 omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable
 ```
 
-The icon lands on the left of the bar. Updates: `omarchy plugin update omarcraft.productivity`.
+The icon lands on the left of the bar. If the add prints "omarchy-shell is not responding", the shell was
+still reloading; run `omarchy plugin enable omarcraft.productivity`. Updates:
+`omarchy plugin update omarcraft.productivity`.
 
 ## Use
 

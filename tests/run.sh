@@ -70,6 +70,24 @@ expect_eq "group new" "$(group_ids new | wc -l)" "6"
 expect_eq "app name lookup" "$(app_name figcraft)" "FigCraft"
 expect_eq "app name falls back to the id" "$(app_name nope)" "nope"
 
+# --- installed state and updates (pacman stubbed) --------------------------------------------
+
+pacman() {
+  [[ $1 == "-Q" ]] && printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\nother 1.0-1\n'
+}
+INSTALLED=()
+INSTALLED_LOADED=0
+
+is_installed photocraft && ok "-bin package counts as installed" || fail "-bin package counts as installed"
+is_installed filmcraft && ok "source build counts as installed" || fail "source build counts as installed"
+is_installed gridcraft && fail "missing app is not installed" || ok "missing app is not installed"
+expect_eq "installed version through a subshell" "$(installed_version photocraft)" "0.8.0-1"
+expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
+expect_eq "missing classic excludes installed apps" "$(missing_ids classic | wc -l)" "5"
+unset -f pacman
+INSTALLED=()
+INSTALLED_LOADED=0
+
 # --- new-app detection -----------------------------------------------------------------------
 
 mkdir -p "$STATE_DIR"

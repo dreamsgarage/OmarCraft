@@ -96,14 +96,20 @@ GitHub avatar at runtime, not shipped). Keep it that way.
 
 | Check | How | Result |
 |---|---|---|
-| Unit tests | `bash tests/run.sh` | 26 passed |
-| Manifest and layout | `omarchy plugin validate` on a `git archive` export | see commit log |
-| Real install path | `omarchy plugin add <url> --enable --yes` | see commit log |
+| Unit tests | `bash tests/run.sh` | 32 passed |
+| Manifest and layout | `omarchy plugin validate` on a `git archive` export | valid |
+| Real install path | `omarchy plugin add <url> --enable --yes` from the private repo | cloned and validated; enable timed out once (see Troubleshooting), `omarchy plugin enable` placed it |
+| Update path | `omarchy plugin update omarcraft.productivity --yes` | see below |
+| Picker | bar IPC `open`, real catalog | opens with 13 apps, Studio and the three group rows |
 | App install / group install / update on real packages | through the picker | not yet run |
 | Studio web app | right click | not yet run |
 | Marketplace repository rules | table above | all but public |
 
 ## Troubleshooting for issue reports
+
+- `omarchy plugin add … --enable` can print "omarchy-shell is not responding" right after cloning: the
+  shell is still rescanning plugins and `omarchy-shell` gives up after 2 s (`OMARCHY_SHELL_IPC_TIMEOUT`).
+  The plugin is installed; place it with `omarchy plugin enable omarcraft.productivity`.
 
 - Shell log: `journalctl --user _COMM=quickshell`.
 - Script by hand from the install folder: `bin/omarcraft list`, `bin/omarcraft check`.
