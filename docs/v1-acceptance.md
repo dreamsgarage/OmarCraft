@@ -91,4 +91,23 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 
 | # | Claim | Commit | Result | Note |
 |---|---|---|---|---|
-| | *(filled during phase 5)* | | | |
+| 1 | `omarchy plugin validate` on the folder | e7d2615 | PASS | working folder; export check pending at tag time |
+| 2 | Icon in the right section | e7d2615 | PASS | `omarchy bar move … --section right` after update; fresh `plugin add` with the new manifest default pending |
+| 3 | Hero meta `3 OF 13 INSTALLED`, sections and chips as specified | e7d2615 | PASS | screenshot 2026-10-17 17:18 |
+| 4 | Available rows dimmed, installed full | e7d2615 | PASS | screenshot |
+| 5 | No elided string at the default size | e7d2615 | PASS | all 13 rows, chips and meta visible in the screenshot |
+| 6 | `j` activates then moves the cursor; `Enter` on an available row shows the confirm naming `<id>-bin <version>` and the terminal | e7d2615 | PASS | driven with `wtype`; screenshot of the confirm line |
+| 7 | `Esc` closes the confirm, then the panel | e7d2615 | PASS | driven with `wtype` |
+| 8 | Launching an installed app whose window is open focuses it (window count stays 1) | e7d2615 | PASS | via IPC `launch deckcraft` |
+| 9 | IPC refuses unknown and unsafe ids, reports no updates | e7d2615 | PASS | `launch nope`, `install 'x;rm'`, `update` |
+| 10 | No `sudo`, `pkexec`, helper or `pacman -S` string in code | e7d2615 | PASS | test `no package-manager or privilege strings in the script`; docs use negations only |
+| 11 | Offline tests | e7d2615 | PASS | 71 passed |
+| 12 | Shell loads the plugin with no QML error | e7d2615 | PASS | log clean after `omarchy refresh shell`; one transient "File name case mismatch" from the old shell during the git fast-forward, gone after restart |
+| 13 | Real install: one terminal, one Omarchy command, no compiling, row moves to INSTALLED, app launches | | pending | needs the user's password; Testing.md § 3 |
+| 14 | Group install, one command with every package | | pending | Testing.md § 4 |
+| 15 | Studio opens as a web app, second open focuses | | pending | Testing.md § 5 |
+| 16 | Update state: badge, row, *Update all*, one notification | | pending | Testing.md § 6 |
+| 17 | Interrupted job reported as failed within 5 s, cleared by the next success | | pending | Testing.md § 7 |
+| 18 | Offline: cached list, `OFFLINE` meta, panel instant | | pending | Testing.md § 8 |
+| 19 | Theme switch recolours the panel live | | pending | |
+| 20 | Fresh `plugin add` places the icon right and installs nothing | | pending | Testing.md § 1 |

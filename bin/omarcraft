@@ -15,7 +15,6 @@
 #   omarcraft missing [group]       Exit 0 if any app of the group is not installed
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
 #   omarcraft remove-menu           Remove that section again
-#   omarcraft menu                  The v2 text picker (goes away when the panel lands)
 #
 # Only prebuilt -bin packages are ever installed, so nothing is compiled. Package work is delegated to
 # Omarchy's own commands (omarchy-pkg-aur-add, omarchy-update-aur-pkgs); this script never elevates.
@@ -44,7 +43,6 @@ CATALOG_MAX_AGE_MINUTES=1440
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
 ICON_ARTCRAFT=$'\U000f03d8'
 ICON_STUDIO=$'\U000f0f49'
-ICON_BROWSE=$'\U000f003b'
 ICON_GROUP=$'\U000f01da'
 ICON_UPDATE=$'\U000f0450'
 ICON_NEW=$'\U0000f005'
@@ -579,66 +577,6 @@ list() {
   done < <(catalog_rows)
 }
 
-# --- the v2 text picker (kept until the panel replaces it) -------------------------------------
-
-menu() {
-  local rows=() apps=() id name tagline group version current glyph sub label selection key outdated=0
-  local -A keys=()
-  load_installed
-
-  add_row() {
-    rows+=("$1"$'\t'"$2"$'\t'"$3")
-    keys[$2]=$4
-  }
-
-  while IFS=$'\t' read -r id name tagline group version; do
-    glyph=$(app_icon "$id")
-    label="${name} — ${tagline}"
-    if is_installed "$id"; then
-      current=$(installed_version "$id")
-      if update_ready "$id" "$version"; then
-        glyph="$ICON_UPDATE"
-        sub="Update ready: ${current} → ${version}"
-        outdated=$((outdated + 1))
-      else
-        sub="Installed ${current}"
-      fi
-      keys[$label]="app:$id"
-    elif [[ -z $version ]]; then
-      continue
-    else
-      is_new "$id" && { glyph="$ICON_NEW"; sub="New · install ${version}"; } || sub="Install ${version}"
-      keys[$label]="app:$id"
-    fi
-    apps+=("${glyph}"$'\t'"${label}"$'\t'"${sub}")
-  done < <(catalog_rows)
-
-  (( outdated > 0 )) && add_row "$ICON_UPDATE" "Update all" "${outdated} newer build(s) · runs Omarchy's AUR update" "update"
-  add_row "$ICON_STUDIO" "ArtCraft Studio — AI image and video" "Web app" "studio"
-  rows+=("${apps[@]}")
-  [[ -n $(missing_ids creative) ]] && add_row "$ICON_GROUP" "Install Creative" "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft" "group:creative"
-  [[ -n $(missing_ids office) ]] && add_row "$ICON_GROUP" "Install Office" "Word, Deck, Grid, PdfCraft" "group:office"
-  [[ -n $(missing_ids all) ]] && add_row "$ICON_GROUP" "Install all" "Every Craft app you don't have" "group:all"
-
-  selection=$(printf '%s\n' "${rows[@]}" | omarchy-menu-select "ArtCraft" -- --width 720) || exit 0
-  key="${keys[${selection%%$'\t'*}]:-}"
-
-  case "$key" in
-    update) update ;;
-    studio) studio ;;
-    group:*) install_group "${key#group:}" ;;
-    app:*)
-      id="${key#app:}"
-      if is_installed "$id"; then
-        launch "$id"
-      else
-        install_apps "$id"
-      fi
-      ;;
-    *) die "unexpected selection: $selection" ;;
-  esac
-}
-
 # --- optional Omarchy-menu section -------------------------------------------------------------
 
 json_entry() {
@@ -659,7 +597,7 @@ menu_block() {
   open="omarchy-shell $IPC_TARGET open"
   echo "  // >>> omarcraft (added by 'omarcraft setup-menu'; remove with 'omarcraft remove-menu')"
   json_entry "omarcraft" "$ICON_ARTCRAFT" "ArtCraft" "" "" "Craft apps and ArtCraft Studio" "ac omarcraft"
-  json_entry "omarcraft.browse" "$ICON_BROWSE" "All apps" "$open" "" "Launch, install or update any Craft app"
+  json_entry "omarcraft.browse" "$ICON_ARTCRAFT" "All apps" "$open" "" "Launch, install or update any Craft app"
   json_entry "omarcraft.studio" "$ICON_STUDIO" "Studio" "$self studio" "" "ArtCraft Studio, AI image and video (web app)"
   json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Runs Omarchy's AUR update"
   json_entry "omarcraft.install-all" "$ICON_GROUP" "Install all" "$self install-group all" "$self missing all" "Every Craft app"
@@ -728,10 +666,9 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     poke) poke_panel ;;
     studio) studio ;;
     list) list ;;
-    menu) menu ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
-    -h | --help | help) sed -n '3,21p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    -h | --help | help) sed -n '3,20p' "$SELF" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command: $1 (see omarcraft --help)" ;;
   esac
 fi

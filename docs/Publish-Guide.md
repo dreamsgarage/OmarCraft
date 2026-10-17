@@ -33,19 +33,21 @@ Two independent layers:
 |---|---|
 | Public GitHub repository, one plugin, `manifest.json` at the root | Root manifest yes; **public: not yet** |
 | Root README with install and removal instructions | Install, Remove, optional clean-up |
-| Root licence, external dependencies documented | MIT; `yay`, `curl`, `jq` named in Requirements |
-| Globally unique id outside `omarchy.*`, permanent | `omarcraft.productivity`; check the registry is free before submitting |
+| Root licence, external dependencies documented | MIT; only Omarchy's bundled tools, said in Requirements |
+| Globally unique id outside `omarchy.*`, permanent | `omarcraft.productivity`; not in the registry's 5,603 sources or retired ids as of 2026-10-17 |
 | Optional root `preview.png` | Screenshot of the picker |
 | Manifest fields `schemaVersion`, `id`, `name`, `version`, `author`, `description`, `kinds`, `entryPoints` | All present; author `Entangled-Forge` as in OmasteelRGB |
 | No configuration changes without consent | Menu section and keybinding are opt-in, documented, reversible |
 
 Category: **Productivity**. Tags (one to three from the allowed list): `launcher, bar, quickshell`.
 
-The automated security baseline is a static scan. Non-negated mentions of `sudo` or `pkexec` count as the
-`privilege` capability and add `security-review-required`. OmarCraft calls neither; the README and the
-submission say so as a negation. `yay` asks for the password itself, in a visible terminal. Expect the
-scan to report the `package-manager` capability anyway (the plugin runs `yay -S`), which means
-`review-required` and a maintainer review; listed plugins such as `readitloud.tts` went through the same.
+The automated security baseline is a static scan (inference from 5,603 listed outcomes, see
+`v1-research.md`): plugins that delegate package work to Omarchy's commands pass with no capabilities;
+a literal `sudo`, `pacman -S` or AUR-helper call, even as copy-text, yields `privilege` +
+`package-manager` and `review-required`. OmarCraft delegates to `omarchy-pkg-aur-add` and
+`omarchy-update-aur-pkgs` and keeps those strings out of code and docs except as negations; the read-only
+package query that reads installed state may or may not be flagged. Either outcome is acceptable:
+OmasteelRGB was `review-required` and approved.
 
 Trademark note: ArtCraft and the Craft app names belong to Storyteller, whose packages carry a separate
 brand licence. The README calls OmarCraft unofficial and unaffiliated, and the plugin uses no ArtCraft
@@ -96,13 +98,12 @@ GitHub avatar at runtime, not shipped). Keep it that way.
 
 | Check | How | Result |
 |---|---|---|
-| Unit tests | `bash tests/run.sh` | 32 passed |
-| Manifest and layout | `omarchy plugin validate` on a `git archive` export | valid |
-| Real install path | `omarchy plugin add <url> --enable --yes` from the private repo | cloned and validated; enable timed out once (see Troubleshooting), `omarchy plugin enable` placed it |
-| Update path | `omarchy plugin update omarcraft.productivity --yes` | see below |
-| Picker | bar IPC `open`, real catalog | opens with 13 apps, Studio and the three group rows |
-| App install / group install / update on real packages | through the picker | not yet run |
-| Studio web app | right click | not yet run |
+| Unit tests | `bash tests/run.sh` | 71 passed |
+| Manifest and layout | `omarchy plugin validate` on the folder | valid (export check at tag time) |
+| Real install path | `omarchy plugin add <url> --enable --yes` from the private repo (v2 manifest) | cloned and validated; enable timed out once (see Troubleshooting), `omarchy plugin enable` placed it; re-run with the panel manifest pending |
+| Update path | `omarchy plugin update omarcraft.productivity --yes`, three times | fast-forwarded and validated each time |
+| Panel | bar icon right, hero, sections, cursor, confirm line, IPC | see `v1-acceptance.md` rows 1–12 |
+| App install / group install / update on real packages | through the panel | pending, `v1-acceptance.md` rows 13–18 |
 | Marketplace repository rules | table above | all but public |
 
 ## Troubleshooting for issue reports

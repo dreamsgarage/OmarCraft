@@ -1,127 +1,119 @@
 # Testing OmarCraft
 
-A manual test plan for a release candidate, run on a real Omarchy 4 machine. Work through it top to bottom;
-each step says what to do and what you should see. Record results in the readiness table of
-[Publish-Guide.md](Publish-Guide.md).
+The manual test plan for a release candidate on a real Omarchy 4 machine. Work through it top to bottom;
+each step says what to do and what you should see. Results go into the table in `v1-acceptance.md`.
 
-Paths below use `P=~/.config/omarchy/plugins/omarcraft.productivity`.
+`P=~/.config/omarchy/plugins/omarcraft.productivity`.
 
 ## 0. Before you start
 
-- **No other package install running.** `pgrep -af 'yay|pacman|makepkg'` should print nothing. pacman
-  allows one transaction at a time; a running `yay` (for example a source build of `storytold-office`)
-  makes OmarCraft's install stop with a database lock error. A build that is only compiling does not hold
-  the lock yet, but it will when it installs, so finish or stop it first.
-- **Offline tests pass** in the repository: `bash tests/run.sh` (32 passed).
-- **Shell log open** in a spare terminal: `journalctl --user -f _COMM=quickshell`.
+- No other package install running: `pgrep -af 'pacman|makepkg'` prints nothing.
+- Offline tests pass in the repository: `bash tests/run.sh`.
+- Shell log open in a spare terminal: `journalctl --user -f _COMM=quickshell`.
 
 ## 1. Install the plugin the way users will
 
 ```bash
-omarchy plugin list | grep -i omarcraft          # if listed, remove first:
-omarchy plugin remove omarcraft.productivity
+omarchy plugin remove omarcraft.productivity        # if present
 omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable
 ```
 
-Expect: the palette icon on the left of the bar, after the workspaces. If the add printed "omarchy-shell is
-not responding", run `omarchy plugin enable omarcraft.productivity` and expect the icon then.
+Expect: the palette icon in the **right** section of the bar, among tray, agents, bluetooth, network,
+audio, monitor, power. Nothing installed, nothing written under `~/.config`. If the add printed
+"omarchy-shell is not responding", `omarchy plugin enable omarcraft.productivity` places it.
 
-Check: `git -C $P log --oneline -1` shows the commit you are testing.
-
-## 2. Picker
+## 2. Panel, read-only
 
 | Do | Expect |
 |---|---|
-| Left-click the icon | Picker titled ArtCraft opens within about a second |
-| Look at the rows | *ArtCraft Studio* first, then 13 apps with "Install x.y.z" or "Installed x.y.z", then the group rows for incomplete groups |
-| Type `word`, Esc | List filters; Esc closes, nothing happens |
-| `Super + Alt + A` (if you added the keybinding) | Same picker |
-| `$P/bin/omarcraft list` | Same 13 apps with group, AUR version and state |
+| Left-click the icon | Panel under the icon within a second: hero `ArtCraft` + `N OF 13 INSTALLED`, status line `Prebuilt AUR packages · list from …` |
+| Read the sections | INSTALLED (your apps, version, ▶), AVAILABLE (dimmed, `Install x.y.z · prebuilt, no compiling`, download glyph), chips `Install all · N` `Creative · N` `Office · N`, STUDIO |
+| `j` four times | First press activates the cursor on the first row, then it moves down one row per press; the list scrolls to keep it in view |
+| `Tab` | The neighbouring bar panel opens instead |
+| `Esc` | Panel closes; a click outside closes it too |
+| `$P/bin/omarcraft list` | Same apps and states as the panel |
 
 ## 3. Install one app
 
-Pick a small one you don't use yet, for example **FigCraft**.
+Pick an available app you don't use (FigCraft is small). `Enter` on its row.
 
-Expect: a floating terminal with the Omarchy logo, `Installing FigCraft...`, yay downloading
-`figcraft-bin` (no `cargo`, no compiling), a password prompt, Omarchy's done screen, then FigCraft opens.
+Expect: a confirm line under the row, `figcraft-bin x.y.z · a terminal opens and asks your password`,
+with *Install ⏎* and *Cancel esc*. `Esc` closes it and nothing runs. `Enter` again:
 
-Then:
+- a floating Omarchy terminal with the logo and `Installing FigCraft...`, then Omarchy's AUR add command
+  downloading `figcraft-bin` (no `cargo`, no `makepkg` build), a password prompt, the done screen;
+- meanwhile the panel row shows the spinner and `Installing…`, the hero `INSTALLING FIGCRAFT…`, every
+  install action greyed out; launching an already installed app still works;
+- when the terminal finishes: within a second the row is under INSTALLED with its version, the hero count
+  went up by one, and FigCraft launched.
 
-- Left-click again: FigCraft now reads "Installed x.y.z". Pick it: the open window is focused, no second
-  copy starts.
-- `Super + Alt + Space`: FigCraft is in the app launcher.
-- `pacman -Q figcraft-bin` shows the version.
+Then `Enter` on the new row: its window is focused, no second copy. `Super + Alt + Space`: FigCraft is in
+the app launcher.
 
 ## 4. Group install
 
-Pick *Install New* (or *Install Classic*).
-
-Expect: one terminal, one password prompt, every missing app of the group listed in one `yay -S` line,
-`-bin` packages only. After it finishes, the group row is gone from the picker and the apps read
-"Installed".
+`o` (or the *Office · N* chip). Expect the confirm line under the chips listing every missing office
+package, one terminal, one password prompt, one command with all packages. Afterwards the chip is gone
+and the apps read Installed. No launch.
 
 ## 5. Studio
 
-Right-click the icon.
-
-Expect: ArtCraft Studio opens as a web app window at app.getartcraft.com; on first use an ArtCraft entry
-appears in the app launcher. Right-click again: the existing window is focused.
+Right-click the icon, or `s` in the panel. Expect ArtCraft Studio as a web-app window at
+app.getartcraft.com; the first time, an ArtCraft entry appears in the app launcher; the second time the
+existing window is focused.
 
 ## 6. Updates
 
-Real updates arrive when an AUR `-bin` package is bumped. To test the flow without waiting, make the cached
-catalog claim a newer build of an app you installed in step 3:
+Real updates arrive when an AUR `-bin` package is bumped. To see the flow now, make the cached catalog
+claim a newer build of an app you installed in step 3:
 
 ```bash
 C=~/.cache/omarchy/omarcraft/catalog.tsv
 cp $C /tmp/catalog.bak
-# bump FigCraft's AUR version (column 5) in the cache
 awk -F'\t' -v OFS='\t' '$1 == "figcraft" { $5 = "99.0.0-1" } 1' /tmp/catalog.bak > $C
+omarchy-shell omarcraft.productivity refresh
 ```
 
 | Do | Expect |
 |---|---|
-| Middle-click the icon | Icon turns urgent; one notification "ArtCraft updates available", FigCraft x → 99.0.0-1 |
-| Hover the icon | Tooltip lists the same line |
-| Middle-click again | No second notification for the same set |
-| Left-click | Picker leads with *Update apps*; FigCraft shows "Update ready" |
-| `$P/bin/omarcraft check; echo $?` | The FigCraft line, then `0` |
+| Look at the bar | Icon in the urgent colour with `1 ` before it |
+| Open the panel | Hero `1 UPDATE READY`; FigCraft row `Update ready x → 99.0.0-1`; *Update all* in the status line |
+| `u` | Confirm line: `Runs Omarchy's AUR update, which upgrades every AUR package · a terminal opens…`; `Esc` cancels (don't run it: 99.0.0 does not exist) |
+| Middle-click the icon twice | One notification "ArtCraft updates available" the first time, none the second |
 
-Do **not** pick *Update apps* here (99.0.0 doesn't exist). Restore and confirm the icon calms down:
+Restore: `$P/bin/omarcraft refresh -f` then `omarchy-shell omarcraft.productivity refresh`. Expect the
+icon back to normal and the row back to its version.
 
-```bash
-$P/bin/omarcraft refresh -f       # re-reads the real versions
-omarchy-shell omarcraft.productivity refresh
-```
+## 7. Failure and interruption
 
-Expect: icon back to normal, `bin/omarcraft check` exits `1`.
+Start an install (step 3 on another app) and close the terminal window while the password prompt waits.
+Expect, within five seconds: hero `LAST JOB FAILED`, status line `Last job was interrupted · see the
+terminal`, icon urgent, actions enabled again. Install something successfully: the failure clears.
 
-## 7. Optional menu section
+## 8. Offline
+
+`nmcli networking off`, then `r` in the panel. Expect the hero `OFFLINE · CACHED LIST`, the status line
+`Could not reach the AUR · list from …`, rows unchanged, panel still instant. `nmcli networking on`, `r`:
+back to normal.
+
+## 9. Optional menu section and keybinding
 
 ```bash
 cp ~/.config/omarchy/extensions/omarchy-menu.jsonc /tmp/menu.bak
-$P/bin/omarcraft setup-menu
-omarchy menu summon ac            # ArtCraft section: All apps, Studio, group installs
+$P/bin/omarcraft setup-menu && omarchy menu summon ac       # ArtCraft section: All apps, Studio, Update all, group installs
 $P/bin/omarcraft remove-menu
 diff /tmp/menu.bak ~/.config/omarchy/extensions/omarchy-menu.jsonc && echo restored
 ```
 
-## 8. Plugin update and removal
+With the README's keybinding line in `bindings.lua`: `Super + Alt + A` toggles the panel.
 
-- Push a trivial commit (or test the next real one), then `omarchy plugin update omarcraft.productivity`.
-  Expect a fast-forward, a valid result, the icon still working. Note whether the shell restarted:
-  `journalctl --user --since -5min | grep 'exited with status'` (seen once during development, not
-  reproduced).
-- `omarchy plugin remove omarcraft.productivity`: icon gone; installed apps still installed.
+## 10. Plugin update and removal
 
-## 9. Apps installed some other way
-
-If you have source builds (for example from `storytold-office`), check the documented behaviour: they show
-as installed in the picker, launch, are skipped by group installs, and do not appear in `bin/omarcraft
-check`. Moving one to the prebuilt package: `yay -S wordcraft-bin`, answer `y` to remove the conflicting
-`wordcraft`; afterwards it shows in update checks.
+- Push a commit, `omarchy plugin update omarcraft.productivity`: fast-forward, valid, panel working after
+  `omarchy refresh shell`. Note any `exited with status` line in the shell log.
+- `omarchy plugin remove omarcraft.productivity`: icon gone; apps still installed.
 
 ## Reporting a problem
 
-Include: the step, what you saw, `git -C $P log --oneline -1`, `$P/bin/omarcraft list`, and the shell log
+Include the step, what you saw, `git -C $P log --oneline -1`, `$P/bin/omarcraft state`, and the shell log
 lines from `journalctl --user _COMM=quickshell` around that time.
