@@ -5,18 +5,18 @@
   "version": "0.1.0",
   "author": "Entangled-Forge",
   "license": "MIT",
-  "description": "Launch, install and update the ArtCraft Craft apps (PhotoCraft, FilmCraft, WordCraft and ten more) from the Omarchy bar. Prebuilt AUR packages only, single or by group, with update notifications. Unofficial.",
+  "description": "The ArtCraft Craft apps (PhotoCraft, FilmCraft, WordCraft and ten more) from the Omarchy bar: see what is installed, launch, install one app or a group, update. Prebuilt AUR packages only, through Omarchy's own package commands. Unofficial.",
   "kinds": [
     "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "BarWidget.qml"
+    "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "OmarCraft",
-    "description": "ArtCraft apps: left = picker, right = ArtCraft Studio, middle = check for updates.",
-    "category": "Apps",
+    "displayName": "ArtCraft apps",
+    "description": "Craft apps: installed, available, updates. Left = panel, right = ArtCraft Studio, middle = check for updates.",
+    "category": "Productivity",
     "allowMultiple": false,
-    "defaultSection": "left"
+    "defaultSection": "right"
   }
 }
