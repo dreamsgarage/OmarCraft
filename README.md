@@ -14,11 +14,41 @@ is ever compiled.
 Plugin id `omarcraft.productivity`. MIT licensed. **Unofficial**: OmarCraft is not made by or affiliated with
 Storyteller, the makers of ArtCraft. ArtCraft and the app names are theirs.
 
+## How it works
+
+OmarCraft is two pieces in one plugin folder:
+
+- **The bar widget** (`BarWidget.qml`) is the icon. It does no work itself: a click runs the script, and a
+  timer asks the script every six hours whether updates are waiting.
+- **The script** (`bin/omarcraft`) does everything else. It is plain Bash on top of Omarchy's own tools,
+  so the picker, terminals and launches look exactly like the rest of Omarchy.
+
+What happens when you click the icon:
+
+1. The script loads the **catalog**: which Craft apps exist (read from the official ArtCraft Launcher's
+   source on GitHub) and their newest prebuilt version (one request to the AUR). Both are cached for 24
+   hours, so most clicks make no network request at all. Offline, a built-in list of the 13 apps is used.
+2. It reads your installed packages once (`pacman -Q`) and works out each app's state: installed, update
+   ready, available, new, or not packaged yet (hidden).
+3. It opens the **picker** (Omarchy's `omarchy-menu-select`). Your choice decides the action:
+
+| You pick | OmarCraft does |
+|---|---|
+| An installed app | Launches it, or focuses its window if it's already open |
+| An available app | Installs `<app>-bin`, then launches it |
+| An app marked update ready | Installs the newer build, then launches it |
+| *Update apps* | Installs every newer build in one go |
+| *Install Classic / New / all* | Installs every missing app of that group in one go |
+| *ArtCraft Studio* | Opens the Studio web app (creates it on first use) |
+
+Every install or update runs in **one floating Omarchy terminal with one `yay` run**, however many apps are
+involved. `yay` downloads the prebuilt release, checks its checksum and hands it to pacman. That is why
+nothing compiles and why an install takes seconds, not hours.
+
 ## Requirements
 
 - Omarchy 4 (Quattro).
-- `yay`, `curl` and `jq`, all part of a standard Omarchy install. Nothing else is downloaded at plugin
-  install time.
+- `yay`, `curl` and `jq`, all part of a standard Omarchy install.
 
 ## Install
 
@@ -26,38 +56,88 @@ Storyteller, the makers of ArtCraft. ArtCraft and the app names are theirs.
 omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable
 ```
 
-The icon lands on the left of the bar. If the add prints "omarchy-shell is not responding", the shell was
-still reloading; run `omarchy plugin enable omarcraft.productivity`. Updates:
-`omarchy plugin update omarcraft.productivity`.
+What that does:
 
-## Use
+1. Omarchy warns that plugins run unsandboxed inside the shell and asks you to confirm.
+2. It clones this repository into `~/.config/omarchy/plugins/omarcraft.productivity/`, checks it with
+   `omarchy plugin validate`, and places the icon on the left of the bar, after the workspaces.
+3. Nothing else. No script runs at install time, nothing is copied outside the plugin folder, and no
+   ArtCraft app is installed until you pick one.
 
-- **Left-click** the bar icon for the picker. It lists every Craft app with its state: installed (pick to
-  launch or focus), available (pick to install, then it launches), update ready, or new. Above the apps:
-  *Update apps* when there is something to update, and *ArtCraft Studio*. Below them: *Install Classic*
-  (Photo, Vector, Film, Light, Pdf, Effect, DesignCraft), *Install New* (Word, Deck, Grid, CAD, Sound,
-  FigCraft) and *Install all*; each disappears once its group is complete.
-- **Right-click** opens ArtCraft Studio.
-- **Middle-click** checks for updates now.
-- Installs and updates run in one floating Omarchy terminal with one `yay` run, however many apps are
-  selected. Your password is asked there, in the open; the plugin never calls sudo or pkexec itself.
-- Installed apps also show up in the Omarchy app launcher (`Super + Alt + Space`), like any other app.
+If the add prints "omarchy-shell is not responding", the shell was still reloading its plugins. The plugin is
+installed; place the icon with `omarchy plugin enable omarcraft.productivity`.
 
-### ArtCraft Studio
+What OmarCraft writes once you use it, all of it yours to delete:
 
-ArtCraft Studio has no Linux build, only a source package that takes a long Rust and Node build. OmarCraft
-opens it as an Omarchy web app (`https://app.getartcraft.com`) and adds it to the app launcher on first
-use. It needs an ArtCraft account; generation runs in their cloud, so no local GPU is needed.
+| Path | What |
+|---|---|
+| `~/.cache/omarchy/omarcraft/catalog.tsv` | Catalog cache (refreshed every 24 hours) |
+| `~/.local/state/omarchy/omarcraft/` | Which apps you've already seen (for "new") and the last update notification |
+| `~/.local/share/applications/ArtCraft.desktop` | The Studio web app, after your first right-click |
 
-### Updates and new apps
+Updating the plugin itself: `omarchy plugin update omarcraft.productivity`.
 
-Every six hours the widget compares your installed apps with the AUR. When newer builds are ready the
-icon turns to the urgent colour, the tooltip lists them, and one notification appears per new set of
-updates; clicking it (or *Update apps* in the picker) installs them. `omarchy update` updates them too,
-since it upgrades AUR packages.
+## User guide
 
-The app list itself comes from the official ArtCraft Launcher's catalog. When ArtCraft adds an app, it
-appears in the picker marked new, with a notification, as soon as its `-bin` package is in the AUR.
+**Open the picker** by left-clicking the palette icon on the bar (or with the optional keybinding below).
+Type to filter, Enter to choose, Esc to close.
+
+**Install an app.** Pick it. A floating terminal opens, shows the Omarchy logo and runs `yay`. Type your
+password when asked; that prompt is yay's own, in the open, and OmarCraft never calls sudo or pkexec itself.
+When it's done the terminal shows Omarchy's done screen and the app launches. From then on it is in the
+picker as installed and in the Omarchy app launcher (`Super + Alt + Space`) like any other app.
+
+**Install several at once.** Pick *Install Classic* (PhotoCraft, VectorCraft, FilmCraft, LightCraft,
+PdfCraft, EffectCraft, DesignCraft), *Install New* (WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft,
+FigCraft) or *Install all*. Only the apps you don't have yet are installed, all in one terminal and one
+password prompt. Each group row disappears once the group is complete.
+
+**Launch an app.** Pick it in the picker, or use the Omarchy app launcher. If it's already open, the picker
+focuses its window instead of starting a second copy.
+
+**ArtCraft Studio.** Right-click the icon. Studio has no Linux build (only a source package that needs a
+long Rust and Node build), so OmarCraft opens it as an Omarchy web app at `https://app.getartcraft.com` and
+adds it to the app launcher on first use. It needs an ArtCraft account; generation runs in their cloud, so
+no local GPU is needed.
+
+**Updates.** Every six hours the icon checks the AUR for newer builds of the apps you installed through
+OmarCraft. When there are some:
+
+- the icon turns to the urgent colour and its tooltip lists them (`WordCraft 0.7.0-1 → 0.8.0-1`);
+- one notification appears for that set of updates (not every six hours); clicking it updates them;
+- the picker leads with *Update apps*.
+
+Middle-click the icon to check right away. `omarchy update` also updates these apps, since it upgrades AUR
+packages. "Newer" means a newer AUR build exists, which can trail an ArtCraft release by a day or so.
+
+**New apps.** When ArtCraft adds an app and its `-bin` package reaches the AUR, it appears in the picker with
+a star and you get one notification.
+
+**Good to know**
+
+- Leave the install terminal open until it shows the done screen. Closing it while `yay` is still
+  downloading just cancels; pick the app again later. Avoid closing it while pacman is installing.
+- One package install at a time: pacman allows only one. If another `yay` or `pacman` is already
+  installing, the second stops with a database lock error. Wait and pick again.
+- To remove an app: `omarchy pkg drop <app>-bin`, for example `omarchy pkg drop photocraft-bin`.
+
+## Apps installed some other way
+
+OmarCraft recognises apps it did not install. It never removes or replaces anything on its own.
+
+| How the app got there | In OmarCraft |
+|---|---|
+| `<app>-bin` from the AUR (by hand or another tool) | Same as if OmarCraft installed it: launch, update checks, group installs skip it |
+| Source build from the AUR (`<app>`, e.g. through the `storytold-suite` or `storytold-office` bundles) | Shown as installed, launches, and group installs skip it. **Not** included in OmarCraft's update checks; `omarchy update` updates it by compiling again |
+| AppImage or Flatpak from the official ArtCraft Launcher | Not detected: the picker offers to install the `-bin` package. Remove the AppImage/Flatpak first if you want only one copy |
+
+To move a source-built app to the prebuilt package, so it updates in seconds and shows in OmarCraft's update
+checks, remove the source build and install the `-bin` one. The bundle packages stay satisfied, because each
+`-bin` package provides the app name:
+
+```bash
+yay -S wordcraft-bin    # yay asks to remove the conflicting source package "wordcraft": answer y
+```
 
 ## Optional extras
 
@@ -82,7 +162,8 @@ the file untouched. `omarchy menu summon ac` opens it.
 
 ## Command line
 
-The picker is a front end for one script, which scripts and keybindings can call too:
+The picker is a front end for one script, which scripts and keybindings can call too (from the plugin
+folder, `~/.config/omarchy/plugins/omarcraft.productivity/`):
 
 ```
 bin/omarcraft menu                 # the picker
@@ -93,6 +174,7 @@ bin/omarcraft check                # pending updates; exit 0 if any
 bin/omarcraft update
 bin/omarcraft studio
 bin/omarcraft list                 # catalog with install state
+bin/omarcraft refresh -f           # re-read catalog and versions now
 ```
 
 IPC: `omarchy-shell omarcraft.productivity open` and `omarchy-shell omarcraft.productivity refresh`.
@@ -114,23 +196,18 @@ rm -f ~/.local/share/applications/ArtCraft.desktop                           # t
 
 and delete the keybinding line if you added it.
 
-## How it works
+## Files
 
 | Path | Role |
 |---|---|
 | `manifest.json` | Plugin manifest: `kinds: ["bar-widget"]`, entry point `BarWidget.qml` |
-| `BarWidget.qml` | Bar icon, update check timer, IPC (`open`, `refresh`) |
+| `BarWidget.qml` | Bar icon, six-hour update check, IPC (`open`, `refresh`) |
 | `bin/omarcraft` | Catalog, picker, install, update, Studio and the optional menu section |
 | `tests/` | `bash tests/run.sh`; offline, never touches the network, pacman or your config |
-| `docs/` | Publish guide and marketplace submission |
+| `docs/` | Testing guide, publish guide and marketplace submission |
 
-The catalog is read from `crates/core/src/catalog.rs` in
-[storytold/craft-launcher](https://github.com/storytold/craft-launcher), with a built-in copy as fallback,
-and versions from one AUR RPC request; both are cached for 24 hours in `~/.cache/omarchy/omarcraft/`. The
-picker is Omarchy's own `omarchy-menu-select`, launches go through `omarchy-launch-or-focus`, and installs
-through `omarchy-launch-floating-terminal-with-presentation`, so everything looks and behaves like the rest
-of Omarchy. Only `<id>-bin` packages are installed: the `storytold-suite` and `storytold-office` bundles and
-the official `artcraft-launcher` package depend on source builds, so OmarCraft deliberately avoids them.
+Only `<id>-bin` packages are ever installed. The `storytold-suite` and `storytold-office` bundles and the
+official `artcraft-launcher` package depend on source builds, so OmarCraft deliberately avoids them.
 
 ## Development
 
@@ -140,8 +217,9 @@ rsync -a --delete --exclude .git ./ ~/.config/omarchy/plugins/omarcraft.producti
 omarchy restart shell        # after changing BarWidget.qml
 ```
 
-Shell log: `journalctl --user _COMM=quickshell`. Release and marketplace steps:
-[docs/Publish-Guide.md](docs/Publish-Guide.md). Changes: [CHANGELOG.md](CHANGELOG.md).
+Manual test plan: [docs/Testing.md](docs/Testing.md). Shell log: `journalctl --user _COMM=quickshell`.
+Release and marketplace steps: [docs/Publish-Guide.md](docs/Publish-Guide.md). Changes:
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Credits and license
 
