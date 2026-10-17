@@ -1,7 +1,7 @@
 # OmarCraft v1 plan
 
-**Status: proposed, 2026-10-17. Plan only. No code, no install, no deploy until approved.** On approval this
-file becomes `approved-plan.md`, as in OmasteelRGB.
+**Status: approved 2026-10-17** (proposed the same day). Build follows the phases below; the repo stays
+private until acceptance passes.
 
 ## Goal
 
@@ -163,7 +163,7 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
 | Marketplace scanner flags the read-only package query | Accept `review-required` (OmasteelRGB precedent); the submission notes say no privileged call exists |
 | `omarchy-update-aur-pkgs` upgrades more than the Craft apps | Said in the confirm line and the README; it is the same step `omarchy update` runs |
 
-## Decisions to approve
+## Decisions (approved 2026-10-17)
 
 1. **Panel replaces the text picker.** `bin/omarcraft menu` is removed; the keybinding and IPC open the
    panel (`omarchy-shell omarcraft.productivity toggle`).

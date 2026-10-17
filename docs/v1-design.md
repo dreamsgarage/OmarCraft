@@ -1,6 +1,6 @@
 # OmarCraft v1 design
 
-**Status:** proposed, 2026-10-17. Pairs with `v1-spec.md`; the plan is `plan.md`. Mockups are
+**Status:** approved 2026-10-17. Pairs with `v1-spec.md`; the plan is `approved-plan.md`. Mockups are
 `Style.space(380)` wide at the default 12 px monospace, about 46 columns; glyphs are Nerd Font (MDI
 range) and render in JetBrainsMono Nerd Font, which is what Omarchy's `monospace` alias resolves to.
 
@@ -114,7 +114,7 @@ end_job $rc; omarchy-shell -q omarcraft.productivity refresh
 
 `omarchy-update-aur-pkgs` upgrades every AUR package, not only the Craft apps; the panel says so on the
 *Update all* control (`Runs Omarchy's AUR update`). That is the trade for staying inside Omarchy's commands;
-the alternative, a package-exact update with a literal helper call, is `plan.md` decision 6.
+the alternative, a package-exact update with a literal helper call, is `approved-plan.md` decision 6.
 
 ## Bar
 
@@ -352,7 +352,7 @@ new apps. The panel's six-hour timer calls it; so does middle click. Nothing els
 
 ## Implementation phases
 
-As in `plan.md`: (1) `state` + job files + tests → (2) panel skeleton on the right, read-only → (3) actions
+As in `approved-plan.md`: (1) `state` + job files + tests → (2) panel skeleton on the right, read-only → (3) actions
 and job state → (4) bar urgency and notifications → (5) polish, acceptance, README, preview. Each phase
 is installed on the author's machine and used for a day before the next starts (define → build → use →
 iterate, privately).

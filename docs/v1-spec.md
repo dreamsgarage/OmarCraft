@@ -1,6 +1,6 @@
 # OmarCraft v1 spec
 
-- **Status:** proposed, 2026-10-17 (approval pending; see `plan.md`)
+- **Status:** approved 2026-10-17 (see `approved-plan.md`)
 - **Plugin id:** `omarcraft.productivity`
 - **Name:** OmarCraft
 - **Kinds:** `bar-widget` (entry point `Panel.qml`)

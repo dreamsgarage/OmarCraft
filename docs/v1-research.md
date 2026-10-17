@@ -1,6 +1,6 @@
 # OmarCraft v1 research
 
-**Status:** proposed, 2026-10-17. Replaces the earlier `User-Research.md`, whose five-person usability
+**Status:** approved 2026-10-17. Replaces the earlier `User-Research.md`, whose five-person usability
 study was the wrong first move: the gaps were already visible from two shipped references and one real
 session. Research here is sized to a two-person company shipping its second plugin: cheap, fast, and each
 method answers a question the design cannot settle on its own.
@@ -14,7 +14,7 @@ method answers a question the design cannot settle on its own.
 | Research plan v1 | Proposed five moderated sessions before fixing what the references already showed | Expert and precedent review before user studies |
 
 Both v1 and v2 were built before any spec or design existed. The OmasteelRGB sequence (plan → spec +
-design → acceptance → build → validate) is the process now; `plan.md`, `v1-spec.md`, `v1-design.md`,
+design → acceptance → build → validate) is the process now; `approved-plan.md`, `v1-spec.md`, `v1-design.md`,
 `v1-acceptance.md` are that paper, and no more paper is planned.
 
 ## Research questions

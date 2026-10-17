@@ -1,6 +1,6 @@
 # OmarCraft v1 acceptance
 
-**Status:** proposed, 2026-10-17. Each criterion is a claim that is either true or false on the reference
+**Status:** approved 2026-10-17. Each criterion is a claim that is either true or false on the reference
 machine (Omarchy 4.0.4, the author's laptop). Results go in the table at the end, PASS/FAIL, with the
 commit hash. Nothing ships with a FAIL in the *Must* rows.
 
