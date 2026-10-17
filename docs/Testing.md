@@ -26,7 +26,7 @@ audio, monitor, power. Nothing installed, nothing written under `~/.config`. If 
 
 | Do | Expect |
 |---|---|
-| Left-click the icon | Panel under the icon within a second: hero `OmarCraft` + `N OF 13 INSTALLED`, status line `Prebuilt · nothing compiled · list from …` |
+| Left-click the icon | Panel under the icon within a second: trend-line logo, `OmarCraft`, `N OF 13 INSTALLED`; no line under the hero unless something is happening |
 | Read the sections (tiles) | INSTALLED tiles in each app's colour, AVAILABLE tiles dimmed, chips `Install all · N` `Creative · N` `Office · N`; hover a tile for its version |
 | `t` | Rows: INSTALLED (version, ▶), AVAILABLE (dimmed, `Install x.y.z · prebuilt, no compiling`, download glyph); `t` again returns to tiles |
 | `j` four times | First press activates the cursor on the first row, then it moves down one row per press; the list scrolls to keep it in view |
@@ -77,7 +77,7 @@ omarchy-shell omarcraft.productivity refresh
 | Do | Expect |
 |---|---|
 | Look at the bar | Icon in the urgent colour with `1 ` before it |
-| Open the panel | Hero `1 UPDATE READY`; FigCraft row `Update ready x → 99.0.0-1`; *Update all* in the status line |
+| Open the panel | Hero `N OF 13 INSTALLED · 1 UPDATE`; an UPDATES · 1 section at the top with the FigCraft tile carrying `↑ 99.0.0` and an *Update all · u* button; FigCraft gone from INSTALLED |
 | `u` | Confirm line: `Runs Omarchy's AUR update, which upgrades every AUR package · a terminal opens…`; `Esc` cancels (don't run it: 99.0.0 does not exist) |
 | Middle-click the icon twice | One notification "ArtCraft updates available" the first time, none the second |
 

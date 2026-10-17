@@ -134,6 +134,31 @@ end_job $rc; omarchy-shell -q omarcraft.productivity refresh
 - Placement: `defaultSection: "right"`, category Productivity; lands with tray, agents, bluetooth,
   network, audio, monitor, power. Never left (navigation) or centre (status and clock).
 
+## Panel v2 (approved artboard, 2026-10-17 evening)
+
+After using the tiles build the user asked for five changes, mocked up on the canvas
+<https://claude.ai/artifact/JCcaokq9mHv7Ju6FVoK74D> and approved from the artboard:
+
+1. **Readable text.** Tile names `Style.font.subtitle` (13 px) demi-bold at full foreground in both
+   sections; section labels and hero meta `Style.font.bodySmall` (11 px) bold caps. Available tiles keep
+   the name bright and dim only the glyph (60 %) and outline (28 %); installed tiles get the app colour
+   as a 12 % fill and a 55 % outline. State is told by the fill, not by greying words.
+2. **Logo.** The Nerd Font trend line `󰔵` (U+F0535) in `Color.accent`, hero at `Style.font.display`,
+   bar at 13 px with the pending count before it (`2 󰔵`).
+3. **No standing status line.** Freshness lives in the refresh button's tooltip
+   (`Check the AUR now · list from 2 h ago`); the line under the hero shows only a flash, an error, a
+   running or failed job, or offline.
+4. **Brighter focus.** The cursor tile: accent outline 2 px, accent fill at 22 %, name in white and bold,
+   glyph at full colour.
+5. **No key legend.** Removed. Chips carry their key letter as the icon slot (`a Install all · 9`).
+6. **Pending updates.** Apps with a newer build leave INSTALLED for an **UPDATES · N** section at the top,
+   label in the urgent colour, each tile with an `↑ 0.8.0` badge (pkgrel stripped), and an
+   *Update all · u* button in the section header. The hero reads `4 OF 13 INSTALLED · 2 UPDATES`, the
+   updates part in the urgent colour. `Enter` on such a tile asks *Update ⏎ / Launch instead / Cancel*.
+
+The sections below describe the layouts as first built; where they differ from the list above, the list
+wins.
+
 ## Layouts (amended 2026-10-17)
 
 Two layouts share the data, cursor, confirm and job model; `setting("layout", "tiles")` picks one

@@ -36,26 +36,28 @@ Left-click the icon (or `Tab` from a neighbouring panel). Two layouts, switched 
 `omarchy bar set omarcraft.productivity layout tiles|rows`:
 
 - **Tiles** (default): three apps per line, each tile the app's glyph in its own ArtCraft colour over its
-  name. Installed tiles are full strength; available ones dimmed. Hover for the version and state. A small
-  `󰑐` in a tile's corner means a newer build is ready.
+  name. Installed tiles have a tinted fill, available ones only an outline; the name stays readable in
+  both. Hover for the version and state. The tile under the cursor takes the accent outline and fill.
 - **Rows**: one app per line with a caption (`0.7.0-1`, `Update ready 0.7.0-1 → 0.8.0-1`, `Install
   0.9.0-1 · prebuilt, no compiling`) and one action at the right edge.
 
 In both:
 
-- **Hero.** The one-line situation: `3 OF 13 INSTALLED`, `2 UPDATES READY`, `INSTALLING WORDCRAFT…`,
-  `NOTHING INSTALLED YET`, `OFFLINE · CACHED LIST`, `LAST JOB FAILED`. The circular arrow at the right
-  checks the AUR now.
-- **INSTALLED.** Your apps. `Enter` or a click launches one; if its window is already open it is focused
-  instead. When a newer build is ready, `Enter` asks instead: *Update ⏎* (just that package), *Launch
-  instead*, or *Cancel*. *Update all* in the status line takes every app with a newer build.
-- **AVAILABLE.** The rest, dimmed, with `Install 0.9.0-1 · prebuilt, no compiling`. `Enter` or the
-  download action opens a one-line confirm under the row naming the exact package and that a terminal
-  will open and ask for your password; `Enter` again runs it, `Esc` cancels. A newly added Craft app shows
-  `New`.
-- **Group chips** under the available rows: *Install all · N*, *Creative · N*, *Office · N* (Office =
-  WordCraft, DeckCraft, GridCraft, PdfCraft), each counting the apps you don't have. Same confirm, listing
-  every package; one terminal, one run.
+- **Hero.** The trend-line logo, then the one-line situation: `4 OF 13 INSTALLED · 2 UPDATES` (the
+  updates part in the urgent colour), `INSTALLING WORDCRAFT…`, `NOTHING INSTALLED YET`, `OFFLINE · CACHED
+  LIST`, `LAST JOB FAILED`. The circular arrow at the right checks the AUR now; its tooltip says how old
+  the list is. A line under the hero appears only while something needs saying (a job, an error, offline).
+- **UPDATES · N.** Shown only when newer builds exist: those apps move here from INSTALLED, each with an
+  `↑ 0.8.0` badge, next to an *Update all · u* button. `Enter` on one asks: *Update ⏎* (that package),
+  *Launch instead*, *Cancel*.
+- **INSTALLED · N.** Your apps that are up to date. `Enter` or a click launches one; if its window is
+  already open it is focused instead.
+- **AVAILABLE · N.** The rest. `Enter` or a click opens a one-line confirm under the hero (`Install
+  PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
+  cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
+- **Group chips** under the available apps, each with its key: *a Install all · N*, *c Creative · N*,
+  *o Office · N* (Office = WordCraft, DeckCraft, GridCraft, PdfCraft), counting the apps you don't have.
+  Same confirm, naming every app; one terminal, one run.
 While a job runs the row shows a spinner and `Installing…`, the hero says what runs, every install action
 is greyed out, and the terminal is the place to type your password. When the terminal finishes the panel
 re-reads the package database: what you see is what is installed, never what a click intended.

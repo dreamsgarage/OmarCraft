@@ -55,11 +55,11 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 - `a` (or the *Install all* chip) confirms with the full package list and runs one `omarchy-pkg-aur-add`
   with every missing `-bin` package on one line; group chips do the same for their group; no launch
   afterwards.
-- With the FigCraft update fixture: meta reads `1 UPDATE READY`, the bar shows `1 󰏘` in the urgent
-  colour, the FigCraft tile carries the update mark (row: `Update ready 0.6.0-1 → 99.0.0-1`), *Update
-  all* is visible; `Enter` on FigCraft opens a confirm naming `figcraft-bin 0.6.0-1 → 99.0.0-1` with
-  *Update ⏎*, *Launch instead*, *Cancel*; *Launch instead* launches; the badge and the mark return to
-  normal after `bin/omarcraft refresh -f`.
+- With the FigCraft update fixture: meta reads `N OF 13 INSTALLED · 1 UPDATE`, the bar shows `1 󰔵` in
+  the urgent colour, FigCraft sits in an UPDATES · 1 section with an `↑ 99.0.0` badge next to
+  *Update all · u* (row layout: `Update ready 0.6.0-1 → 99.0.0-1`); `Enter` on FigCraft opens a confirm
+  `Update FigCraft 0.6.0 → 99.0.0 · a terminal will open…` with *Update ⏎*, *Launch instead*, *Cancel*;
+  *Launch instead* launches; everything returns to normal after `bin/omarcraft refresh -f`.
 - `omarchy bar set omarcraft.productivity layout rows` and `… tiles`, and the `t` key, switch the layout
   live with the panel open; the cursor, confirm and job state survive the switch.
 - Opening the panel with the network down (`nmcli networking off`) shows the cached list, the meta
@@ -95,7 +95,7 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 |---|---|---|---|---|
 | 1 | `omarchy plugin validate` on the folder | e7d2615 | PASS | working folder; export check pending at tag time |
 | 2 | Icon in the right section | e7d2615 | PASS | `omarchy bar move … --section right` after update; fresh `plugin add` with the new manifest default pending |
-| 3 | Hero meta `3 OF 13 INSTALLED`, sections and chips as specified | e7d2615 | PASS | screenshot 2026-10-17 17:18 |
+| 3 | Hero meta `3 OF 13 INSTALLED`, sections and chips as specified | e7d2615 | PASS | screenshot 2026-10-17 17:18; v2 hero `4 OF 13 INSTALLED · 2 UPDATES` and the UPDATES section screenshotted with the cache fixture at fd7439f |
 | 4 | Available rows dimmed, installed full | e7d2615 | PASS | screenshot |
 | 5 | No elided string at the default size | e7d2615 | PASS | all 13 rows, chips and meta visible in the screenshot |
 | 6 | `j` activates then moves the cursor; `Enter` on an available row shows the confirm naming `<id>-bin <version>` and the terminal | e7d2615 | PASS | driven with `wtype`; screenshot of the confirm line |
