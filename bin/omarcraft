@@ -6,7 +6,7 @@
 #   omarcraft launch <id>           Launch (or focus) an installed app
 #   omarcraft install <id>...       Install apps (prebuilt <id>-bin from the AUR) in a floating terminal
 #   omarcraft install-group <g>     Install every missing app in a group: all, creative or office
-#   omarcraft update                Run Omarchy's AUR update (every AUR package) in a floating terminal
+#   omarcraft update [id...]        Update the given apps (default: all with a newer build) in a floating terminal
 #   omarcraft job <install|update> [id...]   The terminal side of install/update; writes job.json
 #   omarcraft check [--notify]      List installed apps with a newer AUR build; exit 0 if any
 #   omarcraft refresh [-f]          Fetch the catalog and AUR versions (cached 24h, -f forces)
@@ -16,8 +16,8 @@
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
 #   omarcraft remove-menu           Remove that section again
 #
-# Only prebuilt -bin packages are ever installed, so nothing is compiled. Package work is delegated to
-# Omarchy's own commands (omarchy-pkg-aur-add, omarchy-update-aur-pkgs); this script never elevates.
+# Only prebuilt -bin packages are ever installed, so nothing is compiled. Installs go through Omarchy's
+# omarchy-pkg-aur-add; per-app updates call the AUR helper Omarchy ships (yay). This script never elevates.
 
 set -euo pipefail
 
@@ -47,20 +47,22 @@ ICON_GROUP=$'\U000f01da'
 ICON_UPDATE=$'\U000f0450'
 ICON_NEW=$'\U0000f005'
 
-# Built-in copy of the suite (id<TAB>name<TAB>tagline<TAB>upstream group), used when upstream can't be reached.
-BUILTIN_CATALOG="photocraft	PhotoCraft	Image editing	classic
-vectorcraft	VectorCraft	Vector illustration	classic
-filmcraft	FilmCraft	Video editing, color and sound	classic
-lightcraft	LightCraft	Photo library and raw development	classic
-pdfcraft	PdfCraft	Reading, organizing and protecting PDFs	classic
-effectcraft	EffectCraft	Motion graphics and visual effects	classic
-designcraft	DesignCraft	Page layout and publishing	classic
-wordcraft	WordCraft	Writing and document design	new
-deckcraft	DeckCraft	Presentations and slide shows	new
-gridcraft	GridCraft	Spreadsheets and data	new
-cadcraft	CADCraft	Computer-aided design and drafting	new
-soundcraft	SoundCraft	Recording, editing and mixing audio	new
-figcraft	FigCraft	Interface design and prototyping	new"
+# Built-in copy of the suite, used when upstream can't be reached:
+# id<TAB>name<TAB>tagline<TAB>upstream group<TAB>brand colour<TAB>ink on light<TAB>ink on dark (ArtCraft's own).
+BUILTIN_CATALOG="photocraft	PhotoCraft	Image editing	classic	#2f7bf5	#1a5bc4	#7fb0ff
+vectorcraft	VectorCraft	Vector illustration	classic	#e8573f	#b83a24	#ff8a70
+filmcraft	FilmCraft	Video editing, color and sound	classic	#8b5cf6	#6a3fd6	#b69cff
+lightcraft	LightCraft	Photo library and raw development	classic	#f2a516	#8a5800	#ffc14d
+pdfcraft	PdfCraft	Reading, organizing and protecting PDFs	classic	#12a58a	#0a7563	#3fd6b8
+effectcraft	EffectCraft	Motion graphics and visual effects	classic	#e0368f	#b0206c	#ff7ab8
+designcraft	DesignCraft	Page layout and publishing	classic	#7bb51c	#457008	#a6e04a
+wordcraft	WordCraft	Writing and document design	new	#3f5fe0	#2a44b8	#8ea2ff
+deckcraft	DeckCraft	Presentations and slide shows	new	#f07a1e	#a84f0a	#ffa060
+gridcraft	GridCraft	Spreadsheets and data	new	#1f9d55	#12703a	#4fd68a
+cadcraft	CADCraft	Computer-aided design and drafting	new	#3ea6e8	#1a6fa8	#7cc8ff
+soundcraft	SoundCraft	Recording, editing and mixing audio	new	#1fa5c9	#0e7290	#5fd0ee
+figcraft	FigCraft	Interface design and prototyping	new	#02da96	#047a56	#4fe8b6"
+CATALOG_COLUMNS=8   # id name tagline group version color ink-light ink-dark
 
 app_icon() {
   case "$1" in
@@ -173,12 +175,13 @@ update_ready() {
 
 # --- catalog ----------------------------------------------------------------------------------
 
-# Parse the SUITE array of the official launcher: id, name, tagline and group of each app( call.
+# Parse the SUITE array of the official launcher: id, name, tagline, group and the three brand colours
+# (surface, ink on light, ink on dark) of each app( call.
 parse_upstream_catalog() {
   awk '
     /pub const SUITE/ { in_suite = 1; next }
     in_suite && /^\];/ { exit }
-    in_suite && /app\($/ { want = 3; n = 0; group = 1; next }
+    in_suite && /app\($/ { want = 3; n = 0; group = ""; next }
     in_suite && want > 0 && /^[[:space:]]*"/ {
       line = $0
       sub(/^[[:space:]]*"/, "", line)
@@ -187,12 +190,22 @@ parse_upstream_catalog() {
       want--
       next
     }
-    in_suite && group && /AppGroup::/ {
+    in_suite && group == "" && /AppGroup::/ {
       g = tolower($0)
       sub(/.*appgroup::/, "", g)
       sub(/[^a-z].*/, "", g)
-      print field[1] "\t" field[2] "\t" field[3] "\t" g
-      group = 0
+      group = g
+      next
+    }
+    in_suite && group != "" && /\[\[0x/ {
+      s = $0; k = 0; hex = ""
+      while (match(s, /0x[0-9a-fA-F][0-9a-fA-F]/)) {
+        k++
+        hex = hex ((k == 1 || k == 4 || k == 7) ? "\t#" : "") tolower(substr(s, RSTART + 2, 2))
+        s = substr(s, RSTART + RLENGTH)
+      }
+      if (k == 9) print field[1] "\t" field[2] "\t" field[3] "\t" group hex
+      group = ""
     }
   '
 }
@@ -214,14 +227,21 @@ catalog_age_seconds() {
   printf '%s' $(( $(date +%s) - $(stat -c %Y "$CATALOG") ))
 }
 
-# First run, no network: the built-in list without versions, so state can answer at once.
+# First run, no network: the built-in list without versions, so state can answer at once. A cache from
+# an older layout (fewer columns) is rebuilt the same way, keeping the versions it knew.
 ensure_cache() {
   mkdir -p "$CACHE_DIR" "$STATE_DIR"
-  [[ -s $CATALOG ]] && return 0
-  local id name tagline group
-  while IFS=$'\t' read -r id name tagline group; do
-    printf '%s\t%s\t%s\t%s\t\n' "$id" "$name" "$tagline" "$group"
-  done <<<"$BUILTIN_CATALOG" >"$CATALOG"
+  local id name tagline group color inkl inkd version old="" tmp
+  if [[ -s $CATALOG ]]; then
+    awk -F'\t' -v n="$CATALOG_COLUMNS" 'NF != n { bad = 1 } END { exit bad }' "$CATALOG" && return 0
+    old=$(cut -f1,5 "$CATALOG")
+  fi
+  tmp=$(mktemp)
+  while IFS=$'\t' read -r id name tagline group color inkl inkd; do
+    version=$(awk -F'\t' -v id="$id" '$1 == id { print $2 }' <<<"$old")
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$version" "$color" "$inkl" "$inkd"
+  done <<<"$BUILTIN_CATALOG" >"$tmp"
+  mv "$tmp" "$CATALOG"
   # Nothing has been seen yet; the first real catalog must not notify thirteen "new" apps.
   [[ -f $SEEN ]] || cut -f1 "$CATALOG" >"$SEEN"
 }
@@ -233,7 +253,7 @@ catalog_rows() {
 
 # Network. Keeps the old data when the AUR cannot be reached: a failed check is never "up to date".
 refresh() {
-  local force="${1:-}" upstream versions id name tagline group version new_names=()
+  local force="${1:-}" upstream versions id name tagline group color inkl inkd version new_names=()
   ensure_cache
 
   if [[ $force != "-f" ]] && catalog_fresh && [[ ! -f $REFRESH_FAILED ]]; then
@@ -252,10 +272,11 @@ refresh() {
 
   local tmp
   tmp=$(mktemp)
-  while IFS=$'\t' read -r id name tagline group; do
+  while IFS=$'\t' read -r id name tagline group color inkl inkd; do
     [[ $id =~ ^[a-z0-9-]+$ ]] || continue
     version=$(awk -F'\t' -v id="$id" '$1 == id { print $2 }' <<<"$versions")
-    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "${group:-new}" "$version" >>"$tmp"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "${group:-new}" "$version" \
+      "${color:-}" "${inkl:-}" "${inkd:-}" >>"$tmp"
   done <<<"$upstream"
   mv "$tmp" "$CATALOG"
   rm -f "$REFRESH_FAILED"
@@ -315,7 +336,7 @@ mark_seen() {
 group_ids() {
   local group="$1" id name tagline ugroup version
   [[ $group =~ ^(all|creative|office)$ ]] || die "unknown group: $group (all, creative or office)"
-  while IFS=$'\t' read -r id name tagline ugroup version; do
+  while IFS=$'\t' read -r id name tagline ugroup version _; do
     [[ -n $version ]] || continue
     [[ $group == all || $(group_for "$id") == "$group" ]] && echo "$id"
   done < <(catalog_rows)
@@ -333,7 +354,7 @@ missing_ids() {
 outdated_ids() {
   local id name tagline group version
   load_installed
-  while IFS=$'\t' read -r id name tagline group version; do
+  while IFS=$'\t' read -r id name tagline group version _; do
     update_ready "$id" "$version" && echo "$id"
   done < <(catalog_rows)
   return 0
@@ -386,8 +407,15 @@ job() {
       done
       ;;
     update)
-      mapfile -t ids < <(outdated_ids)
-      set -- "${ids[@]}"
+      if (( $# == 0 )); then
+        mapfile -t ids < <(outdated_ids)
+        set -- "${ids[@]}"
+      fi
+      (( $# > 0 )) || die "nothing to update"
+      for id in "$@"; do
+        known_id "$id"
+        pkgs+=("$(pkg_for "$id")")
+      done
       ;;
     *) die "usage: omarcraft job <install|update> [id...]" ;;
   esac
@@ -396,7 +424,9 @@ job() {
   trap 'rc=$?; trap - EXIT; end_job $rc; exit $rc' EXIT
   case "$verb" in
     install) omarchy-pkg-aur-add "${pkgs[@]}" ;;
-    update) omarchy-update-aur-pkgs ;;
+    # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
+    # directly here. It is the helper Omarchy ships and uses itself.
+    update) yay -S --noconfirm "${pkgs[@]}" ;;
   esac
 }
 
@@ -414,7 +444,7 @@ run_job() {
   printf -v self '%q' "$SELF"
   case "$verb" in
     install) printf -v message '%q' "Installing ${names[*]}..." ;;
-    update) printf -v message '%q' "Updating AUR packages (Omarchy's updater)..." ;;
+    update) printf -v message '%q' "Updating ${names[*]}..." ;;
   esac
   [[ -n $then_launch ]] && after=" && (setsid ${self} launch ${then_launch} >/dev/null 2>&1 &)"
   exec omarchy-launch-floating-terminal-with-presentation \
@@ -466,9 +496,17 @@ install_group() {
   run_job install "" "${ids[@]}"
 }
 
+# update [id...]: the given apps, or every app with a newer build.
 update() {
-  local ids
-  mapfile -t ids < <(outdated_ids)
+  local ids=() id
+  if (( $# > 0 )); then
+    for id in "$@"; do
+      known_id "$id"
+      ids+=("$id")
+    done
+  else
+    mapfile -t ids < <(outdated_ids)
+  fi
   if (( ${#ids[@]} == 0 )); then
     notify "No ArtCraft updates pending"
     exit 0
@@ -511,7 +549,7 @@ studio() {
 # Local only: cache files and the package database. A stale cache starts a detached refresh.
 
 state() {
-  local id name tagline ugroup version src current new rows="" job="null" last="null"
+  local id name tagline ugroup version color inkl inkd src current new rows="" job="null" last="null"
   load_installed
   ensure_cache
   reconcile_job
@@ -519,14 +557,15 @@ state() {
     refresh_detached
   fi
 
-  while IFS=$'\t' read -r id name tagline ugroup version; do
+  while IFS=$'\t' read -r id name tagline ugroup version color inkl inkd; do
     src=$(install_source "$id")
     current=$(installed_version "$id")
     new=0
     is_new "$id" && new=1
     rows+="$id"$'\t'"$name"$'\t'"$tagline"$'\t'"$(group_for "$id")"$'\t'"$ugroup"$'\t'"$(app_icon "$id")"$'\t'
     rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'
-    rows+="$(update_ready "$id" "$version" && echo 1 || echo 0)"$'\t'"$new"$'\t'"ai.storyteller.$id"$'\n'
+    rows+="$(update_ready "$id" "$version" && echo 1 || echo 0)"$'\t'"$new"$'\t'"ai.storyteller.$id"$'\t'
+    rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\n'
   done < <(catalog_rows)
 
   [[ -f $JOB_FILE ]] && job=$(jq -c . "$JOB_FILE" 2>/dev/null || echo null)
@@ -544,7 +583,8 @@ state() {
       id: .[0], name: .[1], tagline: .[2], group: .[3], upstreamGroup: .[4], glyph: .[5],
       aurVersion: .[6], installedVersion: .[7],
       installed: (.[8] != ""), source: (if .[8] == "" then null else .[8] end),
-      updateReady: (.[9] == "1"), new: (.[10] == "1"), desktopId: .[11]
+      updateReady: (.[9] == "1"), new: (.[10] == "1"), desktopId: .[11],
+      color: .[12], inkLight: .[13], inkDark: .[14]
     }] as $apps
     | {
         generatedAt: $generated, catalogAgeSeconds: $age, offline: $offline, refreshing: $refreshing,
@@ -563,7 +603,7 @@ state() {
 list() {
   local id name tagline group version status
   load_installed
-  while IFS=$'\t' read -r id name tagline group version; do
+  while IFS=$'\t' read -r id name tagline group version _; do
     if is_installed "$id"; then
       status="installed $(installed_version "$id") ($(install_source "$id"))"
       update_ready "$id" "$version" && status="$status, update ready $version"
@@ -599,7 +639,7 @@ menu_block() {
   json_entry "omarcraft" "$ICON_ARTCRAFT" "ArtCraft" "" "" "Craft apps and ArtCraft Studio" "ac omarcraft"
   json_entry "omarcraft.browse" "$ICON_ARTCRAFT" "All apps" "$open" "" "Launch, install or update any Craft app"
   json_entry "omarcraft.studio" "$ICON_STUDIO" "Studio" "$self studio" "" "ArtCraft Studio, AI image and video (web app)"
-  json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Runs Omarchy's AUR update"
+  json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Newer builds of your Craft apps"
   json_entry "omarcraft.install-all" "$ICON_GROUP" "Install all" "$self install-group all" "$self missing all" "Every Craft app"
   json_entry "omarcraft.install-creative" "$ICON_GROUP" "Install Creative" "$self install-group creative" "$self missing creative" \
     "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
@@ -658,7 +698,7 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     launch) launch "${2:?usage: omarcraft launch <id>}" ;;
     install) shift; (( $# > 0 )) || die "usage: omarcraft install <id>..."; install_apps "$@" ;;
     install-group) install_group "${2:-all}" ;;
-    update) update ;;
+    update) shift; update "$@" ;;
     job) shift; job "$@" ;;
     missing) [[ -n $(missing_ids "${2:-all}") ]] ;;
     check) check "${2:-}" ;;

@@ -26,7 +26,7 @@ stub omarchy-shell 0
 stub omarchy-menu 0
 stub omarchy-notification-send 0
 stub omarchy-pkg-aur-add 0
-stub omarchy-update-aur-pkgs 0
+stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
 stub omarchy-launch-or-focus 0
 stub pacman 0 $'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\nother 1.0-1'
@@ -54,15 +54,17 @@ parse_menu_jsonc() {
 
 parsed=$(parse_upstream_catalog <"$ROOT/tests/fixtures/catalog.rs")
 expect_eq "parser finds 13 apps" "$(wc -l <<<"$parsed")" "13"
-expect_eq "parser reads the first app" "$(head -1 <<<"$parsed")" $'photocraft\tPhotoCraft\tImage editing\tclassic'
+expect_eq "parser reads the first app with its colours" "$(head -1 <<<"$parsed")" \
+  $'photocraft\tPhotoCraft\tImage editing\tclassic\t#2f7bf5\t#1a5bc4\t#7fb0ff'
 expect_eq "parser handles the struct-update form (pdfcraft)" \
-  "$(grep '^pdfcraft' <<<"$parsed")" $'pdfcraft\tPdfCraft\tReading, organizing and protecting PDFs\tclassic'
+  "$(grep '^pdfcraft' <<<"$parsed")" $'pdfcraft\tPdfCraft\tReading, organizing and protecting PDFs\tclassic\t#12a58a\t#0a7563\t#3fd6b8'
 expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
 
 # --- first run: no cache, no network ------------------------------------------------------------
 
 ensure_cache
 expect_true "first run writes the built-in catalog without versions" "[[ \$(cut -f5 '$CATALOG' | sort -u) == '' ]]"
+expect_eq "cache has the full column set" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
 expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "13"
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
 
@@ -74,11 +76,17 @@ expect_eq "office group" "$(for i in wordcraft deckcraft gridcraft pdfcraft phot
 ( known_id 'photocraft-git' ) 2>/dev/null && fail "id outside the catalog rejected" || ok "id outside the catalog rejected"
 ( group_ids bogus ) 2>/dev/null && fail "unknown group rejected" || ok "unknown group rejected"
 
+# An older cache layout (five columns) is migrated and keeps its versions.
+printf 'photocraft\tPhotoCraft\tImage editing\tclassic\t0.5.0-1\n' >"$CATALOG"
+ensure_cache
+expect_eq "old cache layout is migrated" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
+expect_eq "migration keeps known versions" "$(awk -F'\t' '$1=="photocraft"{print $5}' "$CATALOG")" "0.5.0-1"
+
 # Give the cache versions, as a successful refresh would.
-while IFS=$'\t' read -r id name tagline group; do
-  printf '%s\t%s\t%s\t%s\t1.0.0-1\n' "$id" "$name" "$tagline" "$group"
+while IFS=$'\t' read -r id name tagline group color inkl inkd; do
+  printf '%s\t%s\t%s\t%s\t1.0.0-1\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$color" "$inkl" "$inkd"
 done <<<"$BUILTIN_CATALOG" >"$CATALOG"
-printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\n' >>"$CATALOG"
+printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
 expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "13"
@@ -108,6 +116,7 @@ expect_eq "state: source build is installed, never update-ready" "$(jq -c '.apps
 expect_eq "state: unpackaged app has null source and no version" "$(jq -c '.apps[] | select(.id=="unpackaged") | [.installed,.source,.aurVersion]' <<<"$st")" '[false,null,""]'
 expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft"]'
 expect_eq "state: no job, no last job" "$(jq -c '[.job,.lastJob,.offline,.refreshing]' <<<"$st")" '[null,null,false,false]'
+expect_eq "state carries the brand colours" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.color,.inkLight,.inkDark]' <<<"$st")" '["#3f5fe0","#2a44b8","#8ea2ff"]'
 expect_eq "state glyph is the verified codepoint" "$(printf '%s' "$(jq -r '.apps[] | select(.id=="wordcraft") | .glyph' <<<"$st")" | od -An -tx1 | tr -d ' \n')" "f3b08899"
 expect_eq "state made no network call itself" "$(calls curl | wc -l)" "0"
 expect_true "state is fast" "[[ \$( { TIMEFORMAT=%R; time state >/dev/null; } 2>&1 ) < 1.0 ]]"
@@ -151,10 +160,15 @@ stub omarchy-pkg-aur-add 0
 ( job install 'x;rm' ) >/dev/null 2>&1 && fail "job refuses an unsafe id" || ok "job refuses an unsafe id"
 expect_eq "refused jobs never reach the package command" "$(calls omarchy-pkg-aur-add | wc -l)" "2"
 
-reset_log omarchy-update-aur-pkgs
+reset_log yay
 ( job update ) >/dev/null 2>&1
-expect_eq "job update delegates to omarchy-update-aur-pkgs" "$(calls omarchy-update-aur-pkgs | wc -l)" "1"
+expect_eq "job update with no ids takes every outdated app, through the helper" "$(calls yay)" "-S --noconfirm photocraft-bin"
 expect_eq "job update records the outdated ids" "$(jq -c '[.verb,.ids]' "$LAST_JOB_FILE")" '["update",["photocraft"]]'
+reset_log yay
+( job update wordcraft ) >/dev/null 2>&1
+expect_eq "job update <id> is package-exact" "$(calls yay)" "-S --noconfirm wordcraft-bin"
+( job update 'x;rm' ) >/dev/null 2>&1 && fail "job update refuses an unsafe id" || ok "job update refuses an unsafe id"
+expect_eq "the single-app update was the only helper call since the reset" "$(calls yay | wc -l)" "1"
 
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
@@ -185,8 +199,10 @@ expect_eq "installing an installed app launches it instead" "$(calls omarchy-lau
 
 # --- hygiene -----------------------------------------------------------------------------------
 
-expect_eq "no package-manager or privilege strings in the script" \
-  "$(grep -cE '(^|[^a-z-])(yay|paru|sudo|pkexec)([^a-z-]|$)|pacman -S' "$ROOT/bin/omarcraft")" "0"
+expect_eq "no privilege strings in the script" \
+  "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -S' "$ROOT/bin/omarcraft")" "0"
+expect_eq "the helper is called in exactly one place (the update job)" \
+  "$(grep -cE '(^|[^a-z-])yay ' "$ROOT/bin/omarcraft")" "1"
 expect_eq "manifest id" "$(jq -r .id "$ROOT/manifest.json")" "omarcraft.productivity"
 expect_eq "IPC target matches the manifest id" "$IPC_TARGET" "$(jq -r .id "$ROOT/manifest.json")"
 [[ -x $ROOT/bin/omarcraft ]] && ok "bin/omarcraft is executable" || fail "bin/omarcraft is executable"

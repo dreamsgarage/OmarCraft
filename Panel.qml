@@ -8,6 +8,8 @@ import "Model.js" as Model
 
 // OmarCraft: the ArtCraft Craft apps from the bar. Bar icon + native KeyboardPanel, data from
 // Service.qml, every mutation delegated to bin/omarcraft in a floating Omarchy terminal.
+// Two layouts under evaluation, switched with `omarchy bar set omarcraft.productivity layout tiles|rows`
+// or the `t` key: "tiles" (three per line, the app's own colour) and "rows" (one per line with a caption).
 Panel {
   id: root
   moduleName: "omarcraft.productivity"
@@ -18,8 +20,13 @@ Panel {
   readonly property color urgent: bar ? bar.urgent : Color.urgent
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+  readonly property bool darkBackground: Qt.color(String(Color.popups.background)).hslLightness < 0.5
   readonly property string pluginDir: Model.urlToPath(Qt.resolvedUrl("."))
   readonly property string scriptPath: pluginDir + "/bin/omarcraft"
+
+  readonly property string layout: setting("layout", "tiles") === "rows" ? "rows" : "tiles"
+  readonly property bool tiles: layout === "tiles"
+  readonly property real tileWidth: (column.width - Style.space(6) * (Model.COLUMNS - 1)) / Model.COLUMNS
 
   readonly property var sections: Model.sections(craft.apps)
   readonly property var cursorKeys: Model.cursorKeys(craft.apps)
@@ -35,11 +42,13 @@ Panel {
   property int cursor: 0
   readonly property string cursorKey: cursorKeys.length > 0 ? cursorKeys[Math.max(0, Math.min(cursor, cursorKeys.length - 1))] : ""
 
-  // One inline confirm at a time: what it would do, and which row or control it sits under.
+  // One confirm at a time: what it would do, and where it sits. In the tiles layout every confirm is
+  // the strip under the status line; in rows an app's confirm sits under its row.
   property string confirmKind: ""      // "" | "install" | "update"
   property var confirmIds: []
-  property string confirmAt: ""        // "app:<id>" | "group" | "update"
+  property string confirmAt: ""        // "strip" | "app:<id>" | "group"
   readonly property bool confirmOpen: confirmKind !== ""
+  readonly property bool stripOpen: confirmOpen && confirmAt === "strip"
 
   // With the badge the button paints text wider than an icon; the open-panel dot follows it.
   readonly property real openPanelIndicatorWidth: pending > 0 && !button.vertical ? button.glyphPaintedWidth : 0
@@ -48,10 +57,16 @@ Panel {
     if (root.bar) root.bar.run(Util.shellQuote(root.scriptPath) + " " + args)
   }
 
-  function moveCursor(delta) {
+  function tintFor(app) {
+    var t = Model.tintFor(app, root.darkBackground)
+    return t !== "" ? Qt.color(t) : root.foreground
+  }
+
+  function moveCursor(dx, dy) {
     if (cursorKeys.length === 0) return
     if (!cursorActive) { cursorActive = true; return }
-    cursor = Math.max(0, Math.min(cursorKeys.length - 1, cursor + delta))
+    cursor = root.tiles ? Model.gridMove(cursorKeys, craft.apps, cursor, dx, dy)
+                        : Math.max(0, Math.min(cursorKeys.length - 1, cursor + dy))
     cancelConfirm()
     Qt.callLater(ensureCursorVisible)
   }
@@ -63,9 +78,13 @@ Panel {
     cursor = idx
   }
 
+  function placementFor(key) {
+    return root.tiles ? "strip" : key
+  }
+
   function openConfirm(kind, ids, at) {
     if (jobRunning) { craft.flash("Wait for the running job to finish"); return }
-    if (kind === "install" && ids.length === 0) return
+    if (ids.length === 0) return
     confirmKind = kind
     confirmIds = ids
     confirmAt = at
@@ -79,32 +98,51 @@ Panel {
 
   function runConfirm() {
     if (!confirmOpen) return
-    if (confirmKind === "update") run("update")
-    else run("install " + confirmIds.join(" "))
+    run((confirmKind === "update" ? "update " : "install ") + confirmIds.join(" "))
     craft.flash("Opening a terminal…")
     cancelConfirm()
   }
 
-  // Enter, click or the row action: launch an installed app, confirm an available one, open Studio.
+  function launchInstead() {
+    if (confirmKind !== "update" || confirmIds.length !== 1) return
+    var id = confirmIds[0]
+    cancelConfirm()
+    launch(id)
+  }
+
+  function launch(id) {
+    var app = Model.appById(craft.apps, id)
+    if (!app) return
+    run("launch " + id)
+    craft.flash("Launching " + app.name + "…")
+  }
+
+  // Enter, click or the row action. Installed: launch, or ask to update when a newer build exists.
+  // Available: ask to install (Enter again runs it). Studio: open.
   function primary(key) {
     if (key === "studio") { run("studio"); craft.flash("Opening ArtCraft Studio…"); return }
     if (key.indexOf("app:") !== 0) return
     var id = key.slice(4)
     var app = Model.appById(craft.apps, id)
     if (!app) return
-    if (app.installed) { run("launch " + id); craft.flash("Launching " + app.name + "…"); return }
-    if (confirmAt === key) { runConfirm(); return }
-    openConfirm("install", [id], key)
+    if (confirmOpen && confirmIds.length === 1 && confirmIds[0] === id) { runConfirm(); return }
+    if (app.installed) {
+      if (app.updateReady) openConfirm("update", [id], placementFor(key))
+      else launch(id)
+      return
+    }
+    openConfirm("install", [id], placementFor(key))
   }
 
   function confirmGroup(ids) {
     if (ids.length === 0) { craft.flash("Nothing to install"); return }
-    openConfirm("install", ids, "group")
+    openConfirm("install", ids, root.tiles ? "strip" : "group")
   }
 
-  function confirmUpdate() {
-    if (pending === 0) { craft.flash("No ArtCraft updates pending"); return }
-    openConfirm("update", [], "update")
+  function confirmUpdateAll() {
+    var ids = Model.outdatedIds(craft.apps)
+    if (ids.length === 0) { craft.flash("No ArtCraft updates pending"); return }
+    openConfirm("update", ids, "strip")
   }
 
   function refreshNow() {
@@ -112,7 +150,19 @@ Panel {
     craft.refreshCatalog()
   }
 
-  // Rows register themselves so the Flickable can keep the cursor in view.
+  function setLayout(name) {
+    var next = name === "rows" ? "rows" : "tiles"
+    root.settings = Object.assign({}, root.settings, { layout: next })
+    if (root.bar && root.bar.shell) root.bar.shell.updateEntryInline(root.moduleName, root.settings)
+    cancelConfirm()
+    craft.flash(next === "tiles" ? "Tiles layout" : "Rows layout")
+  }
+
+  function toggleLayout() {
+    setLayout(root.tiles ? "rows" : "tiles")
+  }
+
+  // Rows and tiles register themselves so the Flickable can keep the cursor in view.
   property var rowItems: ({})
   function registerRow(key, item) { rowItems[key] = item }
   function ensureCursorVisible() {
@@ -134,12 +184,17 @@ Panel {
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
     function refresh(): void { craft.refreshSoon() }
-    function status(): string { return JSON.stringify({ counts: craft.counts, job: craft.job, lastJob: craft.lastJob, offline: craft.offline, apps: craft.apps }) }
+    function status(): string { return JSON.stringify({ layout: root.layout, counts: craft.counts, job: craft.job, lastJob: craft.lastJob, offline: craft.offline, apps: craft.apps }) }
+    function layout(name: string): string {
+      if (name !== "tiles" && name !== "rows") return "usage: layout tiles|rows (now " + root.layout + ")"
+      root.setLayout(name)
+      return "layout " + name
+    }
     function launch(id: string): string {
       var app = Model.appById(craft.apps, id)
       if (!app) return "unknown app: " + id
       if (!app.installed) return app.name + " is not installed"
-      root.run("launch " + id)
+      root.launch(id)
       return "launching " + app.name
     }
     function install(ids: string): string {
@@ -149,10 +204,13 @@ Panel {
       root.run("install " + list.join(" "))
       return "installing " + list.join(" ")
     }
-    function update(): string {
-      if (root.pending === 0) return "no ArtCraft updates pending"
-      root.run("update")
-      return "updating"
+    function update(ids: string): string {
+      var list = String(ids || "").trim().split(/\s+/).filter(function(s) { return s.length > 0 })
+      if (list.length === 0) list = Model.outdatedIds(craft.apps)
+      if (list.length === 0) return "no ArtCraft updates pending"
+      for (var i = 0; i < list.length; i++) if (!Model.appById(craft.apps, list[i])) return "unknown app: " + list[i]
+      root.run("update " + list.join(" "))
+      return "updating " + list.join(" ")
     }
     function studio(): void { root.run("studio") }
   }
@@ -209,22 +267,23 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
 
-      onMoveRequested: function(dx, dy) { if (dy !== 0) root.moveCursor(dy) }
+      onMoveRequested: function(dx, dy) { root.moveCursor(dx, dy) }
       onActivateRequested: {
         if (root.confirmOpen) root.runConfirm()
         else if (root.cursorActive) root.primary(root.cursorKey)
-        else { root.cursorActive = true }
+        else root.cursorActive = true
       }
       onCloseRequested: { if (root.confirmOpen) root.cancelConfirm(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
         var k = t.toLowerCase()
-        if (k === "u") root.confirmUpdate()
+        if (k === "u") root.confirmUpdateAll()
         else if (k === "a") root.confirmGroup(root.missingAll)
         else if (k === "c") root.confirmGroup(root.missingCreative)
         else if (k === "o") root.confirmGroup(root.missingOffice)
         else if (k === "s") root.primary("studio")
         else if (k === "r") root.refreshNow()
+        else if (k === "t") root.toggleLayout()
       }
 
       Flickable {
@@ -246,7 +305,7 @@ Panel {
           // ---------- Hero ----------
           PanelHero {
             width: parent.width
-            title: "ArtCraft"
+            title: "OmarCraft"
             meta: Model.metaLine(craft)
             foreground: root.foreground
             fontFamily: root.fontFamily
@@ -305,14 +364,15 @@ Panel {
               fontSize: Style.font.bodySmall
               foreground: root.foreground
               fontFamily: root.fontFamily
-              tooltipText: "Runs Omarchy's AUR update"
-              onClicked: root.confirmUpdate()
+              tooltipText: "u · every Craft app with a newer build"
+              onClicked: root.confirmUpdateAll()
             }
           }
 
+          // The confirm strip: every confirm in the tiles layout, Update all in both.
           Loader {
             width: parent.width
-            active: root.confirmAt === "update"
+            active: root.stripOpen
             visible: active
             sourceComponent: confirmLine
           }
@@ -325,8 +385,37 @@ Panel {
             foreground: root.foreground
             fontFamily: root.fontFamily
           }
+          Grid {
+            visible: root.tiles && root.sections.installed.length > 0
+            width: parent.width
+            columns: Model.COLUMNS
+            columnSpacing: Style.space(6)
+            rowSpacing: Style.space(6)
+            Repeater {
+              model: root.tiles ? root.sections.installed : []
+              delegate: AppTile {
+                required property var modelData
+                width: root.tileWidth
+                key: "app:" + modelData.id
+                glyph: modelData.glyph
+                name: modelData.name
+                tint: root.tintFor(modelData)
+                updateReady: modelData.updateReady
+                busy: Model.jobCovers(craft.job, modelData.id)
+                failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
+                isCursor: root.cursorActive && root.cursorKey === key
+                tooltipText: Model.tileTip(modelData, craft)
+                foreground: root.foreground
+                urgent: root.urgent
+                fontFamily: root.fontFamily
+                onHovered: root.setCursorTo(key)
+                onActivated: { root.setCursorTo(key); root.primary(key) }
+                Component.onCompleted: root.registerRow(key, this)
+              }
+            }
+          }
           Repeater {
-            model: root.sections.installed
+            model: root.tiles ? [] : root.sections.installed
             delegate: AppRow {
               required property var modelData
               width: column.width
@@ -343,6 +432,7 @@ Panel {
               foreground: root.foreground
               urgent: root.urgent
               fontFamily: root.fontFamily
+              extra: root.confirmAt === key ? confirmLine : null
               onHovered: root.setCursorTo(key)
               onActivated: { root.setCursorTo(key); root.primary(key) }
               Component.onCompleted: root.registerRow(key, this)
@@ -357,8 +447,38 @@ Panel {
             foreground: root.foreground
             fontFamily: root.fontFamily
           }
+          Grid {
+            visible: root.tiles && root.sections.available.length > 0
+            width: parent.width
+            columns: Model.COLUMNS
+            columnSpacing: Style.space(6)
+            rowSpacing: Style.space(6)
+            Repeater {
+              model: root.tiles ? root.sections.available : []
+              delegate: AppTile {
+                required property var modelData
+                width: root.tileWidth
+                key: "app:" + modelData.id
+                glyph: modelData.glyph
+                name: modelData.name
+                tint: root.tintFor(modelData)
+                dimmed: true
+                busy: Model.jobCovers(craft.job, modelData.id)
+                failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
+                actionsEnabled: !root.jobRunning
+                isCursor: root.cursorActive && root.cursorKey === key
+                tooltipText: Model.tileTip(modelData, craft)
+                foreground: root.foreground
+                urgent: root.urgent
+                fontFamily: root.fontFamily
+                onHovered: root.setCursorTo(key)
+                onActivated: { root.setCursorTo(key); root.primary(key) }
+                Component.onCompleted: root.registerRow(key, this)
+              }
+            }
+          }
           Repeater {
-            model: root.sections.available
+            model: root.tiles ? [] : root.sections.available
             delegate: AppRow {
               required property var modelData
               width: column.width
@@ -428,7 +548,7 @@ Panel {
 
           Loader {
             width: parent.width
-            active: root.confirmAt === "group"
+            active: root.confirmOpen && root.confirmAt === "group"
             visible: active
             sourceComponent: confirmLine
           }
@@ -440,8 +560,24 @@ Panel {
             foreground: root.foreground
             fontFamily: root.fontFamily
           }
+          AppTile {
+            visible: root.tiles
+            width: root.tileWidth
+            key: "studio"
+            glyph: "\u{F0F49}"
+            name: "Studio"
+            tint: Color.accent
+            isCursor: root.cursorActive && root.cursorKey === key
+            tooltipText: craft.studioInstalled ? "ArtCraft Studio · web app · in your app launcher" : "ArtCraft Studio · web app · needs an ArtCraft account"
+            foreground: root.foreground
+            urgent: root.urgent
+            fontFamily: root.fontFamily
+            onHovered: root.setCursorTo(key)
+            onActivated: { root.setCursorTo(key); root.primary(key) }
+            Component.onCompleted: root.registerRow(key, this)
+          }
           AppRow {
-            id: studioRow
+            visible: !root.tiles
             width: column.width
             key: "studio"
             glyph: "\u{F0F49}"
@@ -455,7 +591,7 @@ Panel {
             fontFamily: root.fontFamily
             onHovered: root.setCursorTo(key)
             onActivated: { root.setCursorTo(key); root.primary(key) }
-            Component.onCompleted: root.registerRow(key, this)
+            Component.onCompleted: if (!root.tiles) root.registerRow(key, this)
           }
 
           // ---------- Empty / loading ----------
@@ -474,7 +610,9 @@ Panel {
           Text {
             width: parent.width
             textFormat: Text.PlainText
-            text: "j/k move · ⏎ launch or install · u update · a/c/o install all/creative/office · s studio · r refresh · esc"
+            text: root.tiles
+              ? "h/l j/k move · ⏎ launch, update or install · u update all · a/c/o groups · s studio · r refresh · t rows · esc"
+              : "j/k move · ⏎ launch, update or install · u update all · a/c/o groups · s studio · r refresh · t tiles · esc"
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
@@ -485,7 +623,7 @@ Panel {
     }
   }
 
-  // The inline confirm: one caption naming what will happen, then Install/Update and Cancel.
+  // The confirm: one caption naming what will happen, then Install/Update, Launch instead, Cancel.
   Component {
     id: confirmLine
     Column {
@@ -500,7 +638,8 @@ Panel {
         font.pixelSize: Style.font.caption
         wrapMode: Text.WordWrap
       }
-      Row {
+      Flow {
+        width: parent.width
         spacing: Style.space(8)
         Button {
           text: (root.confirmKind === "update" ? "Update" : "Install") + " ⏎"
@@ -509,6 +648,14 @@ Panel {
           foreground: root.foreground
           fontFamily: root.fontFamily
           onClicked: root.runConfirm()
+        }
+        Button {
+          visible: root.confirmKind === "update" && root.confirmIds.length === 1
+          text: "Launch instead"
+          fontSize: Style.font.bodySmall
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+          onClicked: root.launchInstead()
         }
         Button {
           text: "Cancel esc"

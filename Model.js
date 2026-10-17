@@ -2,6 +2,7 @@
 // state JSON that bin/omarcraft prints, so it can be read, and tested, without the shell.
 
 var SUITE_SIZE = 13
+var COLUMNS = 3
 
 function urlToPath(url) {
   var s = String(url || "")
@@ -29,6 +30,25 @@ function cursorKeys(apps) {
   return keys
 }
 
+// In the grid, j/k jump a whole line within the same section and stop at its edge; h/l step one tile.
+function gridMove(keys, apps, cursor, dx, dy) {
+  var n = keys.length
+  if (n === 0) return 0
+  if (dx !== 0) return Math.max(0, Math.min(n - 1, cursor + dx))
+  var s = sections(apps)
+  var bounds = [[0, s.installed.length], [s.installed.length, s.installed.length + s.available.length], [n - 1, n]]
+  for (var b = 0; b < bounds.length; b++) {
+    var lo = bounds[b][0], hi = bounds[b][1]
+    if (cursor < lo || cursor >= hi) continue
+    var target = cursor + dy * COLUMNS
+    if (target >= lo && target < hi) return target
+    // Past the section edge: land on the first tile of the next section, or the last of the previous.
+    if (dy > 0) return Math.min(n - 1, hi)
+    return Math.max(0, lo - 1)
+  }
+  return cursor
+}
+
 function appById(apps, id) {
   for (var i = 0; i < (apps || []).length; i++) if (apps[i].id === id) return apps[i]
   return null
@@ -41,6 +61,12 @@ function missingIds(apps, group) {
     if (a.installed || !a.aurVersion) continue
     if (group === "all" || a.group === group) ids.push(a.id)
   }
+  return ids
+}
+
+function outdatedIds(apps) {
+  var ids = []
+  for (var i = 0; i < (apps || []).length; i++) if (apps[i].updateReady) ids.push(apps[i].id)
   return ids
 }
 
@@ -61,6 +87,15 @@ function jobFailed(craft) {
   return !craft.job && !!craft.lastJob && Number(craft.lastJob.exit) !== 0
 }
 
+// The app's own ArtCraft colour, picked for the panel background it sits on; "" when the catalog
+// carried none, so the caller falls back to the theme foreground.
+function tintFor(app, darkBackground) {
+  if (!app) return ""
+  var c = darkBackground ? app.inkDark : app.inkLight
+  if (!c) c = app.color
+  return c || ""
+}
+
 function ageText(seconds) {
   var s = Number(seconds)
   if (!(s >= 0)) return "never"
@@ -76,12 +111,12 @@ function metaLine(craft) {
   var total = (craft.apps || []).length || SUITE_SIZE
   if (craft.job) {
     var ids = craft.job.ids || []
-    if (craft.job.verb === "update") return "Updating AUR packages…"
+    var verb = craft.job.verb === "update" ? "Updating " : "Installing "
     if (ids.length === 1) {
       var a = appById(craft.apps, ids[0])
-      return "Installing " + (a ? a.name : ids[0]) + "…"
+      return verb + (a ? a.name : ids[0]) + "…"
     }
-    return "Installing " + ids.length + " apps…"
+    return verb + ids.length + " apps…"
   }
   if (jobFailed(craft)) return "Last job failed"
   if (craft.offline) return "Offline · cached list"
@@ -100,7 +135,7 @@ function standingLine(craft) {
                           : "Last job exited with status " + lj.exit + " · see the terminal"
   }
   if (craft.offline) return "Could not reach the AUR · list from " + ageText(craft.catalogAgeSeconds)
-  return "Prebuilt AUR packages · list from " + ageText(craft.catalogAgeSeconds)
+  return "Prebuilt AUR packages · nothing is compiled · list from " + ageText(craft.catalogAgeSeconds)
 }
 
 function subtext(app, craft) {
@@ -114,25 +149,34 @@ function subtext(app, craft) {
   return "Install " + app.aurVersion + " · prebuilt, no compiling"
 }
 
+// Tiles have no caption; the same words go in the tooltip.
+function tileTip(app, craft) {
+  return app.name + " · " + subtext(app, craft)
+}
+
 function actionIcon(app) {
-  return app.installed ? "\u{F040A}" : "\u{F01DA}"
+  if (!app.installed) return "\u{F01DA}"
+  return app.updateReady ? "\u{F0450}" : "\u{F040A}"
 }
 
 function actionTip(app) {
-  if (app.installed) return "Launch " + app.name
-  return "Install " + app.name + " " + app.aurVersion
+  if (!app.installed) return "Install " + app.name + " " + app.aurVersion
+  if (app.updateReady) return "Update " + app.name + " to " + app.aurVersion
+  return "Launch " + app.name
 }
 
 function confirmText(kind, apps, ids) {
-  if (kind === "update")
-    return "Runs Omarchy's AUR update, which upgrades every AUR package · a terminal opens and asks your password"
   var pkgs = []
   for (var i = 0; i < ids.length; i++) {
     var a = appById(apps, ids[i])
-    pkgs.push(ids[i] + "-bin" + (a && a.aurVersion ? " " + a.aurVersion : ""))
+    if (kind === "update" && a)
+      pkgs.push(ids[i] + "-bin " + a.installedVersion + " → " + a.aurVersion)
+    else
+      pkgs.push(ids[i] + "-bin" + (a && a.aurVersion ? " " + a.aurVersion : ""))
   }
   var head = ids.length === 1 ? pkgs[0] : pkgs.join(", ") + " · " + ids.length + " packages"
-  return head + " · a terminal opens and asks your password"
+  var how = kind === "update" ? " · via the AUR helper" : " · via Omarchy's AUR add"
+  return head + how + " · a terminal opens and asks your password"
 }
 
 function chipLabel(label, count) {
