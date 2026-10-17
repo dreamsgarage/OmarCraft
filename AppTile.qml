@@ -2,8 +2,9 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 
-// One tile of the grid layout: the app's glyph in its own ArtCraft colour over its name. Three per line.
-// Installed tiles carry the colour at full strength and a tinted outline; available tiles are dimmed.
+// One tile of the grid layout: the app's glyph in its own ArtCraft colour over its name, three per
+// line. Installed tiles carry a tinted fill; available tiles only an outline, with the name kept at
+// full contrast. The cursor tile takes the accent: 2 px outline, tinted fill, white name.
 CursorSurface {
   id: tile
 
@@ -11,34 +12,37 @@ CursorSurface {
   required property string glyph
   required property string name
   property color tint: foreground
-  property bool dimmed: false
+  property bool installed: false
   property bool busy: false
   property bool failed: false
-  property bool updateReady: false
+  property string badge: ""          // "↑ 0.8.0" on a tile with a newer build
   property bool actionsEnabled: true
   property bool isCursor: false
   property color urgent: Color.urgent
+  property color accent: Color.accent
   property string fontFamily: Style.font.family
   property string tooltipText: ""
 
   signal hovered()
   signal activated()
 
-  hasCursor: isCursor
-  bordered: true
-  readonly property real strength: dimmed && !busy ? 0.45 : 1.0
-  readonly property color glyphColor: failed ? urgent : Qt.rgba(tint.r, tint.g, tint.b, strength)
+  hasCursor: false
+  readonly property color glyphColor: failed ? urgent
+    : isCursor ? tint
+    : installed || busy ? tint
+    : Qt.rgba(tint.r, tint.g, tint.b, 0.6)
 
-  implicitHeight: body.implicitHeight + Style.space(16)
+  implicitHeight: body.implicitHeight + Style.space(18)
 
-  // The outline carries the app colour at low alpha so the grid reads as a palette, not a border maze.
   Rectangle {
     anchors.fill: parent
     radius: Style.cornerRadius
-    color: "transparent"
-    border.width: 1
-    border.color: Qt.rgba(tile.tint.r, tile.tint.g, tile.tint.b, tile.dimmed && !tile.busy ? 0.18 : 0.45)
-    visible: !tile.isCursor
+    color: tile.isCursor ? Qt.rgba(tile.accent.r, tile.accent.g, tile.accent.b, 0.22)
+         : tile.installed ? Qt.rgba(tile.tint.r, tile.tint.g, tile.tint.b, 0.12)
+         : "transparent"
+    border.width: tile.isCursor ? Math.max(2, Style.space(2)) : 1
+    border.color: tile.isCursor ? tile.accent
+                : Qt.rgba(tile.tint.r, tile.tint.g, tile.tint.b, tile.installed ? 0.55 : 0.28)
   }
 
   MouseArea {
@@ -52,11 +56,34 @@ CursorSurface {
     onClicked: tile.activated()
   }
 
+  // The update badge, the urgent colour, top-right like the bar count.
+  Rectangle {
+    visible: tile.badge !== "" && !tile.busy
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.margins: Style.space(5)
+    width: badgeText.implicitWidth + Style.space(10)
+    height: badgeText.implicitHeight + Style.space(3)
+    radius: height / 2
+    color: tile.urgent
+
+    Text {
+      id: badgeText
+      anchors.centerIn: parent
+      textFormat: Text.PlainText
+      text: tile.badge
+      color: Color.popups.background
+      font.family: tile.fontFamily
+      font.pixelSize: Style.font.caption
+      font.bold: true
+    }
+  }
+
   Column {
     id: body
     anchors.centerIn: parent
     width: parent.width - Style.space(12)
-    spacing: Style.space(4)
+    spacing: Style.space(6)
 
     Item {
       width: parent.width
@@ -79,28 +106,16 @@ CursorSurface {
           loops: Animation.Infinite
         }
       }
-
-      // A small update mark in the corner, the urgent colour, like the bar badge.
-      Text {
-        visible: tile.updateReady && !tile.busy
-        anchors.right: parent.right
-        anchors.top: parent.top
-        textFormat: Text.PlainText
-        text: "\u{F0450}"
-        color: tile.urgent
-        font.family: tile.fontFamily
-        font.pixelSize: Style.font.iconSmall
-      }
     }
 
     Text {
       width: parent.width
       textFormat: Text.PlainText
       text: tile.name
-      color: tile.foreground
-      opacity: tile.dimmed && !tile.busy ? 0.7 : 1.0
+      color: tile.isCursor ? "#ffffff" : tile.foreground
       font.family: tile.fontFamily
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Style.font.subtitle
+      font.weight: tile.isCursor ? Font.Bold : Font.DemiBold
       horizontalAlignment: Text.AlignHCenter
       elide: Text.ElideRight
     }

@@ -10,22 +10,24 @@ function urlToPath(url) {
   return decodeURIComponent(s).replace(/\/+$/, "")
 }
 
-// Apps with an AUR build, split the way the panel shows them. Unpackaged apps are hidden.
+// Apps with an AUR build, split the way the panel shows them: a pending update puts an app in
+// `updates` instead of `installed`. Unpackaged apps are hidden.
 function sections(apps) {
-  var installed = [], available = []
+  var updates = [], installed = [], available = []
   for (var i = 0; i < (apps || []).length; i++) {
     var a = apps[i]
-    if (a.installed) installed.push(a)
+    if (a.installed && a.updateReady) updates.push(a)
+    else if (a.installed) installed.push(a)
     else if (a.aurVersion) available.push(a)
   }
-  return { installed: installed, available: available }
+  return { updates: updates, installed: installed, available: available }
 }
 
-// The ordered keys the cursor walks: installed, then available.
+// The ordered keys the cursor walks: updates, installed, available.
 function cursorKeys(apps) {
   var s = sections(apps), keys = []
-  for (var i = 0; i < s.installed.length; i++) keys.push("app:" + s.installed[i].id)
-  for (var j = 0; j < s.available.length; j++) keys.push("app:" + s.available[j].id)
+  var all = s.updates.concat(s.installed, s.available)
+  for (var i = 0; i < all.length; i++) keys.push("app:" + all[i].id)
   return keys
 }
 
@@ -35,9 +37,10 @@ function gridMove(keys, apps, cursor, dx, dy) {
   if (n === 0) return 0
   if (dx !== 0) return Math.max(0, Math.min(n - 1, cursor + dx))
   var s = sections(apps)
-  var bounds = [[0, s.installed.length], [s.installed.length, s.installed.length + s.available.length]]
-  for (var b = 0; b < bounds.length; b++) {
-    var lo = bounds[b][0], hi = bounds[b][1]
+  var a = s.updates.length, b = a + s.installed.length, c = b + s.available.length
+  var bounds = [[0, a], [a, b], [b, c]]
+  for (var k = 0; k < bounds.length; k++) {
+    var lo = bounds[k][0], hi = bounds[k][1]
     if (cursor < lo || cursor >= hi) continue
     var target = cursor + dy * COLUMNS
     if (target >= lo && target < hi) return target
@@ -95,6 +98,11 @@ function tintFor(app, darkBackground) {
   return c || ""
 }
 
+// "0.8.0-1" → "0.8.0": the pkgrel means nothing to a person reading a badge.
+function shortVersion(v) {
+  return String(v || "").replace(/-\d+$/, "")
+}
+
 function ageText(seconds) {
   var s = Number(seconds)
   if (!(s >= 0)) return "never"
@@ -104,7 +112,7 @@ function ageText(seconds) {
   return Math.round(s / 86400) + " days ago"
 }
 
-// The hero's uppercase line. One short phrase; PanelHero elides past ~28 characters at 380 px.
+// The hero's uppercase line, first part. Short: it shares the line with the updates part.
 function metaLine(craft) {
   var c = craft.counts || {}
   var total = (craft.apps || []).length || SUITE_SIZE
@@ -120,12 +128,19 @@ function metaLine(craft) {
   if (jobFailed(craft)) return "Last job failed"
   if (craft.offline) return "Offline · cached list"
   if (craft.refreshing && (c.available || 0) + (c.installed || 0) === 0) return "Checking the AUR…"
-  if ((c.updates || 0) > 0) return c.updates + (c.updates === 1 ? " update ready" : " updates ready")
   if ((c.installed || 0) === 0) return "Nothing installed yet"
   return c.installed + " of " + total + " installed"
 }
 
-// The caption under the hero when nothing transient is showing.
+// The hero's second part, in the urgent colour: "· 2 updates", or "" when there is nothing pending.
+function metaUpdates(craft) {
+  var c = craft.counts || {}
+  if (craft.job || jobFailed(craft) || craft.offline) return ""
+  if ((c.updates || 0) === 0) return ""
+  return "· " + c.updates + (c.updates === 1 ? " update" : " updates")
+}
+
+// The caption under the hero: only while something needs saying. Empty otherwise, and hidden.
 function standingLine(craft) {
   if (craft.job) return "A terminal is open and may ask for your password."
   if (jobFailed(craft)) {
@@ -134,7 +149,11 @@ function standingLine(craft) {
                           : "Last job exited with status " + lj.exit + " · see the terminal"
   }
   if (craft.offline) return "Could not reach the AUR · list from " + ageText(craft.catalogAgeSeconds)
-  return "Prebuilt · nothing compiled · list from " + ageText(craft.catalogAgeSeconds)
+  return ""
+}
+
+function refreshTip(craft) {
+  return "Check the AUR now · list from " + ageText(craft.catalogAgeSeconds)
 }
 
 function subtext(app, craft) {
@@ -164,18 +183,17 @@ function actionTip(app) {
   return "Launch " + app.name
 }
 
+// "Install PhotoCraft 0.9.0 · a terminal will open and ask for your password"
 function confirmText(kind, apps, ids) {
-  var pkgs = []
+  var parts = []
   for (var i = 0; i < ids.length; i++) {
     var a = appById(apps, ids[i])
-    if (kind === "update" && a)
-      pkgs.push(ids[i] + "-bin " + a.installedVersion + " → " + a.aurVersion)
-    else
-      pkgs.push(ids[i] + "-bin" + (a && a.aurVersion ? " " + a.aurVersion : ""))
+    var name = a ? a.name : ids[i]
+    if (kind === "update" && a) parts.push(name + " " + shortVersion(a.installedVersion) + " → " + shortVersion(a.aurVersion))
+    else parts.push(name + (a && a.aurVersion ? " " + shortVersion(a.aurVersion) : ""))
   }
-  var head = ids.length === 1 ? pkgs[0] : pkgs.join(", ") + " · " + ids.length + " packages"
-  var how = kind === "update" ? " · via the AUR helper" : " · via Omarchy's AUR add"
-  return head + how + " · a terminal opens and asks your password"
+  var head = (kind === "update" ? "Update " : "Install ") + (ids.length <= 3 ? parts.join(", ") : ids.length + " apps")
+  return head + " · a terminal will open and ask for your password"
 }
 
 function chipLabel(label, count) {

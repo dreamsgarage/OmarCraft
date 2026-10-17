@@ -18,11 +18,13 @@ Panel {
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent
-  readonly property color dim: Qt.darker(foreground, 1.55)
+  readonly property color accent: Color.accent
+  readonly property color dim: Qt.darker(foreground, 1.4)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool darkBackground: Qt.color(String(Color.popups.background)).hslLightness < 0.5
   readonly property string pluginDir: Model.urlToPath(Qt.resolvedUrl("."))
   readonly property string scriptPath: pluginDir + "/bin/omarcraft"
+  readonly property string logo: "\u{F0535}"
 
   readonly property string layout: setting("layout", "tiles") === "rows" ? "rows" : "tiles"
   readonly property bool tiles: layout === "tiles"
@@ -37,13 +39,16 @@ Panel {
   readonly property var missingAll: Model.missingIds(craft.apps, "all")
   readonly property var missingCreative: Model.missingIds(craft.apps, "creative")
   readonly property var missingOffice: Model.missingIds(craft.apps, "office")
+  readonly property string statusLine: craft.actionStatus !== "" ? craft.actionStatus
+    : craft.lastError !== "" ? craft.lastError
+    : Model.standingLine(craft)
 
   property bool cursorActive: false
   property int cursor: 0
   readonly property string cursorKey: cursorKeys.length > 0 ? cursorKeys[Math.max(0, Math.min(cursor, cursorKeys.length - 1))] : ""
 
   // One confirm at a time: what it would do, and where it sits. In the tiles layout every confirm is
-  // the strip under the status line; in rows an app's confirm sits under its row.
+  // the strip under the hero; in rows an app's confirm sits under its row.
   property string confirmKind: ""      // "" | "install" | "update"
   property var confirmIds: []
   property string confirmAt: ""        // "strip" | "app:<id>" | "group"
@@ -239,7 +244,7 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.pending > 0 && !vertical ? root.pending + " \u{F03D8}" : "\u{F03D8}"
+    text: root.pending > 0 && !vertical ? root.pending + " " + root.logo : root.logo
     slotSize: Style.bar.statusSlot * (root.pending > 0 && !vertical ? 2 : 1)
     fontSize: Style.font.caption
     active: root.attention
@@ -248,6 +253,85 @@ Panel {
       if (b === Qt.RightButton) root.refreshNow()
       else if (b === Qt.MiddleButton) root.toggleLayout()
       else root.toggle()
+    }
+  }
+
+  // Section label: 11 px bold caps, the first-party header style one size up for legibility.
+  component SectionLabel: Text {
+    property color tone: root.dim
+    textFormat: Text.PlainText
+    color: tone
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.bodySmall
+    font.bold: true
+    font.letterSpacing: 1.2
+    topPadding: Style.space(2)
+  }
+
+  // Tiles of one section, three per line.
+  component TileGrid: Grid {
+    property var apps: []
+    width: column.width
+    columns: Model.COLUMNS
+    columnSpacing: Style.space(6)
+    rowSpacing: Style.space(6)
+    Repeater {
+      model: parent.apps
+      delegate: AppTile {
+        required property var modelData
+        width: root.tileWidth
+        key: "app:" + modelData.id
+        glyph: modelData.glyph
+        name: modelData.name
+        tint: root.tintFor(modelData)
+        installed: modelData.installed
+        badge: modelData.updateReady ? "↑ " + Model.shortVersion(modelData.aurVersion) : ""
+        busy: Model.jobCovers(craft.job, modelData.id)
+        failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
+        actionsEnabled: modelData.installed || !root.jobRunning
+        isCursor: root.cursorActive && root.cursorKey === key
+        tooltipText: Model.tileTip(modelData, craft)
+        foreground: root.foreground
+        urgent: root.urgent
+        accent: root.accent
+        fontFamily: root.fontFamily
+        onHovered: root.setCursorTo(key)
+        onActivated: { root.setCursorTo(key); root.primary(key) }
+        Component.onCompleted: root.registerRow(key, this)
+      }
+    }
+  }
+
+  // Rows of one section, one per line with a caption.
+  component RowList: Column {
+    property var apps: []
+    property bool dimRows: false
+    width: column.width
+    spacing: Style.space(2)
+    Repeater {
+      model: parent.apps
+      delegate: AppRow {
+        required property var modelData
+        width: column.width
+        key: "app:" + modelData.id
+        glyph: modelData.glyph
+        name: modelData.name
+        subtext: Model.subtext(modelData, craft)
+        actionIcon: Model.actionIcon(modelData)
+        actionTip: Model.actionTip(modelData)
+        dimmed: parent.dimRows
+        busy: Model.jobCovers(craft.job, modelData.id)
+        failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
+        actionsEnabled: modelData.installed || !root.jobRunning
+        isCursor: root.cursorActive && root.cursorKey === key
+        foreground: root.foreground
+        urgent: root.urgent
+        fontFamily: root.fontFamily
+        extra: root.confirmAt === key ? confirmLine : null
+        onHovered: root.setCursorTo(key)
+        onActivated: { root.setCursorTo(key); root.primary(key) }
+        Component.onCompleted: root.registerRow(key, this)
+      }
     }
   }
 
@@ -299,71 +383,87 @@ Panel {
           width: panelFlick.width
           spacing: Style.space(10)
 
-          // ---------- Hero ----------
-          PanelHero {
-            width: parent.width
-            title: "OmarCraft"
-            meta: Model.metaLine(craft)
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-
-            iconComponent: Component {
-              Text {
-                textFormat: Text.PlainText
-                text: "\u{F03D8}"
-                color: root.attention ? root.urgent : root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.display
-              }
-            }
-
-            trailingControl: Component {
-              Button {
-                iconText: "\u{F0450}"
-                iconSpinning: craft.busy || craft.refreshing
-                tooltipText: "Check the AUR now"
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                onClicked: root.refreshNow()
-              }
-            }
-          }
-
-          // ---------- Status line + Update all ----------
+          // ---------- Hero: trend logo · OmarCraft · "4 OF 13 INSTALLED · 2 UPDATES" · refresh ----------
           Item {
             width: parent.width
-            implicitHeight: Math.max(statusText.implicitHeight, updateAll.visible ? updateAll.implicitHeight : 0)
+            implicitHeight: Math.max(heroLogo.implicitHeight, heroLabels.implicitHeight, heroRefresh.implicitHeight)
 
             Text {
-              id: statusText
+              id: heroLogo
               textFormat: Text.PlainText
               anchors.left: parent.left
-              anchors.right: updateAll.visible ? updateAll.left : parent.right
-              anchors.rightMargin: updateAll.visible ? Style.space(8) : 0
               anchors.verticalCenter: parent.verticalCenter
-              text: craft.actionStatus !== "" ? craft.actionStatus
-                  : craft.lastError !== "" ? craft.lastError
-                  : Model.standingLine(craft)
-              color: craft.lastError !== "" || root.jobFailed ? root.urgent : root.dim
+              text: root.logo
+              color: root.accent
               font.family: root.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              elide: Text.ElideRight
+              font.pixelSize: Style.font.display
+            }
+
+            Column {
+              id: heroLabels
+              anchors.left: heroLogo.right
+              anchors.leftMargin: Style.space(14)
+              anchors.right: heroRefresh.left
+              anchors.rightMargin: Style.space(12)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(3)
+
+              Text {
+                textFormat: Text.PlainText
+                text: "OmarCraft"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.title
+                font.bold: true
+              }
+              Row {
+                spacing: Style.space(6)
+                Text {
+                  textFormat: Text.PlainText
+                  text: Model.metaLine(craft).toUpperCase()
+                  color: root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.bold: true
+                  font.letterSpacing: 1.2
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  visible: text !== ""
+                  text: Model.metaUpdates(craft).toUpperCase()
+                  color: root.urgent
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.bold: true
+                  font.letterSpacing: 1.2
+                }
+              }
             }
 
             Button {
-              id: updateAll
-              visible: root.pending > 0 && !root.jobRunning
+              id: heroRefresh
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              text: "Update all"
               iconText: "\u{F0450}"
+              iconSpinning: craft.busy || craft.refreshing
               bordered: true
-              fontSize: Style.font.bodySmall
+              tooltipText: Model.refreshTip(craft)
               foreground: root.foreground
               fontFamily: root.fontFamily
-              tooltipText: "u · every Craft app with a newer build"
-              onClicked: root.confirmUpdateAll()
+              onClicked: root.refreshNow()
             }
+          }
+
+          // Only while something needs saying: a flash, an error, a running or failed job, offline.
+          Text {
+            visible: root.statusLine !== ""
+            width: parent.width
+            textFormat: Text.PlainText
+            text: root.statusLine
+            color: craft.lastError !== "" || root.jobFailed ? root.urgent : root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            elide: Text.ElideRight
           }
 
           // The confirm strip: every confirm in the tiles layout, Update all in both.
@@ -374,139 +474,61 @@ Panel {
             sourceComponent: confirmLine
           }
 
-          // ---------- Installed ----------
-          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.sections.installed.length > 0 }
-          PanelSectionHeader {
-            visible: root.sections.installed.length > 0
-            text: "INSTALLED"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-          }
-          Grid {
-            visible: root.tiles && root.sections.installed.length > 0
+          PanelSeparator { width: parent.width; foreground: root.foreground }
+
+          // ---------- Updates ----------
+          Item {
+            visible: root.sections.updates.length > 0
             width: parent.width
-            columns: Model.COLUMNS
-            columnSpacing: Style.space(6)
-            rowSpacing: Style.space(6)
-            Repeater {
-              model: root.tiles ? root.sections.installed : []
-              delegate: AppTile {
-                required property var modelData
-                width: root.tileWidth
-                key: "app:" + modelData.id
-                glyph: modelData.glyph
-                name: modelData.name
-                tint: root.tintFor(modelData)
-                updateReady: modelData.updateReady
-                busy: Model.jobCovers(craft.job, modelData.id)
-                failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
-                isCursor: root.cursorActive && root.cursorKey === key
-                tooltipText: Model.tileTip(modelData, craft)
-                foreground: root.foreground
-                urgent: root.urgent
-                fontFamily: root.fontFamily
-                onHovered: root.setCursorTo(key)
-                onActivated: { root.setCursorTo(key); root.primary(key) }
-                Component.onCompleted: root.registerRow(key, this)
-              }
+            implicitHeight: Math.max(updatesLabel.implicitHeight, updateAll.implicitHeight)
+
+            SectionLabel {
+              id: updatesLabel
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              text: "UPDATES · " + root.sections.updates.length
+              tone: root.urgent
             }
-          }
-          Repeater {
-            model: root.tiles ? [] : root.sections.installed
-            delegate: AppRow {
-              required property var modelData
-              width: column.width
-              key: "app:" + modelData.id
-              glyph: modelData.glyph
-              name: modelData.name
-              subtext: Model.subtext(modelData, craft)
-              actionIcon: Model.actionIcon(modelData)
-              actionTip: Model.actionTip(modelData)
-              busy: Model.jobCovers(craft.job, modelData.id)
-              failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
-              actionsEnabled: true
-              isCursor: root.cursorActive && root.cursorKey === key
-              foreground: root.foreground
-              urgent: root.urgent
+            Button {
+              id: updateAll
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              visible: !root.jobRunning
+              text: "Update all · u"
+              iconText: root.logo
+              bordered: true
+              fontSize: Style.font.bodySmall
+              foreground: root.urgent
+              accent: root.urgent
               fontFamily: root.fontFamily
-              extra: root.confirmAt === key ? confirmLine : null
-              onHovered: root.setCursorTo(key)
-              onActivated: { root.setCursorTo(key); root.primary(key) }
-              Component.onCompleted: root.registerRow(key, this)
+              tooltipText: "Every app with a newer build"
+              onClicked: root.confirmUpdateAll()
             }
           }
+          TileGrid { visible: root.tiles && root.sections.updates.length > 0; apps: root.tiles ? root.sections.updates : [] }
+          RowList { visible: !root.tiles && root.sections.updates.length > 0; apps: root.tiles ? [] : root.sections.updates }
+          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.sections.updates.length > 0 }
+
+          // ---------- Installed ----------
+          SectionLabel { visible: root.sections.installed.length > 0; text: "INSTALLED · " + root.sections.installed.length }
+          TileGrid { visible: root.tiles && root.sections.installed.length > 0; apps: root.tiles ? root.sections.installed : [] }
+          RowList { visible: !root.tiles && root.sections.installed.length > 0; apps: root.tiles ? [] : root.sections.installed }
+          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.sections.installed.length > 0 && root.sections.available.length > 0 }
 
           // ---------- Available ----------
-          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.sections.available.length > 0 }
-          PanelSectionHeader {
-            visible: root.sections.available.length > 0
-            text: "AVAILABLE"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-          }
-          Grid {
-            visible: root.tiles && root.sections.available.length > 0
-            width: parent.width
-            columns: Model.COLUMNS
-            columnSpacing: Style.space(6)
-            rowSpacing: Style.space(6)
-            Repeater {
-              model: root.tiles ? root.sections.available : []
-              delegate: AppTile {
-                required property var modelData
-                width: root.tileWidth
-                key: "app:" + modelData.id
-                glyph: modelData.glyph
-                name: modelData.name
-                tint: root.tintFor(modelData)
-                dimmed: true
-                busy: Model.jobCovers(craft.job, modelData.id)
-                failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
-                actionsEnabled: !root.jobRunning
-                isCursor: root.cursorActive && root.cursorKey === key
-                tooltipText: Model.tileTip(modelData, craft)
-                foreground: root.foreground
-                urgent: root.urgent
-                fontFamily: root.fontFamily
-                onHovered: root.setCursorTo(key)
-                onActivated: { root.setCursorTo(key); root.primary(key) }
-                Component.onCompleted: root.registerRow(key, this)
-              }
-            }
-          }
-          Repeater {
-            model: root.tiles ? [] : root.sections.available
-            delegate: AppRow {
-              required property var modelData
-              width: column.width
-              key: "app:" + modelData.id
-              glyph: modelData.glyph
-              name: modelData.name
-              subtext: Model.subtext(modelData, craft)
-              actionIcon: Model.actionIcon(modelData)
-              actionTip: Model.actionTip(modelData)
-              dimmed: true
-              busy: Model.jobCovers(craft.job, modelData.id)
-              failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
-              actionsEnabled: !root.jobRunning
-              isCursor: root.cursorActive && root.cursorKey === key
-              foreground: root.foreground
-              urgent: root.urgent
-              fontFamily: root.fontFamily
-              extra: root.confirmAt === key ? confirmLine : null
-              onHovered: root.setCursorTo(key)
-              onActivated: { root.setCursorTo(key); root.primary(key) }
-              Component.onCompleted: root.registerRow(key, this)
-            }
-          }
+          SectionLabel { visible: root.sections.available.length > 0; text: "AVAILABLE · " + root.sections.available.length }
+          TileGrid { visible: root.tiles && root.sections.available.length > 0; apps: root.tiles ? root.sections.available : [] }
+          RowList { visible: !root.tiles && root.sections.available.length > 0; apps: root.tiles ? [] : root.sections.available; dimRows: true }
 
-          // ---------- Group chips ----------
+          // ---------- Group chips, each with its key ----------
           Flow {
             width: parent.width
             spacing: Style.space(6)
             visible: root.missingAll.length > 0 && root.sections.available.length > 0
 
             Button {
+              iconText: "a"
+              iconSize: Style.font.bodySmall
               text: Model.chipLabel("Install all", root.missingAll.length)
               bordered: true
               fontSize: Style.font.bodySmall
@@ -514,11 +536,12 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "a"
               onClicked: root.confirmGroup(root.missingAll)
             }
             Button {
               visible: root.missingCreative.length > 0
+              iconText: "c"
+              iconSize: Style.font.bodySmall
               text: Model.chipLabel("Creative", root.missingCreative.length)
               bordered: true
               fontSize: Style.font.bodySmall
@@ -526,11 +549,13 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "c · Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
+              tooltipText: "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
               onClicked: root.confirmGroup(root.missingCreative)
             }
             Button {
               visible: root.missingOffice.length > 0
+              iconText: "o"
+              iconSize: Style.font.bodySmall
               text: Model.chipLabel("Office", root.missingOffice.length)
               bordered: true
               fontSize: Style.font.bodySmall
@@ -538,7 +563,7 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "o · Word, Deck, Grid, PdfCraft"
+              tooltipText: "Word, Deck, Grid, PdfCraft"
               onClicked: root.confirmGroup(root.missingOffice)
             }
           }
@@ -552,7 +577,7 @@ Panel {
 
           // ---------- Empty / loading ----------
           Text {
-            visible: craft.loaded && root.sections.installed.length + root.sections.available.length === 0
+            visible: craft.loaded && root.cursorKeys.length === 0
             width: parent.width
             textFormat: Text.PlainText
             text: craft.refreshing ? "Checking the AUR for the Craft apps…" : "No Craft app has an AUR build yet."
@@ -561,25 +586,12 @@ Panel {
             font.pixelSize: Style.font.body
             wrapMode: Text.WordWrap
           }
-
-          // ---------- Key legend ----------
-          Text {
-            width: parent.width
-            textFormat: Text.PlainText
-            text: root.tiles
-              ? "h/l j/k move · ⏎ launch, update or install · u update all · a/c/o groups · r refresh · t rows · esc"
-              : "j/k move · ⏎ launch, update or install · u update all · a/c/o groups · r refresh · t tiles · esc"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-          }
         }
       }
     }
   }
 
-  // The confirm: one caption naming what will happen, then Install/Update, Launch instead, Cancel.
+  // The confirm: one line naming what will happen, then Install/Update, Launch instead, Cancel.
   Component {
     id: confirmLine
     Column {
@@ -591,7 +603,7 @@ Panel {
         text: Model.confirmText(root.confirmKind, craft.apps, root.confirmIds)
         color: root.foreground
         font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Style.font.bodySmall
         wrapMode: Text.WordWrap
       }
       Flow {
@@ -600,6 +612,7 @@ Panel {
         Button {
           text: (root.confirmKind === "update" ? "Update" : "Install") + " ⏎"
           bordered: true
+          active: true
           fontSize: Style.font.bodySmall
           foreground: root.foreground
           fontFamily: root.fontFamily
@@ -614,7 +627,7 @@ Panel {
           onClicked: root.launchInstead()
         }
         Button {
-          text: "Cancel esc"
+          text: "Cancel Esc"
           fontSize: Style.font.bodySmall
           foreground: root.foreground
           fontFamily: root.fontFamily
