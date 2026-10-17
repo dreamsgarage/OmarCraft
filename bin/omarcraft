@@ -1,21 +1,24 @@
 #!/bin/bash
 
-# omarcraft: launch, install and update the ArtCraft Craft apps on Omarchy.
+# omarcraft: the ArtCraft Craft apps on Omarchy. Data and actions for the OmarCraft panel.
 #
-#   omarcraft menu                  Picker: apps (launch / install / update), group installs, Studio
+#   omarcraft state                 JSON for the panel: catalog, installed state, job, counts (local only)
 #   omarcraft launch <id>           Launch (or focus) an installed app
-#   omarcraft install <id>...       Install apps (prebuilt <id>-bin from the AUR), then launch a single one
-#   omarcraft install-group <g>     Install every missing app in a group: all, classic or new
-#   omarcraft missing [group]       Exit 0 if any app of the group is not installed
+#   omarcraft install <id>...       Install apps (prebuilt <id>-bin from the AUR) in a floating terminal
+#   omarcraft install-group <g>     Install every missing app in a group: all, creative or office
+#   omarcraft update                Run Omarchy's AUR update (every AUR package) in a floating terminal
+#   omarcraft job <install|update> [id...]   The terminal side of install/update; writes job.json
 #   omarcraft check [--notify]      List installed apps with a newer AUR build; exit 0 if any
-#   omarcraft update                Update every installed app with a newer build
+#   omarcraft refresh [-f]          Fetch the catalog and AUR versions (cached 24h, -f forces)
 #   omarcraft studio                Open ArtCraft Studio (web app; created on first use)
-#   omarcraft refresh [-f]          Rebuild the catalog from upstream (cached 24h, -f forces)
 #   omarcraft list                  Print the catalog with install status
+#   omarcraft missing [group]       Exit 0 if any app of the group is not installed
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
 #   omarcraft remove-menu           Remove that section again
+#   omarcraft menu                  The v2 text picker (goes away when the panel lands)
 #
-# Only prebuilt -bin packages are ever installed, so nothing is compiled.
+# Only prebuilt -bin packages are ever installed, so nothing is compiled. Package work is delegated to
+# Omarchy's own commands (omarchy-pkg-aur-add, omarchy-update-aur-pkgs); this script never elevates.
 
 set -euo pipefail
 
@@ -23,6 +26,10 @@ SELF="$(realpath "${BASH_SOURCE[0]}")"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy/omarcraft"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omarcraft"
 CATALOG="$CACHE_DIR/catalog.tsv"
+REFRESH_FAILED="$CACHE_DIR/refresh-failed"
+REFRESH_LOCK="$STATE_DIR/refresh.lock"
+JOB_FILE="$STATE_DIR/job.json"
+LAST_JOB_FILE="$STATE_DIR/last-job.json"
 SEEN="$STATE_DIR/seen"
 NOTIFIED="$STATE_DIR/notified-updates"
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
@@ -30,16 +37,19 @@ CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/cra
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
 STUDIO_URL="https://app.getartcraft.com"
 STUDIO_ICON="https://github.com/storytold.png"
+STUDIO_DESKTOP="$HOME/.local/share/applications/ArtCraft.desktop"
 IPC_TARGET="omarcraft.productivity"
+CATALOG_MAX_AGE_MINUTES=1440
 
+# Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
 ICON_ARTCRAFT=$'\U000f03d8'
-ICON_STUDIO=$'\U0000f1fc'
+ICON_STUDIO=$'\U000f0f49'
 ICON_BROWSE=$'\U000f003b'
 ICON_GROUP=$'\U000f01da'
-ICON_UPDATE=$'\U0000f021'
+ICON_UPDATE=$'\U000f0450'
 ICON_NEW=$'\U0000f005'
 
-# Built-in copy of the suite (id<TAB>name<TAB>tagline<TAB>group), used when upstream can't be reached.
+# Built-in copy of the suite (id<TAB>name<TAB>tagline<TAB>upstream group), used when upstream can't be reached.
 BUILTIN_CATALOG="photocraft	PhotoCraft	Image editing	classic
 vectorcraft	VectorCraft	Vector illustration	classic
 filmcraft	FilmCraft	Video editing, color and sound	classic
@@ -61,15 +71,23 @@ app_icon() {
     filmcraft) printf '%s' $'\U000f0567' ;;
     lightcraft) printf '%s' $'\U000f0100' ;;
     pdfcraft) printf '%s' $'\U000f0226' ;;
-    effectcraft) printf '%s' $'\U0000f0d0' ;;
+    effectcraft) printf '%s' $'\U000f0068' ;;
     designcraft) printf '%s' $'\U000f03d8' ;;
-    wordcraft) printf '%s' $'\U000f022c' ;;
+    wordcraft) printf '%s' $'\U000f0219' ;;
     deckcraft) printf '%s' $'\U000f0429' ;;
     gridcraft) printf '%s' $'\U000f04eb' ;;
-    cadcraft) printf '%s' $'\U0000f1b2' ;;
+    cadcraft) printf '%s' $'\U000f0eec' ;;
     soundcraft) printf '%s' $'\U000f075a' ;;
-    figcraft) printf '%s' $'\U0000f247' ;;
+    figcraft) printf '%s' $'\U000f0001' ;;
     *) printf '%s' "$ICON_ARTCRAFT" ;;
+  esac
+}
+
+# The groups the panel shows. Upstream's classic/new stays in the catalog as data.
+group_for() {
+  case "$1" in
+    wordcraft | deckcraft | gridcraft | pdfcraft) printf office ;;
+    *) printf creative ;;
   esac
 }
 
@@ -82,15 +100,30 @@ notify() {
   omarchy-notification-send --app-name OmarCraft "$@" &>/dev/null || true
 }
 
+poke_panel() {
+  omarchy-shell -q "$IPC_TARGET" refresh &>/dev/null || true
+  omarchy-menu refresh &>/dev/null || true
+}
+
+now_iso() {
+  date -Iseconds
+}
+
 valid_id() {
   [[ $1 =~ ^[a-z0-9-]+$ ]] || die "invalid app id: $1"
+}
+
+# An id must be in the catalog before it can become a package name.
+known_id() {
+  valid_id "$1"
+  catalog_rows | cut -f1 | grep -qx "$1" || die "unknown app: $1 (see omarcraft list)"
 }
 
 pkg_for() {
   printf '%s-bin' "$1"
 }
 
-# One pacman query per run instead of one per app and check: name -> version.
+# One read of the installed packages per run: name -> version.
 declare -A INSTALLED=()
 INSTALLED_LOADED=0
 
@@ -126,6 +159,22 @@ installed_version() {
   printf '%s' "${INSTALLED[$pkg]}"
 }
 
+# "bin", "source" or "" for an app.
+install_source() {
+  local pkg
+  pkg=$(installed_pkg "$1" 2>/dev/null) || return 0
+  [[ $pkg == *-bin ]] && printf bin || printf source
+}
+
+update_ready() {
+  local id="$1" version="$2" current
+  [[ -n $version && $(install_source "$id") == bin ]] || return 1
+  current=$(installed_version "$id")
+  [[ -n $current ]] && (( $(vercmp "$current" "$version") < 0 ))
+}
+
+# --- catalog ----------------------------------------------------------------------------------
+
 # Parse the SUITE array of the official launcher: id, name, tagline and group of each app( call.
 parse_upstream_catalog() {
   awk '
@@ -159,14 +208,37 @@ aur_versions() {
 }
 
 catalog_fresh() {
-  [[ -s $CATALOG ]] && [[ -z $(find "$CATALOG" -mmin +1440 2>/dev/null) ]]
+  [[ -s $CATALOG ]] && [[ -z $(find "$CATALOG" -mmin +"$CATALOG_MAX_AGE_MINUTES" 2>/dev/null) ]]
 }
 
+catalog_age_seconds() {
+  [[ -s $CATALOG ]] || { printf -- '-1'; return; }
+  printf '%s' $(( $(date +%s) - $(stat -c %Y "$CATALOG") ))
+}
+
+# First run, no network: the built-in list without versions, so state can answer at once.
+ensure_cache() {
+  mkdir -p "$CACHE_DIR" "$STATE_DIR"
+  [[ -s $CATALOG ]] && return 0
+  local id name tagline group
+  while IFS=$'\t' read -r id name tagline group; do
+    printf '%s\t%s\t%s\t%s\t\n' "$id" "$name" "$tagline" "$group"
+  done <<<"$BUILTIN_CATALOG" >"$CATALOG"
+  # Nothing has been seen yet; the first real catalog must not notify thirteen "new" apps.
+  [[ -f $SEEN ]] || cut -f1 "$CATALOG" >"$SEEN"
+}
+
+catalog_rows() {
+  ensure_cache
+  cat "$CATALOG"
+}
+
+# Network. Keeps the old data when the AUR cannot be reached: a failed check is never "up to date".
 refresh() {
   local force="${1:-}" upstream versions id name tagline group version new_names=()
-  mkdir -p "$CACHE_DIR" "$STATE_DIR"
+  ensure_cache
 
-  if [[ $force != "-f" ]] && catalog_fresh; then
+  if [[ $force != "-f" ]] && catalog_fresh && [[ ! -f $REFRESH_FAILED ]]; then
     return 0
   fi
 
@@ -175,6 +247,10 @@ refresh() {
 
   # shellcheck disable=SC2046
   versions=$(aur_versions $(cut -f1 <<<"$upstream") || true)
+  if [[ -z $versions ]]; then
+    now_iso >"$REFRESH_FAILED"
+    return 1
+  fi
 
   local tmp
   tmp=$(mktemp)
@@ -184,27 +260,38 @@ refresh() {
     printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "${group:-new}" "$version" >>"$tmp"
   done <<<"$upstream"
   mv "$tmp" "$CATALOG"
+  rm -f "$REFRESH_FAILED"
 
-  # First run: everything known so far counts as seen. Later runs flag new ids.
-  if [[ ! -f $SEEN ]]; then
-    cut -f1 "$CATALOG" >"$SEEN"
-  else
-    while IFS=$'\t' read -r id name _ _ _; do
-      grep -qx "$id" "$SEEN" || new_names+=("$name")
-    done <"$CATALOG"
-    if (( ${#new_names[@]} > 0 )); then
-      notify -g "$ICON_NEW" "New ArtCraft apps" "${new_names[*]}" --exec "$SELF" menu
-    fi
+  while IFS=$'\t' read -r id name _ _ _; do
+    grep -qx "$id" "$SEEN" || new_names+=("$name")
+  done <"$CATALOG"
+  if (( ${#new_names[@]} > 0 )); then
+    notify -g "$ICON_NEW" "New ArtCraft apps" "${new_names[*]}" --exec omarchy-shell "$IPC_TARGET" open
   fi
 }
 
-ensure_catalog() {
-  [[ -s $CATALOG ]] || refresh -f
+# A refresh in the background, at most one at a time; the panel is poked when it ends.
+refresh_detached() {
+  local pid
+  if [[ -f $REFRESH_LOCK ]]; then
+    pid=$(cat "$REFRESH_LOCK" 2>/dev/null || true)
+    [[ -n $pid ]] && kill -0 "$pid" 2>/dev/null && return 0
+  fi
+  (
+    setsid bash -c '
+      printf "%s" "$$" >"$1"
+      "$2" refresh "$3" >/dev/null 2>&1
+      rm -f "$1"
+      "$2" poke
+    ' _ "$REFRESH_LOCK" "$SELF" "${1:-}" >/dev/null 2>&1 </dev/null &
+  )
 }
 
-catalog_rows() {
-  ensure_catalog
-  cat "$CATALOG"
+refreshing() {
+  local pid
+  [[ -f $REFRESH_LOCK ]] || return 1
+  pid=$(cat "$REFRESH_LOCK" 2>/dev/null || true)
+  [[ -n $pid ]] && kill -0 "$pid" 2>/dev/null
 }
 
 app_name() {
@@ -226,8 +313,15 @@ mark_seen() {
   grep -qx "$1" "$SEEN" 2>/dev/null || echo "$1" >>"$SEEN"
 }
 
+# Ids of a group that have an AUR build: all, creative or office.
 group_ids() {
-  catalog_rows | awk -F'\t' -v g="$1" '(g == "all" || $4 == g) && $5 != "" { print $1 }'
+  local group="$1" id name tagline ugroup version
+  [[ $group =~ ^(all|creative|office)$ ]] || die "unknown group: $group (all, creative or office)"
+  while IFS=$'\t' read -r id name tagline ugroup version; do
+    [[ -n $version ]] || continue
+    [[ $group == all || $(group_for "$id") == "$group" ]] && echo "$id"
+  done < <(catalog_rows)
+  return 0
 }
 
 missing_ids() {
@@ -242,12 +336,94 @@ outdated_ids() {
   local id name tagline group version
   load_installed
   while IFS=$'\t' read -r id name tagline group version; do
-    [[ -n $version ]] || continue
-    [[ $(installed_pkg "$id" 2>/dev/null) == "$(pkg_for "$id")" ]] || continue
-    (( $(vercmp "$(installed_version "$id")" "$version") < 0 )) && echo "$id"
+    update_ready "$id" "$version" && echo "$id"
   done < <(catalog_rows)
   return 0
 }
+
+# --- jobs ----------------------------------------------------------------------------------------
+# A job is one terminal run. job.json exists while it runs; last-job.json records how it ended.
+
+write_job() {
+  local verb="$1"
+  shift
+  mkdir -p "$STATE_DIR"
+  jq -nc --arg verb "$verb" --arg started "$(now_iso)" --argjson pid "$$" --args '
+    {verb: $verb, ids: $ARGS.positional, startedAt: $started, pid: $pid}' "$@" >"$JOB_FILE"
+}
+
+end_job() {
+  local rc="$1"
+  if [[ -f $JOB_FILE ]]; then
+    jq -c --argjson exit "$rc" --arg ended "$(now_iso)" '{verb, ids, exit: $exit, endedAt: $ended}' \
+      "$JOB_FILE" >"$LAST_JOB_FILE" 2>/dev/null || true
+    rm -f "$JOB_FILE"
+  fi
+  (( rc == 0 )) && rm -f "$NOTIFIED"
+  poke_panel
+}
+
+# A job whose process is gone did not end through end_job: record it as interrupted.
+reconcile_job() {
+  local pid
+  [[ -f $JOB_FILE ]] || return 0
+  pid=$(jq -r '.pid // empty' "$JOB_FILE" 2>/dev/null || true)
+  if [[ -z $pid ]] || ! kill -0 "$pid" 2>/dev/null; then
+    jq -c --arg ended "$(now_iso)" '{verb, ids, exit: 130, interrupted: true, endedAt: $ended}' \
+      "$JOB_FILE" >"$LAST_JOB_FILE" 2>/dev/null || true
+    rm -f "$JOB_FILE"
+  fi
+}
+
+# Runs inside the floating terminal. Exit status is the package command's.
+job() {
+  local verb="${1:-}" id pkgs=()
+  shift || true
+  case "$verb" in
+    install)
+      (( $# > 0 )) || die "usage: omarcraft job install <id>..."
+      for id in "$@"; do
+        known_id "$id"
+        pkgs+=("$(pkg_for "$id")")
+      done
+      ;;
+    update)
+      mapfile -t ids < <(outdated_ids)
+      set -- "${ids[@]}"
+      ;;
+    *) die "usage: omarcraft job <install|update> [id...]" ;;
+  esac
+
+  write_job "$verb" "$@"
+  trap 'rc=$?; trap - EXIT; end_job $rc; exit $rc' EXIT
+  case "$verb" in
+    install) omarchy-pkg-aur-add "${pkgs[@]}" ;;
+    update) omarchy-update-aur-pkgs ;;
+  esac
+}
+
+# Open the floating Omarchy terminal on a job. $then_launch: id to launch after a successful install.
+run_job() {
+  local verb="$1" then_launch="$2" names=() id self message after=""
+  shift 2
+  for id in "$@"; do
+    mark_seen "$id"
+    names+=("$(app_name "$id")")
+  done
+  [[ -f $JOB_FILE ]] && reconcile_job
+  [[ -f $JOB_FILE ]] && die "a job is already running: $(jq -r '.verb + " " + (.ids | join(" "))' "$JOB_FILE")"
+
+  printf -v self '%q' "$SELF"
+  case "$verb" in
+    install) printf -v message '%q' "Installing ${names[*]}..." ;;
+    update) printf -v message '%q' "Updating AUR packages (Omarchy's updater)..." ;;
+  esac
+  [[ -n $then_launch ]] && after=" && (setsid ${self} launch ${then_launch} >/dev/null 2>&1 &)"
+  exec omarchy-launch-floating-terminal-with-presentation \
+    "echo ${message}; ${self} job ${verb} $*${after}"
+}
+
+# --- actions ----------------------------------------------------------------------------------
 
 desktop_id_for() {
   local file
@@ -261,53 +437,45 @@ desktop_id_for() {
 
 launch() {
   local id="$1"
-  valid_id "$id"
+  known_id "$id"
   is_installed "$id" || die "$id is not installed (try: omarcraft install $id)"
   mark_seen "$id"
   exec omarchy-launch-or-focus "$id" "uwsm-app -- gtk-launch $(desktop_id_for "$id")"
-}
-
-# Install (or update) the given ids in one floating terminal and one yay run.
-run_packages() {
-  local verb="$1" then_launch="$2" pkgs=() names=() id
-  shift 2
-  for id in "$@"; do
-    valid_id "$id"
-    mark_seen "$id"
-    pkgs+=("$(pkg_for "$id")")
-    names+=("$(app_name "$id")")
-  done
-  if (( ${#pkgs[@]} == 0 )); then
-    notify "Nothing to ${verb,,}"
-    exit 0
-  fi
-
-  local message self after=""
-  printf -v message '%q' "${verb} ${names[*]}..."
-  printf -v self '%q' "$SELF"
-  [[ -n $then_launch ]] && after="; (setsid ${self} launch ${then_launch} >/dev/null 2>&1 &)"
-  exec omarchy-launch-floating-terminal-with-presentation \
-    "echo ${message}; yay -S --noconfirm ${pkgs[*]} && { rm -f $(printf '%q' "$NOTIFIED"); omarchy-menu refresh >/dev/null 2>&1; omarchy-shell -q ${IPC_TARGET} refresh; true; }${after}"
 }
 
 install_apps() {
   local ids=() id
   load_installed
   for id in "$@"; do
-    valid_id "$id"
+    known_id "$id"
     is_installed "$id" || ids+=("$id")
   done
-  if (( $# == 1 )) && (( ${#ids[@]} == 0 )); then
-    launch "$1"
+  if (( ${#ids[@]} == 0 )); then
+    (( $# == 1 )) && launch "$1"
+    notify "Nothing to install"
+    exit 0
   fi
-  run_packages "Installing" "$( (( $# == 1 )) && echo "$1")" "${ids[@]}"
+  run_job install "$( (( $# == 1 )) && echo "$1")" "${ids[@]}"
 }
 
 install_group() {
-  local group="${1:-all}" ids
-  [[ $group =~ ^(all|classic|new)$ ]] || die "unknown group: $group (all, classic or new)"
-  mapfile -t ids < <(missing_ids "$group")
-  run_packages "Installing" "" "${ids[@]}"
+  local ids
+  mapfile -t ids < <(missing_ids "${1:-all}")
+  if (( ${#ids[@]} == 0 )); then
+    notify "Nothing to install"
+    exit 0
+  fi
+  run_job install "" "${ids[@]}"
+}
+
+update() {
+  local ids
+  mapfile -t ids < <(outdated_ids)
+  if (( ${#ids[@]} == 0 )); then
+    notify "No ArtCraft updates pending"
+    exit 0
+  fi
+  run_job update "" "${ids[@]}"
 }
 
 check() {
@@ -328,23 +496,70 @@ check() {
   if [[ $notify_flag == "--notify" ]] && [[ $(cat "$NOTIFIED" 2>/dev/null) != "$ids" ]]; then
     mkdir -p "$STATE_DIR"
     printf '%s\n' "$ids" >"$NOTIFIED"
-    notify -g "$ICON_UPDATE" "ArtCraft updates available" "$(printf '%s\n' "${names[@]}")" --exec "$SELF" update
+    notify -g "$ICON_UPDATE" "ArtCraft updates available" "$(printf '%s\n' "${names[@]}")" \
+      --exec omarchy-shell "$IPC_TARGET" open
   fi
   return 0
 }
 
-update() {
-  local ids
-  refresh -f >/dev/null 2>&1 || true
-  mapfile -t ids < <(outdated_ids)
-  run_packages "Updating" "" "${ids[@]}"
-}
-
 studio() {
-  if [[ ! -f $HOME/.local/share/applications/ArtCraft.desktop ]]; then
+  if [[ ! -f $STUDIO_DESKTOP ]]; then
     omarchy-webapp-install "ArtCraft" "$STUDIO_URL" "$STUDIO_ICON" >/dev/null 2>&1 || true
   fi
   exec omarchy-launch-or-focus-webapp "ArtCraft" "$STUDIO_URL"
+}
+
+# --- state ------------------------------------------------------------------------------------
+# Local only: cache files and the package database. A stale cache starts a detached refresh.
+
+state() {
+  local id name tagline ugroup version src current new rows="" job="null" last="null"
+  load_installed
+  ensure_cache
+  reconcile_job
+  if { ! catalog_fresh || [[ -f $REFRESH_FAILED ]]; } && ! refreshing; then
+    refresh_detached
+  fi
+
+  while IFS=$'\t' read -r id name tagline ugroup version; do
+    src=$(install_source "$id")
+    current=$(installed_version "$id")
+    new=0
+    is_new "$id" && new=1
+    rows+="$id"$'\t'"$name"$'\t'"$tagline"$'\t'"$(group_for "$id")"$'\t'"$ugroup"$'\t'"$(app_icon "$id")"$'\t'
+    rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'
+    rows+="$(update_ready "$id" "$version" && echo 1 || echo 0)"$'\t'"$new"$'\t'"ai.storyteller.$id"$'\n'
+  done < <(catalog_rows)
+
+  [[ -f $JOB_FILE ]] && job=$(jq -c . "$JOB_FILE" 2>/dev/null || echo null)
+  [[ -f $LAST_JOB_FILE ]] && last=$(jq -c . "$LAST_JOB_FILE" 2>/dev/null || echo null)
+
+  jq -Rn \
+    --arg generated "$(now_iso)" \
+    --argjson age "$(catalog_age_seconds)" \
+    --argjson offline "$([[ -f $REFRESH_FAILED ]] && echo true || echo false)" \
+    --argjson refreshing "$(refreshing && echo true || echo false)" \
+    --argjson job "$job" --argjson last "$last" \
+    --argjson studio "$([[ -f $STUDIO_DESKTOP ]] && echo true || echo false)" \
+    --argjson office "$(group_ids office | jq -Rn '[inputs]')" '
+    [inputs | select(length > 0) | split("\t") | {
+      id: .[0], name: .[1], tagline: .[2], group: .[3], upstreamGroup: .[4], glyph: .[5],
+      aurVersion: .[6], installedVersion: .[7],
+      installed: (.[8] != ""), source: (if .[8] == "" then null else .[8] end),
+      updateReady: (.[9] == "1"), new: (.[10] == "1"), desktopId: .[11]
+    }] as $apps
+    | {
+        generatedAt: $generated, catalogAgeSeconds: $age, offline: $offline, refreshing: $refreshing,
+        counts: {
+          installed: ($apps | map(select(.installed)) | length),
+          available: ($apps | map(select((.installed | not) and .aurVersion != "")) | length),
+          updates: ($apps | map(select(.updateReady)) | length),
+          unpackaged: ($apps | map(select((.installed | not) and .aurVersion == "")) | length)
+        },
+        job: $job, lastJob: $last, studio: {installed: $studio},
+        groups: {office: $office},
+        apps: $apps
+      }' <<<"$rows"
 }
 
 list() {
@@ -352,22 +567,23 @@ list() {
   load_installed
   while IFS=$'\t' read -r id name tagline group version; do
     if is_installed "$id"; then
-      status="installed $(installed_version "$id")"
+      status="installed $(installed_version "$id") ($(install_source "$id"))"
+      update_ready "$id" "$version" && status="$status, update ready $version"
     elif [[ -z $version ]]; then
       status="not packaged yet"
     else
       status="available"
     fi
     is_new "$id" && status="$status, new"
-    printf '%-12s %-12s %-8s %-10s %s\n' "$id" "$name" "$group" "${version:--}" "$status"
+    printf '%-12s %-12s %-9s %-10s %s\n' "$id" "$name" "$(group_for "$id")" "${version:--}" "$status"
   done < <(catalog_rows)
 }
 
-# Rows are "<glyph>\t<label>\t<subtext>". Labels are unique, so the chosen label maps back to an action key.
+# --- the v2 text picker (kept until the panel replaces it) -------------------------------------
+
 menu() {
   local rows=() apps=() id name tagline group version current glyph sub label selection key outdated=0
   local -A keys=()
-  refresh >/dev/null 2>&1 || true
   load_installed
 
   add_row() {
@@ -380,15 +596,14 @@ menu() {
     label="${name} — ${tagline}"
     if is_installed "$id"; then
       current=$(installed_version "$id")
-      if [[ -n $version ]] && (( $(vercmp "$current" "$version") < 0 )); then
+      if update_ready "$id" "$version"; then
         glyph="$ICON_UPDATE"
         sub="Update ready: ${current} → ${version}"
-        keys[$label]="update:$id"
         outdated=$((outdated + 1))
       else
         sub="Installed ${current}"
-        keys[$label]="app:$id"
       fi
+      keys[$label]="app:$id"
     elif [[ -z $version ]]; then
       continue
     else
@@ -398,24 +613,22 @@ menu() {
     apps+=("${glyph}"$'\t'"${label}"$'\t'"${sub}")
   done < <(catalog_rows)
 
-  (( outdated > 0 )) && add_row "$ICON_UPDATE" "Update apps" "${outdated} with a newer build" "update"
+  (( outdated > 0 )) && add_row "$ICON_UPDATE" "Update all" "${outdated} newer build(s) · runs Omarchy's AUR update" "update"
   add_row "$ICON_STUDIO" "ArtCraft Studio — AI image and video" "Web app" "studio"
   rows+=("${apps[@]}")
-  [[ -n $(missing_ids classic) ]] && add_row "$ICON_GROUP" "Install Classic" "Photo, Vector, Film, Light, Pdf, Effect, DesignCraft" "group:classic"
-  [[ -n $(missing_ids new) ]] && add_row "$ICON_GROUP" "Install New" "Word, Deck, Grid, CAD, Sound, FigCraft" "group:new"
+  [[ -n $(missing_ids creative) ]] && add_row "$ICON_GROUP" "Install Creative" "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft" "group:creative"
+  [[ -n $(missing_ids office) ]] && add_row "$ICON_GROUP" "Install Office" "Word, Deck, Grid, PdfCraft" "group:office"
   [[ -n $(missing_ids all) ]] && add_row "$ICON_GROUP" "Install all" "Every Craft app you don't have" "group:all"
 
   selection=$(printf '%s\n' "${rows[@]}" | omarchy-menu-select "ArtCraft" -- --width 720) || exit 0
   key="${keys[${selection%%$'\t'*}]:-}"
 
   case "$key" in
-    update:*) run_packages "Updating" "${key#update:}" "${key#update:}" ;;
     update) update ;;
     studio) studio ;;
     group:*) install_group "${key#group:}" ;;
     app:*)
       id="${key#app:}"
-      valid_id "$id"
       if is_installed "$id"; then
         launch "$id"
       else
@@ -425,6 +638,8 @@ menu() {
     *) die "unexpected selection: $selection" ;;
   esac
 }
+
+# --- optional Omarchy-menu section -------------------------------------------------------------
 
 json_entry() {
   # key icon label action [when] [description] [aliases]
@@ -438,21 +653,21 @@ json_entry() {
     sed "s/^/  \"$1\": /; s/\$/,/"
 }
 
-# The optional Omarchy-menu section. Written only by `omarcraft setup-menu`.
 menu_block() {
-  local self
+  local self open
   printf -v self '%q' "$SELF"
+  open="omarchy-shell $IPC_TARGET open"
   echo "  // >>> omarcraft (added by 'omarcraft setup-menu'; remove with 'omarcraft remove-menu')"
   json_entry "omarcraft" "$ICON_ARTCRAFT" "ArtCraft" "" "" "Craft apps and ArtCraft Studio" "ac omarcraft"
-  json_entry "omarcraft.browse" "$ICON_BROWSE" "All apps" "$self menu" "" "Launch, install or update any Craft app"
+  json_entry "omarcraft.browse" "$ICON_BROWSE" "All apps" "$open" "" "Launch, install or update any Craft app"
   json_entry "omarcraft.studio" "$ICON_STUDIO" "Studio" "$self studio" "" "ArtCraft Studio, AI image and video (web app)"
-  json_entry "omarcraft.update" "$ICON_UPDATE" "Update apps" "$self update" "$self check" "Install newer builds of your Craft apps"
+  json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Runs Omarchy's AUR update"
   json_entry "omarcraft.install-all" "$ICON_GROUP" "Install all" "$self install-group all" "$self missing all" "Every Craft app"
-  json_entry "omarcraft.install-classic" "$ICON_GROUP" "Install Classic" "$self install-group classic" "$self missing classic" \
-    "Photo, Vector, Film, Light, Pdf, Effect, DesignCraft"
-  json_entry "omarcraft.install-new" "$ICON_GROUP" "Install New" "$self install-group new" "$self missing new" \
-    "Word, Deck, Grid, CAD, Sound, FigCraft"
-  json_entry "install.omarcraft" "$ICON_ARTCRAFT" "ArtCraft" "$self menu" "" "Craft apps"
+  json_entry "omarcraft.install-creative" "$ICON_GROUP" "Install Creative" "$self install-group creative" "$self missing creative" \
+    "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
+  json_entry "omarcraft.install-office" "$ICON_GROUP" "Install Office" "$self install-group office" "$self missing office" \
+    "Word, Deck, Grid, PdfCraft"
+  json_entry "install.omarcraft" "$ICON_ARTCRAFT" "ArtCraft" "$open" "" "Craft apps"
   echo "  // <<< omarcraft"
 }
 
@@ -500,20 +715,23 @@ remove_menu() {
 
 # Sourcing the script (tests) loads the functions without running a command.
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
-  case "${1:-menu}" in
-    menu) menu ;;
+  case "${1:-state}" in
+    state) state ;;
     launch) launch "${2:?usage: omarcraft launch <id>}" ;;
     install) shift; (( $# > 0 )) || die "usage: omarcraft install <id>..."; install_apps "$@" ;;
     install-group) install_group "${2:-all}" ;;
+    update) update ;;
+    job) shift; job "$@" ;;
     missing) [[ -n $(missing_ids "${2:-all}") ]] ;;
     check) check "${2:-}" ;;
-    update) update ;;
-    studio) studio ;;
     refresh) refresh "${2:-}" ;;
+    poke) poke_panel ;;
+    studio) studio ;;
     list) list ;;
+    menu) menu ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
-    -h | --help | help) sed -n '3,19p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    -h | --help | help) sed -n '3,21p' "$SELF" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command: $1 (see omarcraft --help)" ;;
   esac
 fi
