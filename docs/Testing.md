@@ -110,7 +110,7 @@ With the README's keybinding line in `bindings.lua`: `Super + Alt + A` toggles t
 ## 10. Plugin update and removal
 
 - Push a commit, `omarchy plugin update omarcraft.productivity`: fast-forward, valid, panel working after
-  `omarchy refresh shell`. Note any `exited with status` line in the shell log.
+  `omarchy restart shell`. Note any `exited with status` line in the shell log.
 - `omarchy plugin remove omarcraft.productivity`: icon gone; apps still installed.
 
 ## Reporting a problem

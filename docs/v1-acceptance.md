@@ -102,7 +102,7 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 9 | IPC refuses unknown and unsafe ids, reports no updates | e7d2615 | PASS | `launch nope`, `install 'x;rm'`, `update` |
 | 10 | No `sudo`, `pkexec`, helper or `pacman -S` string in code | e7d2615 | PASS | test `no package-manager or privilege strings in the script`; docs use negations only |
 | 11 | Offline tests | e7d2615 | PASS | 71 passed |
-| 12 | Shell loads the plugin with no QML error | e7d2615 | PASS | log clean after `omarchy refresh shell`; one transient "File name case mismatch" from the old shell during the git fast-forward, gone after restart |
+| 12 | Shell loads the plugin with no QML error | e7d2615 | PASS | log clean after `omarchy restart shell`; one transient "File name case mismatch" from the old shell during the git fast-forward, gone after restart |
 | 13 | Real install: one terminal, one Omarchy command, no compiling, row moves to INSTALLED, app launches | | pending | needs the user's password; Testing.md § 3 |
 | 14 | Group install, one command with every package | | pending | Testing.md § 4 |
 | 15 | Studio opens as a web app, second open focuses | | pending | Testing.md § 5 |

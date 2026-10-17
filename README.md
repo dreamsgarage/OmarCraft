@@ -173,7 +173,7 @@ success from an exit code; it re-reads the package database.
 bash tests/run.sh
 omarchy plugin validate .
 rsync -a --delete --exclude .git ./ ~/.config/omarchy/plugins/omarcraft.productivity/   # or push + omarchy plugin update
-omarchy refresh shell        # after changing a .qml
+omarchy restart shell        # after changing a .qml (never "refresh shell": that resets shell.json)
 ```
 
 Manual test plan: [docs/Testing.md](docs/Testing.md). Shell log: `journalctl --user _COMM=quickshell`.
