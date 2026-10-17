@@ -38,11 +38,11 @@ its row says `Source build · updates via omarchy update`.
 
 1. **Bar icon**, right section, `slotSize: Style.bar.statusSlot`, palette glyph `󰏘`. Icon only while
    nothing is pending; with updates pending it shows the count before the glyph (`2 󰏘`) in the urgent
-   colour, Power's label pattern; urgent also after a failed job. Left = panel, right = Studio, middle =
-   check now.
+   colour, Power's label pattern; urgent also after a failed job. Left = panel, right = check now,
+   middle = switch layout.
 2. **Panel** anchored to the icon, width `Style.space(380)`, height fitted to content and capped at
    `Style.space(640)` with scrolling. Sections in this order: hero, status caption, INSTALLED, AVAILABLE
-   (rows, then group chips), STUDIO, key legend. Empty sections are hidden.
+   (rows, then group chips), key legend. Empty sections are hidden.
 3. **Hero meta line**, uppercase, one of: `N OF 13 INSTALLED` · `N UPDATES READY` · `INSTALLING X…` /
    `UPDATING N APPS…` · `NOTHING INSTALLED YET` · `OFFLINE · CACHED LIST` · `LAST JOB FAILED`. Priority
    in that order from the right (failure beats offline beats job beats updates beats count).
@@ -77,22 +77,21 @@ its row says `Source build · updates via omarchy update`.
     stale (`OFFLINE · CACHED LIST`), never "up to date". When the set of update-ready apps changes and is
     non-empty, one `omarchy-notification-send` with the names; clicking it opens the panel. New apps get
     the same, once.
-11. **Studio**: one row, `ArtCraft Studio · web app · needs an ArtCraft account`, action opens it
-    (`omarchy-launch-or-focus-webapp`); first use creates the web app with `omarchy-webapp-install`.
+11. ~~**Studio**~~ Removed 2026-10-17: ArtCraft Studio is out of scope (another category of software).
 12. **Keyboard** (PanelKeyCatcher): `j/k` `↑/↓` move the cursor over rows; `Enter` primary action of the
-    row; `u` update all; `a` install all; `c` / `o` install Creative / Office; `s` Studio; `r` refresh;
+    row; `u` update all; `a` install all; `c` / `o` install Creative / Office; `r` refresh;
     `Tab`/`Shift+Tab` neighbouring panel; `Esc` cancels an open confirm line, otherwise closes.
 13. **IPC** (`omarchy-shell omarcraft.productivity <verb>`): `open`, `close`, `toggle`, `refresh`,
-    `install <id…>`, `update`, `launch <id>`, `studio`, `status` (returns the state JSON). Bad input
+    `install <id…>`, `update`, `launch <id>`, `layout`, `status` (returns the state JSON). Bad input
     returns a message string, never throws. IPC installs skip the inline confirm; a script is explicit.
 14. **Opt-in extras, unchanged**: `bin/omarcraft setup-menu` / `remove-menu` for an Omarchy-menu section;
     a documented keybinding line (`omarchy-shell omarcraft.productivity toggle`).
-15. **CLI**: `bin/omarcraft state|list|check|refresh|install|update|launch|studio|setup-menu|remove-menu`.
+15. **CLI**: `bin/omarcraft state|list|check|refresh|install|update|launch|setup-menu|remove-menu`.
     The v2 `menu` picker is removed.
 
 ## Non-goals for v1
 
-Removing apps; AppImage/Flatpak; the official launcher; building Studio; settings schema; search field;
+Removing apps; AppImage/Flatpak; the official launcher; ArtCraft Studio in any form; settings schema; search field;
 per-app detail pages; remembering window positions; anything that writes outside the plugin's cache and
 state directories without an opt-in command.
 
@@ -118,7 +117,6 @@ state directories without an opt-in command.
   "counts": { "installed": 3, "available": 10, "updates": 1, "unpackaged": 0 },
   "job": null,
   "lastJob": { "verb": "install", "ids": ["wordcraft"], "exit": 0, "endedAt": "…" },
-  "studio": { "installed": true },
   "groups": { "office": ["wordcraft", "deckcraft", "gridcraft", "pdfcraft"] },
   "apps": [
     {
@@ -146,6 +144,6 @@ Apps are listed in catalog order; the panel sorts them into sections.
    Omarchy's floating presentation terminal.
 6. Installs through `omarchy-pkg-aur-add`; updates package-exact through the AUR helper Omarchy ships
    (amended 2026-10-17; marketplace path `review-required`).
-7. Studio remains a web app.
+7. ~~Studio remains a web app.~~ Studio removed from scope (2026-10-17).
 8. Two layouts, tiles (default) and rows, switchable; the app's own ArtCraft colour on tiles (amended
    2026-10-17).

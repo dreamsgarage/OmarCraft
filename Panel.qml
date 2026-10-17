@@ -118,9 +118,8 @@ Panel {
   }
 
   // Enter, click or the row action. Installed: launch, or ask to update when a newer build exists.
-  // Available: ask to install (Enter again runs it). Studio: open.
+  // Available: ask to install (Enter again runs it).
   function primary(key) {
-    if (key === "studio") { run("studio"); craft.flash("Opening ArtCraft Studio…"); return }
     if (key.indexOf("app:") !== 0) return
     var id = key.slice(4)
     var app = Model.appById(craft.apps, id)
@@ -212,7 +211,6 @@ Panel {
       root.run("update " + list.join(" "))
       return "updating " + list.join(" ")
     }
-    function studio(): void { root.run("studio") }
   }
 
   onOpenedChanged: {
@@ -247,8 +245,8 @@ Panel {
     active: root.attention
     tooltipText: ""
     onPressed: function(b) {
-      if (b === Qt.RightButton) root.run("studio")
-      else if (b === Qt.MiddleButton) root.refreshNow()
+      if (b === Qt.RightButton) root.refreshNow()
+      else if (b === Qt.MiddleButton) root.toggleLayout()
       else root.toggle()
     }
   }
@@ -281,7 +279,6 @@ Panel {
         else if (k === "a") root.confirmGroup(root.missingAll)
         else if (k === "c") root.confirmGroup(root.missingCreative)
         else if (k === "o") root.confirmGroup(root.missingOffice)
-        else if (k === "s") root.primary("studio")
         else if (k === "r") root.refreshNow()
         else if (k === "t") root.toggleLayout()
       }
@@ -553,47 +550,6 @@ Panel {
             sourceComponent: confirmLine
           }
 
-          // ---------- Studio ----------
-          PanelSeparator { width: parent.width; foreground: root.foreground }
-          PanelSectionHeader {
-            text: "STUDIO"
-            foreground: root.foreground
-            fontFamily: root.fontFamily
-          }
-          AppTile {
-            visible: root.tiles
-            width: root.tileWidth
-            key: "studio"
-            glyph: "\u{F0F49}"
-            name: "Studio"
-            tint: Color.accent
-            isCursor: root.cursorActive && root.cursorKey === key
-            tooltipText: craft.studioInstalled ? "ArtCraft Studio · web app · in your app launcher" : "ArtCraft Studio · web app · needs an ArtCraft account"
-            foreground: root.foreground
-            urgent: root.urgent
-            fontFamily: root.fontFamily
-            onHovered: root.setCursorTo(key)
-            onActivated: { root.setCursorTo(key); root.primary(key) }
-            Component.onCompleted: root.registerRow(key, this)
-          }
-          AppRow {
-            visible: !root.tiles
-            width: column.width
-            key: "studio"
-            glyph: "\u{F0F49}"
-            name: "ArtCraft Studio"
-            subtext: craft.studioInstalled ? "Web app · in your app launcher" : "Web app · needs an ArtCraft account"
-            actionIcon: "\u{F059F}"
-            actionTip: "Open ArtCraft Studio"
-            isCursor: root.cursorActive && root.cursorKey === key
-            foreground: root.foreground
-            urgent: root.urgent
-            fontFamily: root.fontFamily
-            onHovered: root.setCursorTo(key)
-            onActivated: { root.setCursorTo(key); root.primary(key) }
-            Component.onCompleted: if (!root.tiles) root.registerRow(key, this)
-          }
-
           // ---------- Empty / loading ----------
           Text {
             visible: craft.loaded && root.sections.installed.length + root.sections.available.length === 0
@@ -611,8 +567,8 @@ Panel {
             width: parent.width
             textFormat: Text.PlainText
             text: root.tiles
-              ? "h/l j/k move · ⏎ launch, update or install · u update all · a/c/o groups · s studio · r refresh · t rows · esc"
-              : "j/k move · ⏎ launch, update or install · u update all · a/c/o groups · s studio · r refresh · t tiles · esc"
+              ? "h/l j/k move · ⏎ launch, update or install · u update all · a/c/o groups · r refresh · t rows · esc"
+              : "j/k move · ⏎ launch, update or install · u update all · a/c/o groups · r refresh · t tiles · esc"
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption

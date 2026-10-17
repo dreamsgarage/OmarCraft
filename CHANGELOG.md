@@ -5,9 +5,9 @@
 First release. Exercised on Omarchy 4.0.4 with WordCraft, DeckCraft and GridCraft installed as prebuilt
 packages.
 
-- Bar icon in the right section: left = panel, right = ArtCraft Studio, middle = check the AUR. Urgent
+- Bar icon in the right section: left = panel, right = check the AUR, middle = switch layout. Urgent
   colour with the pending count while updates are ready, urgent after a failed job.
-- Native panel (`KeyboardPanel`): hero with the one-line situation, INSTALLED / AVAILABLE / STUDIO
+- Native panel (`KeyboardPanel`): hero with the one-line situation, INSTALLED / AVAILABLE
   sections, group chips *Install all*, *Creative*, *Office* with counts, a confirm naming the package
   before any install or update, spinner and greyed actions while a job runs, `h/l j/k`, `Enter`, `u`,
   `a/c/o`, `s`, `r`, `t`, `Tab`, `Esc`.
@@ -22,12 +22,13 @@ packages.
 - Data: catalog from the official ArtCraft Launcher with a built-in fallback, versions from one AUR RPC
   request, cached 24 h; `state` reads local files only; a failed refresh keeps the old data and reports
   offline. Six-hourly update check with one notification per new set; new apps flagged once.
-- ArtCraft Studio as an Omarchy web app.
-- IPC: `open`, `close`, `toggle`, `refresh`, `status`, `launch`, `install`, `update`, `studio`.
+- IPC: `open`, `close`, `toggle`, `refresh`, `status`, `layout`, `launch`, `install`, `update`.
 - Opt-in only: an ArtCraft section in the Omarchy menu and a documented keybinding line.
 - 79 offline tests with every external command stubbed.
 
-Not in this release: removing apps, AppImage or Flatpak installs, the official launcher, building Studio.
+Not in this release: removing apps, AppImage or Flatpak installs, the official launcher. ArtCraft Studio
+(the AI image/video app) is deliberately out of scope: it is a different category of software from the
+Craft apps and has no Linux build (removed 2026-10-17 at the user's request).
 
 ### Superseded during development (never released)
 

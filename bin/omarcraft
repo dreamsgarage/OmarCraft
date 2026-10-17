@@ -10,7 +10,6 @@
 #   omarcraft job <install|update> [id...]   The terminal side of install/update; writes job.json
 #   omarcraft check [--notify]      List installed apps with a newer AUR build; exit 0 if any
 #   omarcraft refresh [-f]          Fetch the catalog and AUR versions (cached 24h, -f forces)
-#   omarcraft studio                Open ArtCraft Studio (web app; created on first use)
 #   omarcraft list                  Print the catalog with install status
 #   omarcraft missing [group]       Exit 0 if any app of the group is not installed
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
@@ -34,15 +33,11 @@ NOTIFIED="$STATE_DIR/notified-updates"
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
-STUDIO_URL="https://app.getartcraft.com"
-STUDIO_ICON="https://github.com/storytold.png"
-STUDIO_DESKTOP="$HOME/.local/share/applications/ArtCraft.desktop"
 IPC_TARGET="omarcraft.productivity"
 CATALOG_MAX_AGE_MINUTES=1440
 
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
 ICON_ARTCRAFT=$'\U000f03d8'
-ICON_STUDIO=$'\U000f0f49'
 ICON_GROUP=$'\U000f01da'
 ICON_UPDATE=$'\U000f0450'
 ICON_NEW=$'\U0000f005'
@@ -538,13 +533,6 @@ check() {
   return 0
 }
 
-studio() {
-  if [[ ! -f $STUDIO_DESKTOP ]]; then
-    omarchy-webapp-install "ArtCraft" "$STUDIO_URL" "$STUDIO_ICON" >/dev/null 2>&1 || true
-  fi
-  exec omarchy-launch-or-focus-webapp "ArtCraft" "$STUDIO_URL"
-}
-
 # --- state ------------------------------------------------------------------------------------
 # Local only: cache files and the package database. A stale cache starts a detached refresh.
 
@@ -577,7 +565,6 @@ state() {
     --argjson offline "$([[ -f $REFRESH_FAILED ]] && echo true || echo false)" \
     --argjson refreshing "$(refreshing && echo true || echo false)" \
     --argjson job "$job" --argjson last "$last" \
-    --argjson studio "$([[ -f $STUDIO_DESKTOP ]] && echo true || echo false)" \
     --argjson office "$(group_ids office | jq -Rn '[inputs]')" '
     [inputs | select(length > 0) | split("\t") | {
       id: .[0], name: .[1], tagline: .[2], group: .[3], upstreamGroup: .[4], glyph: .[5],
@@ -594,7 +581,7 @@ state() {
           updates: ($apps | map(select(.updateReady)) | length),
           unpackaged: ($apps | map(select((.installed | not) and .aurVersion == "")) | length)
         },
-        job: $job, lastJob: $last, studio: {installed: $studio},
+        job: $job, lastJob: $last,
         groups: {office: $office},
         apps: $apps
       }' <<<"$rows"
@@ -636,9 +623,8 @@ menu_block() {
   printf -v self '%q' "$SELF"
   open="omarchy-shell $IPC_TARGET open"
   echo "  // >>> omarcraft (added by 'omarcraft setup-menu'; remove with 'omarcraft remove-menu')"
-  json_entry "omarcraft" "$ICON_ARTCRAFT" "ArtCraft" "" "" "Craft apps and ArtCraft Studio" "ac omarcraft"
+  json_entry "omarcraft" "$ICON_ARTCRAFT" "ArtCraft" "" "" "The Craft apps" "ac omarcraft"
   json_entry "omarcraft.browse" "$ICON_ARTCRAFT" "All apps" "$open" "" "Launch, install or update any Craft app"
-  json_entry "omarcraft.studio" "$ICON_STUDIO" "Studio" "$self studio" "" "ArtCraft Studio, AI image and video (web app)"
   json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Newer builds of your Craft apps"
   json_entry "omarcraft.install-all" "$ICON_GROUP" "Install all" "$self install-group all" "$self missing all" "Every Craft app"
   json_entry "omarcraft.install-creative" "$ICON_GROUP" "Install Creative" "$self install-group creative" "$self missing creative" \
@@ -704,7 +690,6 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     check) check "${2:-}" ;;
     refresh) refresh "${2:-}" ;;
     poke) poke_panel ;;
-    studio) studio ;;
     list) list ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;

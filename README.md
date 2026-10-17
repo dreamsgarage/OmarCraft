@@ -6,7 +6,7 @@ The ArtCraft Craft apps, from the Omarchy bar.
 
 [ArtCraft](https://getartcraft.com) ships thirteen creative and office apps (PhotoCraft, VectorCraft,
 FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft,
-SoundCraft, FigCraft) plus ArtCraft Studio for AI image and video. OmarCraft puts them behind one bar icon
+SoundCraft, FigCraft). OmarCraft puts them behind one bar icon
 with a native Omarchy panel: what is installed, what is not, what has a newer build, and one action per
 row to launch, install or update. Installs use the prebuilt `-bin` packages from the AUR through Omarchy's
 own package commands, so pacman owns every app and nothing is ever compiled.
@@ -56,18 +56,15 @@ In both:
 - **Group chips** under the available rows: *Install all · N*, *Creative · N*, *Office · N* (Office =
   WordCraft, DeckCraft, GridCraft, PdfCraft), each counting the apps you don't have. Same confirm, listing
   every package; one terminal, one run.
-- **STUDIO.** ArtCraft Studio as an Omarchy web app (it has no Linux build; only a long source build). It
-  needs an ArtCraft account; generation runs in their cloud. First use adds it to the app launcher.
-
 While a job runs the row shows a spinner and `Installing…`, the hero says what runs, every install action
 is greyed out, and the terminal is the place to type your password. When the terminal finishes the panel
 re-reads the package database: what you see is what is installed, never what a click intended.
 
 **Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` launch, update or install · `u` Update
-all · `a` / `c` / `o` install all / Creative / Office · `s` Studio · `r` check the AUR · `t` switch layout ·
+all · `a` / `c` / `o` install all / Creative / Office · `r` check the AUR · `t` switch layout ·
 `Tab` neighbouring panel · `Esc` cancel or close.
 
-**Bar icon:** left = panel · right = ArtCraft Studio · middle = check now. While updates are pending the
+**Bar icon:** left = panel · right = check the AUR now · middle = switch layout. While updates are pending the
 icon turns to the urgent colour and shows the count (`2 󰏘`); it also turns urgent after a job that failed.
 
 ## Updates
@@ -110,11 +107,10 @@ $P install-group all|creative|office
 $P update [id...]             # the named apps, or every app with a newer build; floating terminal
 $P check [--notify]           # pending updates; exit 0 if any
 $P refresh [-f]               # fetch catalog and AUR versions now
-$P studio
 ```
 
 ```
-omarchy-shell omarcraft.productivity open | close | toggle | refresh | studio
+omarchy-shell omarcraft.productivity open | close | toggle | refresh
 omarchy-shell omarcraft.productivity launch <id>
 omarchy-shell omarcraft.productivity install "<id> <id>"      # no confirm: a script is explicit
 omarchy-shell omarcraft.productivity update "<id> <id>"      # or "" for every app with a newer build
@@ -144,7 +140,6 @@ clean-up:
 
 ```bash
 rm -rf ~/.cache/omarchy/omarcraft ~/.local/state/omarchy/omarcraft   # catalog cache, job records, seen list
-rm -f ~/.local/share/applications/ArtCraft.desktop                  # the Studio web app
 ```
 
 plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybinding line if you added it.
@@ -171,7 +166,7 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 | `AppRow.qml` | One row: glyph · name · subtext · right-edge action, Network-panel style |
 | `Service.qml` | Runs `bin/omarcraft state`, watches `job.json`, six-hourly check |
 | `Model.js` | Pure helpers: sections, meta line, subtexts, confirm text |
-| `bin/omarcraft` | Catalog, installed state, jobs, launch, Studio, the opt-in menu section |
+| `bin/omarcraft` | Catalog, installed state, jobs, launch, the opt-in menu section |
 | `tests/` | `bash tests/run.sh`: offline, every external command stubbed |
 | `docs/` | Approved plan, spec, design, acceptance, research, testing and publish guides |
 
@@ -194,7 +189,7 @@ Release and marketplace steps: [docs/Publish-Guide.md](docs/Publish-Guide.md). C
 
 ## Credits and license
 
-MIT, see [LICENSE](LICENSE). By Entangled Forge. The Craft apps, ArtCraft Studio and the app catalog are by
+MIT, see [LICENSE](LICENSE). By Entangled Forge. The Craft apps and the app catalog are by
 [Storyteller](https://github.com/storytold), as are the per-app colours, taken from their launcher's catalog;
 the `-bin` packages are maintained by their AUR packagers. The panel follows Omarchy's first-party Network
 and Power panels and Entangled Forge's OmasteelRGB.

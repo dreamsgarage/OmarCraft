@@ -215,7 +215,7 @@ cp "$MENU_FILE" "$TMP/original.jsonc"
 setup_menu >/dev/null
 parse_menu_jsonc "$MENU_FILE" && ok "menu section parses as Omarchy JSONC" || fail "menu section parses as Omarchy JSONC"
 grep -q '"personal"' "$MENU_FILE" && ok "user entries kept" || fail "user entries kept"
-expect_eq "menu section has 8 entries" "$(grep -c '^  "\(install\.\)\{0,1\}omarcraft' "$MENU_FILE")" "8"
+expect_eq "menu section has 7 entries" "$(grep -c '^  "\(install\.\)\{0,1\}omarcraft' "$MENU_FILE")" "7"
 cp "$MENU_FILE" "$TMP/once.jsonc"
 setup_menu >/dev/null
 cmp -s "$MENU_FILE" "$TMP/once.jsonc" && ok "setup-menu is idempotent" || fail "setup-menu is idempotent"

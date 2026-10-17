@@ -26,8 +26,8 @@ audio, monitor, power. Nothing installed, nothing written under `~/.config`. If 
 
 | Do | Expect |
 |---|---|
-| Left-click the icon | Panel under the icon within a second: hero `ArtCraft` + `N OF 13 INSTALLED`, status line `Prebuilt AUR packages · list from …` |
-| Read the sections (tiles) | INSTALLED tiles in each app's colour, AVAILABLE tiles dimmed, chips `Install all · N` `Creative · N` `Office · N`, a Studio tile; hover a tile for its version |
+| Left-click the icon | Panel under the icon within a second: hero `OmarCraft` + `N OF 13 INSTALLED`, status line `Prebuilt · nothing compiled · list from …` |
+| Read the sections (tiles) | INSTALLED tiles in each app's colour, AVAILABLE tiles dimmed, chips `Install all · N` `Creative · N` `Office · N`; hover a tile for its version |
 | `t` | Rows: INSTALLED (version, ▶), AVAILABLE (dimmed, `Install x.y.z · prebuilt, no compiling`, download glyph); `t` again returns to tiles |
 | `j` four times | First press activates the cursor on the first row, then it moves down one row per press; the list scrolls to keep it in view |
 | `Tab` | The neighbouring bar panel opens instead |
@@ -57,11 +57,10 @@ the app launcher.
 package, one terminal, one password prompt, one command with all packages. Afterwards the chip is gone
 and the apps read Installed. No launch.
 
-## 5. Studio
+## 5. Bar clicks
 
-Right-click the icon, or `s` in the panel. Expect ArtCraft Studio as a web-app window at
-app.getartcraft.com; the first time, an ArtCraft entry appears in the app launcher; the second time the
-existing window is focused.
+Right-click the icon: the refresh control in the hero spins and the status line says `Checking the AUR…`.
+Middle-click: the layout flips.
 
 ## 6. Updates
 
@@ -101,7 +100,7 @@ back to normal.
 
 ```bash
 cp ~/.config/omarchy/extensions/omarchy-menu.jsonc /tmp/menu.bak
-$P/bin/omarcraft setup-menu && omarchy menu summon ac       # ArtCraft section: All apps, Studio, Update all, group installs
+$P/bin/omarcraft setup-menu && omarchy menu summon ac       # ArtCraft section: All apps, Update all, group installs
 $P/bin/omarcraft remove-menu
 diff /tmp/menu.bak ~/.config/omarchy/extensions/omarchy-menu.jsonc && echo restored
 ```

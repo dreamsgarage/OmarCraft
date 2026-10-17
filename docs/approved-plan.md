@@ -28,8 +28,8 @@ theme as shipped; validated on the author's machine with WordCraft, DeckCraft an
 **v1 capabilities**
 
 1. A bar icon in the **right** section (`defaultSection: "right"`), category Productivity. Left click opens
-   the panel, right click opens ArtCraft Studio, middle click checks for updates now.
-2. The panel lists every Craft app in three sections, **Installed**, **Available**, **Studio**, each row
+   the panel, right click checks the AUR now, middle click switches the layout (amended 2026-10-17).
+2. The panel lists every Craft app in two sections, **Installed** and **Available**, each entry
    with the app glyph, name, a one-line status and an action at the right edge (launch, update, install,
    open).
 3. Hero meta line that states the whole situation in one short uppercase phrase: `3 OF 13 INSTALLED`,
@@ -40,7 +40,7 @@ theme as shipped; validated on the author's machine with WordCraft, DeckCraft an
 5. Update: rows with a newer AUR build show `old → new`; `u` or *Update all* runs Omarchy's AUR update in a
    terminal; the bar icon shows the pending count in the urgent colour; one notification per new set.
 6. Keyboard-driven like the first-party panels: `j/k` move, `Enter` act on the row, `u` update all,
-   `a` install all, `s` Studio, `r` refresh, `Tab` neighbouring panel, `Esc` close.
+   `a` install all, `r` refresh, `t` layout, `Tab` neighbouring panel, `Esc` close.
 7. Truth over optimism: every state in the panel comes from `pacman -Q` and the AUR, re-read after every
    job. The panel never shows an app as installed because a click happened.
 8. Honest copy before anything happens: an available row says `Install 0.9.0 · prebuilt, no compiling`;
@@ -49,13 +49,13 @@ theme as shipped; validated on the author's machine with WordCraft, DeckCraft an
    nothing, and no configuration file is written. The optional Omarchy-menu section and keybinding stay
    opt-in commands.
 10. IPC for scripts and keybindings: `open`, `close`, `toggle`, `refresh`, `install <ids>`, `update`,
-    `launch <id>`, `studio`, `status` (JSON).
+    `launch <id>`, `layout`, `status` (JSON).
 
 **Explicit non-goals for v1**
 
 - Removing apps from the panel (pacman's job; documented command in the README).
 - AppImage or Flatpak installs, the official launcher, the source packages.
-- Building ArtCraft Studio; it stays a web app.
+- ArtCraft Studio in any form (amended 2026-10-17: removed from scope).
 - A settings schema in the manifest (no user-tunable options in v1).
 - Per-app changelogs, screenshots, ratings, or a search field (13 rows do not need one).
 
@@ -70,7 +70,7 @@ Panel.qml            bar-widget entry point: BarIconButton + KeyboardPanel (the 
     └── bin/omarcraft  bash; the only thing that touches the network, pacman or yay
                        state  → JSON for the panel (catalog + installed + job)
                        install/update → floating Omarchy terminal running one yay -S …
-                       launch/studio/check/refresh/list, as today
+                       launch/check/refresh/list
 ~/.cache/omarchy/omarcraft/catalog.tsv     catalog + AUR versions, 24 h
 ~/.local/state/omarchy/omarcraft/job.json  written by the terminal run at start and end
 ```
@@ -103,9 +103,9 @@ Panel.qml            bar-widget entry point: BarIconButton + KeyboardPanel (the 
 See `v1-design.md` for the mockups. In one line each:
 
 - **Bar:** palette glyph, `slotSize: Style.bar.statusSlot`, no label; `active` (urgent colour) while
-  updates are pending; tooltip empty because the panel is the detail view. Right = Studio, middle = check.
+  updates are pending; tooltip empty because the panel is the detail view. Right = check, middle = layout.
 - **Panel:** `PanelHero` (glyph, "ArtCraft", meta line, refresh control) → caption line → INSTALLED rows →
-  AVAILABLE rows + group chips → STUDIO row → key legend. Width `Style.space(380)`, height fitted and
+  AVAILABLE rows + group chips → key legend. Width `Style.space(380)`, height fitted and
   capped at `Style.space(640)` with a scrolling Flickable, like Agents.
 - **Rows:** `CursorSurface` with glyph, name, caption subtext and a `PanelActionButton` at the right edge
   (the Network/Bluetooth recipe). One cursor for mouse and keys.
@@ -139,7 +139,7 @@ Each phase is independently testable; the next does not start before the previou
    offline tests cover both. The v2 picker keeps working meanwhile.
 2. **Panel skeleton:** manifest moves to `Panel.qml`, right section; hero + sections + rows rendered from
    `state`; open/close/toggle, Tab, Esc; no actions yet. Validate with `omarchy plugin validate`, screenshot.
-3. **Actions:** launch, install with inline confirm, update, group chips, Studio; job state from `job.json`;
+3. **Actions:** launch, install with inline confirm, update, group chips; job state from `job.json`;
    spinner, disabled actions, re-read on finish.
 4. **Bar and notifications:** urgent icon, six-hourly check, one notification per set, middle-click check.
 5. **Polish and acceptance:** key legend, empty/offline states, `preview.png`, README rewrite,
@@ -176,7 +176,11 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
    Office = WordCraft, DeckCraft, GridCraft, PdfCraft; Creative = the other nine. Upstream's *Classic/New*
    stays in the data but is not shown. The research plan's survey confirms or changes the mapping before
    release.
-5. **Studio stays a web app**, one row in its own section, right click on the bar icon as the shortcut.
+5. ~~**Studio stays a web app**, one row in its own section, right click on the bar icon as the shortcut.~~
+
+   > **Amended 2026-10-17 (user decision):** ArtCraft Studio is removed from the plugin altogether; it is
+   > another category of software from the Craft apps. The bar's right click checks the AUR, middle click
+   > switches the layout.
 6. ~~**Package work through Omarchy's commands** (`omarchy-pkg-aur-add`, `omarchy-update-aur-pkgs`),
    aiming for a *passed* baseline. Consequence: *Update all* is Omarchy's AUR update (every AUR package),
    no per-app update.~~

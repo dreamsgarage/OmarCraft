@@ -51,8 +51,8 @@ OmasteelRGB was `review-required` and approved.
 
 Trademark note: ArtCraft and the Craft app names belong to Storyteller, whose packages carry a separate
 brand licence. The README calls OmarCraft unofficial and unaffiliated, and the plugin uses no ArtCraft
-logo (the bar icon is a Nerd Font palette glyph; the Studio web app icon is fetched from Storyteller's own
-GitHub avatar at runtime, not shipped). Keep it that way.
+logo (the bar icon is a Nerd Font palette glyph; the per-app colours are data from their public catalog).
+Keep it that way.
 
 ## Release procedure
 
@@ -83,7 +83,7 @@ GitHub avatar at runtime, not shipped). Keep it that way.
    omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable
    ```
 
-   Then: picker opens, an app installs and launches, a group install runs in one terminal, Studio opens,
+   Then: panel opens, an app installs and launches, a group install runs in one terminal,
    `bin/omarcraft check` reports correctly.
 3. Make the repository public: `gh repo edit dreamsgarage/OmarCraft --visibility public --accept-visibility-change-consequences`.
 4. Submit from a pushed commit you will not move until the bot has validated it:

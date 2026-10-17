@@ -31,7 +31,7 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
   outside closes it; `Esc` closes it; `Tab` moves to the neighbouring bar panel.
 - With the fixture, the hero meta reads exactly `3 OF 13 INSTALLED`; INSTALLED lists WordCraft, DeckCraft,
   GridCraft with `0.7.0-1`; AVAILABLE lists the other ten with `Install <version> · prebuilt, no
-  compiling`; chips read `Install all · 10`, `Creative · 9`, `Office · 1`; STUDIO shows one row.
+  compiling`; chips read `Install all · 10`, `Creative · 9`, `Office · 1`.
 - Nothing installed (fixture apps removed): INSTALLED is hidden, meta reads `NOTHING INSTALLED YET`,
   cursor starts on the first available row.
 - Every string is fully visible at the default font size: no elided name, subtext, chip or meta.
@@ -71,8 +71,7 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 
 - `bin/omarcraft install 'x;rm'`, `install ../x` and `install photocraft-git` are refused with a message;
   the only package names in any `yay` invocation match `^[a-z0-9-]+-bin$`.
-- Right click opens Studio as a web app; the first right click creates `ArtCraft.desktop`; later ones
-  focus the existing window.
+- Right click on the icon checks the AUR (the refresh control spins); middle click switches the layout.
 - Removing the plugin (`omarchy plugin remove`) leaves every installed app installed.
 
 **Offline tests**
@@ -108,7 +107,7 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 12 | Shell loads the plugin with no QML error | e7d2615 | PASS | log clean after `omarchy restart shell`; one transient "File name case mismatch" from the old shell during the git fast-forward, gone after restart |
 | 13 | Real install: one terminal, one Omarchy command, no compiling, row moves to INSTALLED, app launches | 17ce259 | PASS (user) | SoundCraft installed by the user through the panel at 17:34: `last-job.json` `install soundcraft` exit 0, `soundcraft-bin 0.7.0-1` present, tile shown under INSTALLED on the next open |
 | 14 | Group install, one command with every package | | pending | Testing.md § 4 |
-| 15 | Studio opens as a web app, second open focuses | | pending | Testing.md § 5 |
+| 15 | ~~Studio opens as a web app~~ | | dropped | Studio removed from scope 2026-10-17 |
 | 16 | Update state: badge, row, *Update all*, one notification | | pending | Testing.md § 6 |
 | 17 | Interrupted job reported as failed within 5 s, cleared by the next success | | pending | Testing.md § 7 |
 | 18 | Offline: cached list, `OFFLINE` meta, panel instant | | pending | Testing.md § 8 |

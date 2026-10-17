@@ -58,21 +58,20 @@ state; bypassing Omarchy's pacman guard.
 
 ```
 Panel.qml                  the item in the bar slot (Panel root, like power/network/agents)
-  ├─ BarIconButton         󰏘  left = toggle, right = studio, middle = check
+  ├─ BarIconButton         󰏘  left = toggle, right = check, middle = layout
   ├─ KeyboardPanel         anchorItem: button · owner: root · focusTarget: keyCatcher
   │    └─ PanelKeyCatcher → Flickable → Column
   │         ├─ PanelHero                  "ArtCraft" · meta · trailing refresh Button
   │         ├─ status caption             actionStatus | lastError | "Prebuilt AUR packages…"
   │         ├─ PanelSectionHeader INSTALLED  + Repeater AppRow
   │         ├─ PanelSectionHeader AVAILABLE  + Repeater AppRow + group chips + confirm line
-  │         ├─ PanelSectionHeader STUDIO     + StudioRow
   │         └─ key legend (caption, dim)
   ├─ Service { id: craft }  Process bin/omarcraft state → JSON → properties
   │                          FileView job.json (watchChanges) → job property → re-run state on change
   │                          Timer 6 h (always) · Timer 5 s (while opened and job running)
-  └─ IpcHandler              open close toggle refresh install update launch studio status
+  └─ IpcHandler              open close toggle refresh install update launch layout status
 Model.js                   pure: sectioning, group counts, meta line, subtext, glyph table, legend
-bin/omarcraft              bash: state (JSON), install/update (terminal job + job.json), launch, studio,
+bin/omarcraft              bash: state (JSON), install/update (terminal job + job.json), launch,
                            check (notifications), refresh, list, setup-menu, remove-menu
 ```
 
@@ -85,7 +84,7 @@ contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(640)
 
 **Service.** Plain `Item` inside `Panel.qml` (OmasteelRGB and the first-party dropbox panel do the same;
 third-party `service` kinds have no supported lookup path). Properties the panel binds to: `apps`,
-`counts`, `job`, `lastJob`, `offline`, `catalogAgeSeconds`, `studioInstalled`, `busy`, `lastError`,
+`counts`, `job`, `lastJob`, `offline`, `catalogAgeSeconds`, `busy`, `lastError`,
 `actionStatus`. `refresh()` runs `[pluginDir + "/bin/omarcraft", "state"]` through a `Process` with
 `StdioCollector { waitForEnd: true }`; empty or invalid output keeps the last good data and sets
 `lastError`. `flash(text)` sets `actionStatus` for 2600 ms. Jobs are started with
@@ -121,8 +120,8 @@ end_job $rc; omarchy-shell -q omarcraft.productivity refresh
 | Input | Action |
 |---|---|
 | Left click | toggle the panel |
-| Right click | `bin/omarcraft studio` (web app) |
-| Middle click | `refresh()` with a forced catalog refresh (`check now`) |
+| Right click | `refresh()` with a forced catalog refresh (`check now`) |
+| Middle click | switch layout (tiles ↔ rows), like Power's right click toggling a display setting |
 | Hover | no tooltip (`tooltipText: ""`): the panel is the detail view, as Power and Weather do |
 
 - `BarIconButton { text: pending > 0 ? pending + " 󰏘" : "󰏘"; slotSize: pending > 0 ?
@@ -167,13 +166,7 @@ is the first build. The research plan (§ F) decides which ships.
  └──────────┘ └──────────┘ └──────────┘
  … three lines of three …
  [ Install all · 9 ]  [ Creative · 8 ]  [ Office · 1 ]
- ────────────────────────────────────────────────
- STUDIO
- ┌──────────┐
- │    󰽉     │
- │  Studio  │
- └──────────┘
- h/l j/k move · ⏎ launch, update or install · u update all · a/c/o · s · r · t rows · esc
+ h/l j/k move · ⏎ launch, update or install · u update all · a/c/o · r · t rows · esc
 ```
 
 - `AppTile.qml`: a `CursorSurface` with `bordered: true`; the glyph at `Style.font.display` in the
@@ -183,7 +176,7 @@ is the first build. The research plan (§ F) decides which ships.
   foreground. Nothing else on the tile; the version and state are the tooltip (`Model.tileTip`). The
   update mark `󰑐` sits in the tile's top-right corner in the urgent colour.
 - Colours come from the catalog, through the cache and the state JSON (`color`, `inkLight`, `inkDark`),
-  never from QML constants; Studio uses `Color.accent`. Everything structural stays theme-coloured, the
+  never from QML constants. Everything structural stays theme-coloured, the
   OmasteelRGB balance (its hero glyph is tinted, its chrome is the theme).
 - Grid: `Grid { columns: 3 }`, tile width `(width − 2·6 px) / 3`; cursor movement `Model.gridMove`:
   `h`/`l` step one tile, `j`/`k` jump a line and stop at the section edge, then land on the next
@@ -220,12 +213,7 @@ The sections below describe the rows layout; everything about data, bar, keys an
    … eight more rows, the Flickable scrolls …
 
    [ Install all · 10 ]  [ Creative · 9 ]  [ Office · 1 ]
- ────────────────────────────────────────────────
- STUDIO
-   󰽉  ArtCraft Studio                          󰖟
-       Web app · needs an ArtCraft account
-
- j/k move · ⏎ launch/install · u update · a all · s studio · esc
+ j/k move · ⏎ launch/install · u update · a all · esc
 ```
 
 - The hero is `PanelHero { title: "ArtCraft"; meta: Model.metaLine(craft) ; iconComponent: 󰏘 ;
@@ -292,10 +280,6 @@ destructive). This is OmasteelRGB's `requestWrite` guard applied to the one acti
        Install 0.9.0 · prebuilt, no compiling
    …
    [ Install all · 13 ]  [ Creative · 9 ]  [ Office · 4 ]
- ────────────────────────────────────────────────
- STUDIO
-   󰽉  ArtCraft Studio                          󰖟
-       Web app · needs an ArtCraft account
 ```
 
 INSTALLED is hidden; the cursor starts on the first available row.
@@ -343,12 +327,11 @@ Declared on `PanelKeyCatcher { blocked: false }` (no text fields in v1, so never
 
 | Key | Action |
 |---|---|
-| `j` `k` `↓` `↑` | move the cursor over rows (installed → available → studio); first press only activates the cursor, like Power |
-| `Enter` | primary action of the cursor row: launch / open confirm / open Studio; with a confirm open: install |
+| `j` `k` `↓` `↑` | move the cursor over rows (installed → available); first press only activates the cursor, like Power |
+| `Enter` | primary action of the cursor row: launch, ask to update, or open the install confirm; with a confirm open: run it |
 | `u` | *Update all*: confirm line `Runs Omarchy's AUR update (every AUR package) in a terminal`, then the job |
 | `a` | confirm line for *Install all* |
 | `c` / `o` | confirm line for *Creative* / *Office* |
-| `s` | open Studio |
 | `r` | refresh (forced catalog refresh) |
 | `Tab` / `Shift+Tab` | `root.switchPanel(±1)`, the neighbouring bar panel |
 | `Esc` | close the confirm line if one is open, else close the panel |
@@ -384,7 +367,7 @@ Glyph table (`Model.GLYPHS`), all MDI codepoints rendered and checked in JetBrai
 | LightCraft | 󰄀 | U+F0100 | CADCraft | 󰻬 | U+F0EEC |
 | PdfCraft | 󰈦 | U+F0226 | SoundCraft | 󰝚 | U+F075A |
 | EffectCraft | 󰁨 | U+F0068 | FigCraft | 󰀁 | U+F0001 |
-| DesignCraft | 󰏘 | U+F03D8 | Studio | 󰽉 | U+F0F49 |
+| DesignCraft | 󰏘 | U+F03D8 | | | |
 
 Actions: launch 󰐊 U+F040A · update/refresh 󰑐 U+F0450 · install 󰇚 U+F01DA · open web 󰖟 U+F059F ·
 spinner 󰦖 U+F0996. Bar icon: 󰏘 U+F03D8. Any id without an entry falls back to 󰏘.

@@ -18,7 +18,6 @@ Item {
   property bool offline: false
   property bool refreshing: false
   property int catalogAgeSeconds: -1
-  property bool studioInstalled: false
   property bool loaded: false
   property bool busy: false
   property string lastError: ""
@@ -65,7 +64,6 @@ Item {
     offline = s.offline === true
     refreshing = s.refreshing === true
     catalogAgeSeconds = Number(s.catalogAgeSeconds)
-    studioInstalled = !!(s.studio && s.studio.installed)
     lastError = ""
     loaded = true
   }

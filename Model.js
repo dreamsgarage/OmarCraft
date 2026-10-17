@@ -21,12 +21,11 @@ function sections(apps) {
   return { installed: installed, available: available }
 }
 
-// The ordered keys the cursor walks: installed, available, studio.
+// The ordered keys the cursor walks: installed, then available.
 function cursorKeys(apps) {
   var s = sections(apps), keys = []
   for (var i = 0; i < s.installed.length; i++) keys.push("app:" + s.installed[i].id)
   for (var j = 0; j < s.available.length; j++) keys.push("app:" + s.available[j].id)
-  keys.push("studio")
   return keys
 }
 
@@ -36,7 +35,7 @@ function gridMove(keys, apps, cursor, dx, dy) {
   if (n === 0) return 0
   if (dx !== 0) return Math.max(0, Math.min(n - 1, cursor + dx))
   var s = sections(apps)
-  var bounds = [[0, s.installed.length], [s.installed.length, s.installed.length + s.available.length], [n - 1, n]]
+  var bounds = [[0, s.installed.length], [s.installed.length, s.installed.length + s.available.length]]
   for (var b = 0; b < bounds.length; b++) {
     var lo = bounds[b][0], hi = bounds[b][1]
     if (cursor < lo || cursor >= hi) continue

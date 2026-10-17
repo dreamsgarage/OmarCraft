@@ -29,7 +29,7 @@ design → acceptance → build → validate) is the process now; `approved-plan
    belong where (PdfCraft is the ambiguous one)?
 5. **Updates.** Is a notification per new set of updates welcome? Does the urgent icon get noticed and
    acted on within a day?
-6. **Studio as a web app.** Expected or disappointing?
+6. ~~Studio as a web app.~~ Dropped 2026-10-17: Studio is out of scope.
 
 ## Methods, in the order they run
 
@@ -77,8 +77,7 @@ one week, target n ≥ 40. Card-sort style for grouping, Likert for expectations
 6. A terminal opens and asks your password: fine / acceptable / would stop me. (Likert 5)
 7. For updates: a desktop notification each time new builds appear / only an icon change / nothing,
    `omarchy update` is enough.
-8. ArtCraft Studio has no Linux build. Opening it as a web app from the panel is: good / acceptable / I'd
-   rather not see it.
+8. ~~ArtCraft Studio as a web app~~ (dropped; question removed from the survey).
 9. Where do you expect a widget like this on the bar? (left / centre / right / don't care)
 10. Free text: anything else.
 
@@ -110,7 +109,7 @@ minutes a day per person.
 ### E. Five-person usability test, only after D passes
 
 Same session guide as the previous plan (seven tasks: find it, read state, install one, install a group,
-Studio, notice an update, remove), with Omarchy users who have never seen OmarCraft, over a shared screen,
+notice an update, remove), with Omarchy users who have never seen OmarCraft, over a shared screen,
 45 minutes each. It runs on the finished candidate, not on a draft, so its findings are release blockers or
 nothing. Pass bar: 4 of 5 complete tasks 1–4 without a hint; nobody misreads installed vs. available; median
 ease ≥ 5 of 7. Cost: one week including recruiting in the Omarchy Discord.

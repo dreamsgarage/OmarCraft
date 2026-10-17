@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "ArtCraft apps",
-    "description": "Craft apps: installed, available, updates. Left = panel, right = ArtCraft Studio, middle = check for updates.",
+    "description": "Craft apps: installed, available, updates. Left = panel, right = check the AUR, middle = switch layout.",
     "category": "Productivity",
     "allowMultiple": false,
     "defaultSection": "right"
