@@ -115,6 +115,26 @@ Studio, notice an update, remove), with Omarchy users who have never seen OmarCr
 nothing. Pass bar: 4 of 5 complete tasks 1–4 without a hint; nobody misreads installed vs. available; median
 ease ≥ 5 of 7. Cost: one week including recruiting in the Omarchy Discord.
 
+### F. Tiles against rows (added 2026-10-17)
+
+The user asked for a tiles layout (three per line, the app's own colour) as a new version and for an
+evaluation of whether it improves usability. Both layouts ship in one build, switched live with
+`omarchy bar set omarcraft.productivity layout tiles|rows` or the `t` key, so the comparison is on the
+same data, machine and day.
+
+- **Who:** the author and one colleague (D's diary group), then the five E participants, each session
+  running both layouts in alternating order (half start with tiles).
+- **Tasks, timed, both layouts:** T2 "which apps do you have?" (state at a glance), T3 "install
+  <app>" (find and act), T6 "anything to update?" (notice the mark), plus "open <installed app>".
+- **Measures:** time to answer T2 correctly; errors (naming an available app as installed or the
+  reverse); clicks or keys to complete T3; whether the update mark is noticed unprompted; stated
+  preference and one reason.
+- **Decision rule, written now:** tiles ship as the only layout if T2 is faster and at least as accurate
+  for 4 of 5 participants and preference is ≥ 3 of 5; rows ship alone if the reverse; otherwise both
+  stay with tiles as default and the question goes to the survey (C) with the two screenshots.
+- **What the design predicts:** tiles win T2 (colour and density) and T6 (the mark); rows win T3 for
+  first-time users (the caption says "Install 0.9.0 · prebuilt"); the tooltip is meant to close that gap.
+
 ## Timeline
 
 | When | What | Gate |

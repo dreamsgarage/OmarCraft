@@ -177,10 +177,19 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
    stays in the data but is not shown. The research plan's survey confirms or changes the mapping before
    release.
 5. **Studio stays a web app**, one row in its own section, right click on the bar icon as the shortcut.
-6. **Package work through Omarchy's commands** (`omarchy-pkg-aur-add`, `omarchy-update-aur-pkgs`),
+6. ~~**Package work through Omarchy's commands** (`omarchy-pkg-aur-add`, `omarchy-update-aur-pkgs`),
    aiming for a *passed* baseline. Consequence: *Update all* is Omarchy's AUR update (every AUR package),
-   no per-app update. Alternative: call the AUR helper directly for package-exact updates and accept
-   `review-required`, the path OmasteelRGB took and got approved on.
+   no per-app update.~~
+
+   > **Amended 2026-10-17 (user decision, after using the panel):** updates are **package-exact**.
+   > `omarcraft update [id…]` calls the AUR helper Omarchy ships (`yay -S --noconfirm <id>-bin…`) for
+   > exactly those packages; clicking an installed app with a newer build asks to update that app.
+   > Installs keep going through `omarchy-pkg-aur-add`. The marketplace outcome is therefore
+   > `review-required` (`package-manager`), the path OmasteelRGB took and was approved on.
+7. **Two layouts under evaluation, switchable** (added 2026-10-17): *tiles* (three per line, glyph in the
+   app's own ArtCraft colour, name only; default) and *rows* (one per line with a caption).
+   `omarchy bar set omarcraft.productivity layout tiles|rows`, the `t` key, or IPC `layout`. The loser is
+   removed before release; `v1-research.md` § F says how the choice is made.
 
 ## Out of scope until asked
 

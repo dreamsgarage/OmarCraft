@@ -135,7 +135,7 @@ function standingLine(craft) {
                           : "Last job exited with status " + lj.exit + " · see the terminal"
   }
   if (craft.offline) return "Could not reach the AUR · list from " + ageText(craft.catalogAgeSeconds)
-  return "Prebuilt AUR packages · nothing is compiled · list from " + ageText(craft.catalogAgeSeconds)
+  return "Prebuilt · nothing compiled · list from " + ageText(craft.catalogAgeSeconds)
 }
 
 function subtext(app, craft) {

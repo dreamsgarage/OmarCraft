@@ -106,15 +106,15 @@ omarchy-pkg-aur-add wordcraft-bin deckcraft-bin; rc=$?   # Omarchy's AUR add: th
 end_job $rc                              # rm job.json; last-job.json {verb, ids, exit, endedAt}
 omarchy-shell -q omarcraft.productivity refresh
 
-# bin/omarcraft job update
-write_job update <all update-ready ids>
-omarchy-update-aur-pkgs; rc=$?           # Omarchy's own AUR updater, the same step `omarchy update` runs
+# bin/omarcraft job update wordcraft      (or no ids: every app with a newer build)
+write_job update wordcraft
+yay -S --noconfirm wordcraft-bin; rc=$?   # package-exact, the helper Omarchy ships
 end_job $rc; omarchy-shell -q omarcraft.productivity refresh
 ```
 
-`omarchy-update-aur-pkgs` upgrades every AUR package, not only the Craft apps; the panel says so on the
-*Update all* control (`Runs Omarchy's AUR update`). That is the trade for staying inside Omarchy's commands;
-the alternative, a package-exact update with a literal helper call, is `approved-plan.md` decision 6.
+> **Amended 2026-10-17:** updates are package-exact. `job update <ids>` runs
+> `yay -S --noconfirm <id>-bin…` (the helper Omarchy ships) for exactly those packages; `omarchy-update-aur-pkgs`
+> is no longer used. See `approved-plan.md` decision 6.
 
 ## Bar
 
@@ -135,7 +135,66 @@ the alternative, a package-exact update with a literal helper call, is `approved
 - Placement: `defaultSection: "right"`, category Productivity; lands with tray, agents, bluetooth,
   network, audio, monitor, power. Never left (navigation) or centre (status and clock).
 
-## Panel
+## Layouts (amended 2026-10-17)
+
+Two layouts share the data, cursor, confirm and job model; `setting("layout", "tiles")` picks one
+(`omarchy bar set omarcraft.productivity layout tiles|rows`, the `t` key, or IPC `layout`, stored inline
+in `shell.json` the way Power stores `showPercentage`). **Tiles** is the default under evaluation; **rows**
+is the first build. The research plan (§ F) decides which ships.
+
+### Tiles: three per line, the app's own colour
+
+```
+ 󰏘  OmarCraft                                  󰑐
+     4 OF 13 INSTALLED
+
+ Prebuilt · nothing compiled · list from 3 h ago
+ ────────────────────────────────────────────────
+ INSTALLED
+ ┌──────────┐ ┌──────────┐ ┌──────────┐
+ │    󰈙     │ │    󰐩     │ │    󰓫     │
+ │ WordCraft│ │ DeckCraft│ │ GridCraft│
+ └──────────┘ └──────────┘ └──────────┘
+ ┌──────────┐
+ │    󰝚   󰑐│   ← update mark, urgent colour
+ │SoundCraft│
+ └──────────┘
+ ────────────────────────────────────────────────
+ AVAILABLE
+ ┌──────────┐ ┌──────────┐ ┌──────────┐
+ │    󰋩     │ │    󰕠     │ │    󰕧     │   dimmed: glyph at 45 %, name at 70 %
+ │PhotoCraft│ │VectorCraf│ │ FilmCraft│
+ └──────────┘ └──────────┘ └──────────┘
+ … three lines of three …
+ [ Install all · 9 ]  [ Creative · 8 ]  [ Office · 1 ]
+ ────────────────────────────────────────────────
+ STUDIO
+ ┌──────────┐
+ │    󰽉     │
+ │  Studio  │
+ └──────────┘
+ h/l j/k move · ⏎ launch, update or install · u update all · a/c/o · s · r · t rows · esc
+```
+
+- `AppTile.qml`: a `CursorSurface` with `bordered: true`; the glyph at `Style.font.display` in the
+  app's **own ArtCraft colour** (the official catalog's ink colour for dark or light panels, chosen by
+  `Color.popups.background` lightness; the surface colour is the fallback), a 1 px outline in the same
+  colour at 45 % (installed) or 18 % (available), the name at `Style.font.bodySmall` in the theme
+  foreground. Nothing else on the tile; the version and state are the tooltip (`Model.tileTip`). The
+  update mark `󰑐` sits in the tile's top-right corner in the urgent colour.
+- Colours come from the catalog, through the cache and the state JSON (`color`, `inkLight`, `inkDark`),
+  never from QML constants; Studio uses `Color.accent`. Everything structural stays theme-coloured, the
+  OmasteelRGB balance (its hero glyph is tinted, its chrome is the theme).
+- Grid: `Grid { columns: 3 }`, tile width `(width − 2·6 px) / 3`; cursor movement `Model.gridMove`:
+  `h`/`l` step one tile, `j`/`k` jump a line and stop at the section edge, then land on the next
+  section's first tile.
+- Confirms are one **strip under the status line** (tiles have no room beneath them). Clicking an
+  installed tile with a newer build opens `wordcraft-bin 0.7.0-1 → 0.8.0-1 · via the AUR helper · a
+  terminal opens and asks your password` with *Update ⏎*, *Launch instead*, *Cancel esc*.
+
+### Rows: one per line with a caption (the first build)
+
+The sections below describe the rows layout; everything about data, bar, keys and jobs applies to both.
 
 ### Normal: three installed, one update ready
 

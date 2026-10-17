@@ -60,10 +60,11 @@ its row says `Source build · updates via omarchy update`.
 7. **Group install**: chips *Install all (N)*, *Creative (N)*, *Office (N)* under the available rows, each
    showing how many are missing; hidden when nothing is missing. Same inline confirm, listing the names.
    One job, every package on one `omarchy-pkg-aur-add` line, no launch afterwards.
-8. **Update**: `u` or *Update all* in the hero's caption line, after a confirm line that says it runs
-   Omarchy's AUR update (`omarchy-update-aur-pkgs`, the step `omarchy update` runs, which upgrades every
-   AUR package). There is no per-app update. The plugin contains no `yay`, `pacman -S` or `sudo` string;
-   privileged work is delegated to Omarchy's commands.
+8. **Update** (amended 2026-10-17): package-exact. `Enter` or a click on an installed app with a newer
+   build asks to update that app (*Update ⏎* / *Launch instead* / *Cancel*); `u` or *Update all* asks
+   for every app with a newer build. The job runs `yay -S --noconfirm <id>-bin…`, the helper Omarchy
+   ships and uses itself, inside Omarchy's floating terminal. Installs still go through
+   `omarchy-pkg-aur-add`. The plugin contains no `sudo` or `pkexec`.
 9. **Job tracking**: the terminal run writes `job.json` on start and removes it on exit (success or
    failure, with the exit status kept in `last-job.json`). While it exists, the involved rows show a
    spinning glyph and `Installing…`, every action is disabled, the hero says what runs. When it goes, the
@@ -100,8 +101,8 @@ state directories without an opt-in command.
 - Enabling the plugin installs nothing and writes no configuration. Opening the panel installs nothing.
 - Only `<id>-bin` package names ever reach a package command; the script validates ids against the catalog
   and the regex `^[a-z0-9-]+$` and refuses anything else.
-- No sudo, no pkexec, no direct package-manager call in the plugin: installs and updates go through
-  `omarchy-pkg-aur-add` and `omarchy-update-aur-pkgs`, which prompt for the password in a visible
+- No sudo, no pkexec in the plugin. Installs go through `omarchy-pkg-aur-add`; updates call the AUR
+  helper Omarchy ships, for the named `-bin` packages only; both prompt for the password in a visible
   terminal. Installed state is read, never written, by the plugin.
 - State shown is state read: after every job the panel shows pacman's answer, never the click's intent.
 - Every string in the panel is short enough not to elide at `Style.space(380)` with the hero's uppercase
@@ -143,6 +144,8 @@ Apps are listed in catalog order; the panel sorts them into sections.
    release; upstream Classic/New not shown.
 5. One-shot `state` command (local only) and a watched `job.json`, not a resident bridge; jobs in
    Omarchy's floating presentation terminal.
-6. Package work delegated to Omarchy's commands (`omarchy-pkg-aur-add`, `omarchy-update-aur-pkgs`);
-   consequently no per-app update, and *Update all* is Omarchy's AUR update.
+6. Installs through `omarchy-pkg-aur-add`; updates package-exact through the AUR helper Omarchy ships
+   (amended 2026-10-17; marketplace path `review-required`).
 7. Studio remains a web app.
+8. Two layouts, tiles (default) and rows, switchable; the app's own ArtCraft colour on tiles (amended
+   2026-10-17).

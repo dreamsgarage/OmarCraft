@@ -32,14 +32,23 @@ omarcraft.productivity` finishes the placement. Updates: `omarchy plugin update 
 
 ## The panel
 
-Left-click the icon (or `Tab` from a neighbouring panel).
+Left-click the icon (or `Tab` from a neighbouring panel). Two layouts, switched live with `t` or
+`omarchy bar set omarcraft.productivity layout tiles|rows`:
+
+- **Tiles** (default): three apps per line, each tile the app's glyph in its own ArtCraft colour over its
+  name. Installed tiles are full strength; available ones dimmed. Hover for the version and state. A small
+  `󰑐` in a tile's corner means a newer build is ready.
+- **Rows**: one app per line with a caption (`0.7.0-1`, `Update ready 0.7.0-1 → 0.8.0-1`, `Install
+  0.9.0-1 · prebuilt, no compiling`) and one action at the right edge.
+
+In both:
 
 - **Hero.** The one-line situation: `3 OF 13 INSTALLED`, `2 UPDATES READY`, `INSTALLING WORDCRAFT…`,
   `NOTHING INSTALLED YET`, `OFFLINE · CACHED LIST`, `LAST JOB FAILED`. The circular arrow at the right
   checks the AUR now.
-- **INSTALLED.** Your apps with their version. `Enter` or the ▶ action launches one; if its window is
-  already open it is focused instead. A row with a newer build reads `Update ready 0.7.0-1 → 0.8.0-1`
-  and *Update all* appears in the status line.
+- **INSTALLED.** Your apps. `Enter` or a click launches one; if its window is already open it is focused
+  instead. When a newer build is ready, `Enter` asks instead: *Update ⏎* (just that package), *Launch
+  instead*, or *Cancel*. *Update all* in the status line takes every app with a newer build.
 - **AVAILABLE.** The rest, dimmed, with `Install 0.9.0-1 · prebuilt, no compiling`. `Enter` or the
   download action opens a one-line confirm under the row naming the exact package and that a terminal
   will open and ask for your password; `Enter` again runs it, `Esc` cancels. A newly added Craft app shows
@@ -54,8 +63,9 @@ While a job runs the row shows a spinner and `Installing…`, the hero says what
 is greyed out, and the terminal is the place to type your password. When the terminal finishes the panel
 re-reads the package database: what you see is what is installed, never what a click intended.
 
-**Keys:** `j`/`k` move · `Enter` launch or install · `u` Update all · `a` / `c` / `o` install all /
-Creative / Office · `s` Studio · `r` check the AUR · `Tab` neighbouring panel · `Esc` cancel or close.
+**Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` launch, update or install · `u` Update
+all · `a` / `c` / `o` install all / Creative / Office · `s` Studio · `r` check the AUR · `t` switch layout ·
+`Tab` neighbouring panel · `Esc` cancel or close.
 
 **Bar icon:** left = panel · right = ArtCraft Studio · middle = check now. While updates are pending the
 icon turns to the urgent colour and shows the count (`2 󰏘`); it also turns urgent after a job that failed.
@@ -63,11 +73,11 @@ icon turns to the urgent colour and shows the count (`2 󰏘`); it also turns ur
 ## Updates
 
 Every six hours, and whenever you press `r` or middle-click, OmarCraft compares your installed `-bin`
-packages with the AUR. Newer builds show in the rows, on the icon, and once per new set as a desktop
-notification that opens the panel. *Update all* runs Omarchy's own AUR update
-(`omarchy-update-aur-pkgs`, the step `omarchy update` runs), which upgrades every AUR package on the
-system, not only the Craft apps; the confirm line says so. There is no per-app update. "Newer" means a
-newer AUR build exists, which can trail an ArtCraft release by a day or so.
+packages with the AUR. Newer builds show on the tiles or rows, on the icon, and once per new set as a
+desktop notification that opens the panel. Updates are package-exact: `Enter` on the app updates that
+one, *Update all* (`u`) every app with a newer build, each through the AUR helper Omarchy ships, in a
+floating terminal that asks for your password. `omarchy update` updates them too. "Newer" means a newer
+AUR build exists, which can trail an ArtCraft release by a day or so.
 
 ## Apps installed some other way
 
@@ -97,7 +107,7 @@ $P list                       # catalog with install state
 $P launch <id>                # e.g. photocraft
 $P install <id>...            # floating terminal, one run
 $P install-group all|creative|office
-$P update                     # Omarchy's AUR update, in a floating terminal
+$P update [id...]             # the named apps, or every app with a newer build; floating terminal
 $P check [--notify]           # pending updates; exit 0 if any
 $P refresh [-f]               # fetch catalog and AUR versions now
 $P studio
@@ -107,7 +117,8 @@ $P studio
 omarchy-shell omarcraft.productivity open | close | toggle | refresh | studio
 omarchy-shell omarcraft.productivity launch <id>
 omarchy-shell omarcraft.productivity install "<id> <id>"      # no confirm: a script is explicit
-omarchy-shell omarcraft.productivity update
+omarchy-shell omarcraft.productivity update "<id> <id>"      # or "" for every app with a newer build
+omarchy-shell omarcraft.productivity layout tiles|rows
 omarchy-shell omarcraft.productivity status                   # JSON
 ```
 
@@ -141,9 +152,9 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 ## Safety
 
 - Only `<id>-bin` package names, checked against the catalog and a strict pattern, ever reach a package
-  command. The plugin never calls sudo or pkexec, and never calls the package manager or the AUR helper
-  directly: installs go through `omarchy-pkg-aur-add`, updates through `omarchy-update-aur-pkgs`, both in
-  a visible Omarchy terminal that asks for your password itself.
+  command. The plugin never calls sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add`;
+  updates call the AUR helper Omarchy ships for exactly the named packages; both run in a visible Omarchy
+  terminal that asks for your password itself.
 - Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
   from the AUR RPC, every 24 hours, with bounded timeouts; a failed check keeps the old list and says
   `OFFLINE`, never "up to date". The panel itself never waits on the network.
@@ -155,7 +166,8 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 | Path | Role |
 |---|---|
 | `manifest.json` | `kinds: ["bar-widget"]`, entry point `Panel.qml`, default section right |
-| `Panel.qml` | Bar icon, `KeyboardPanel`, sections, cursor, confirm line, keys, IPC |
+| `Panel.qml` | Bar icon, `KeyboardPanel`, both layouts, cursor, confirm, keys, IPC |
+| `AppTile.qml` | One tile: glyph in the app's ArtCraft colour over its name |
 | `AppRow.qml` | One row: glyph · name · subtext · right-edge action, Network-panel style |
 | `Service.qml` | Runs `bin/omarcraft state`, watches `job.json`, six-hourly check |
 | `Model.js` | Pure helpers: sections, meta line, subtexts, confirm text |
@@ -183,5 +195,6 @@ Release and marketplace steps: [docs/Publish-Guide.md](docs/Publish-Guide.md). C
 ## Credits and license
 
 MIT, see [LICENSE](LICENSE). By Entangled Forge. The Craft apps, ArtCraft Studio and the app catalog are by
-[Storyteller](https://github.com/storytold); the `-bin` packages are maintained by their AUR packagers. The
-panel follows Omarchy's first-party Network and Power panels and Entangled Forge's OmasteelRGB.
+[Storyteller](https://github.com/storytold), as are the per-app colours, taken from their launcher's catalog;
+the `-bin` packages are maintained by their AUR packagers. The panel follows Omarchy's first-party Network
+and Power panels and Entangled Forge's OmasteelRGB.

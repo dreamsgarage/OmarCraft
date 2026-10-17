@@ -46,8 +46,8 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
   closes the line and nothing runs; `Enter` again opens exactly one floating Omarchy terminal running
   exactly one `omarchy-pkg-aur-add <id>-bin`, which prompts for the password and installs with **no**
   `cargo`, `rustc` or `makepkg build` in the process tree at any time.
-- `grep -rE 'sudo|pkexec|yay |pacman -S' --exclude-dir=.git .` in the plugin folder matches only negated
-  sentences in docs; no command string in code.
+- `grep -rE 'sudo|pkexec|pacman -S' --exclude-dir=.git .` in the plugin folder matches only negated
+  sentences in docs; the AUR helper is called in exactly one place in code, the update job.
 - While the job runs: the row shows the spinner and `Installing…`, the hero reads `INSTALLING <NAME>…`,
   every install/update action is disabled, launch of other installed apps still works.
 - When the job ends successfully: within 1 s the row is under INSTALLED with its version, the meta count
@@ -56,9 +56,12 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
   with every missing `-bin` package on one line; group chips do the same for their group; no launch
   afterwards.
 - With the FigCraft update fixture: meta reads `1 UPDATE READY`, the bar shows `1 󰏘` in the urgent
-  colour, the row shows `Update ready 0.6.0-1 → 99.0.0-1`, *Update all* is visible and `u` opens a confirm
-  line that names Omarchy's AUR update; the badge and the row return to normal after
-  `bin/omarcraft refresh -f`.
+  colour, the FigCraft tile carries the update mark (row: `Update ready 0.6.0-1 → 99.0.0-1`), *Update
+  all* is visible; `Enter` on FigCraft opens a confirm naming `figcraft-bin 0.6.0-1 → 99.0.0-1` with
+  *Update ⏎*, *Launch instead*, *Cancel*; *Launch instead* launches; the badge and the mark return to
+  normal after `bin/omarcraft refresh -f`.
+- `omarchy bar set omarcraft.productivity layout rows` and `… tiles`, and the `t` key, switch the layout
+  live with the panel open; the cursor, confirm and job state survive the switch.
 - Opening the panel with the network down (`nmcli networking off`) shows the cached list, the meta
   `OFFLINE · CACHED LIST`, and never a blank or "Detecting…" panel; `state` still returns in < 0.3 s.
 - A job whose terminal is killed mid-way leaves no `job.json` older than 30 min reported as running;
@@ -103,7 +106,7 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 10 | No `sudo`, `pkexec`, helper or `pacman -S` string in code | e7d2615 | PASS | test `no package-manager or privilege strings in the script`; docs use negations only |
 | 11 | Offline tests | e7d2615 | PASS | 71 passed |
 | 12 | Shell loads the plugin with no QML error | e7d2615 | PASS | log clean after `omarchy restart shell`; one transient "File name case mismatch" from the old shell during the git fast-forward, gone after restart |
-| 13 | Real install: one terminal, one Omarchy command, no compiling, row moves to INSTALLED, app launches | | pending | needs the user's password; Testing.md § 3 |
+| 13 | Real install: one terminal, one Omarchy command, no compiling, row moves to INSTALLED, app launches | 17ce259 | PASS (user) | SoundCraft installed by the user through the panel at 17:34: `last-job.json` `install soundcraft` exit 0, `soundcraft-bin 0.7.0-1` present, tile shown under INSTALLED on the next open |
 | 14 | Group install, one command with every package | | pending | Testing.md § 4 |
 | 15 | Studio opens as a web app, second open focuses | | pending | Testing.md § 5 |
 | 16 | Update state: badge, row, *Update all*, one notification | | pending | Testing.md § 6 |
