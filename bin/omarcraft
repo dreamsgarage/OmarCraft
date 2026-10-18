@@ -836,7 +836,9 @@ vikunja_config() {
   [[ -f $config ]] && return 0
   mkdir -p "$VIKUNJA_DIR/files"
   secret=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
-  tz=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
+  # readlink on a missing or plain file prints nothing; no redirection needed.
+  tz=$(readlink /etc/localtime || true)
+  tz=${tz##*/zoneinfo/}
   (
     umask 077
     cat >"$config" <<EOF
