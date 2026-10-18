@@ -415,7 +415,7 @@ new apps. The panel's six-hour timer calls it; so does middle click. Nothing els
 - `state` must finish in well under a second (v2 measured 0.73 s with a hundred package queries; one
   read of the installed list brings it under 0.3 s) and never touches the network. The panel never blocks
   on it: it opens with the last data and swaps when the Process ends. The Process is restarted on every
-  open (Agent Helm's rule) so a stalled run cannot wedge the panel, and every external call in the script
+  open (Agent Helm's rule) so a stalled run cannot wedge the panel (a newer request waits for the one in flight instead of killing it; only a run older than ten seconds is restarted), and every external call in the script
   carries `--max-time` or `timeout`.
 - Files stay small and split: `Panel.qml` (layout and keys), `AppRow.qml` (row component), `Service.qml`
   (data), `Model.js` (pure helpers), `bin/omarcraft`. FossFetch's 233 KB panel is the counter-example.

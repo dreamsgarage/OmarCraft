@@ -106,10 +106,10 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 11 | Offline tests | e7d2615 | PASS | 71 passed |
 | 12 | Shell loads the plugin with no QML error | e7d2615 | PASS | log clean after `omarchy restart shell`; one transient "File name case mismatch" from the old shell during the git fast-forward, gone after restart |
 | 13 | Real install: one terminal, one Omarchy command, no compiling, row moves to INSTALLED, app launches | 17ce259 | PASS (user) | SoundCraft installed by the user through the panel at 17:34: `last-job.json` `install soundcraft` exit 0, `soundcraft-bin 0.7.0-1` present, tile shown under INSTALLED on the next open |
-| 14 | Group install, one command with every package | | pending | Testing.md § 4 |
+| 14 | Group install, one command with every package | 5b48856 | PASS (user) | 2026-10-18, the *Creative* chip: eight packages in one terminal, one password prompt, chip gone afterwards |
 | 15 | ~~Studio opens as a web app~~ | | dropped | Studio removed from scope 2026-10-17 |
-| 16 | Update state: badge, row, *Update all*, one notification | | pending | Testing.md § 6 |
-| 17 | Interrupted job reported as failed within 5 s, cleared by the next success | | pending | Testing.md § 7 |
-| 18 | Offline: cached list, `OFFLINE` meta, panel instant | | pending | Testing.md § 8 |
-| 19 | Theme switch recolours the panel live | | pending | |
+| 16 | Update state: badge, row, *Update all*, one notification | 5b48856 | PASS (user) | 2026-10-18, real AUR bumps 0.7.0 → 0.8.0: WordCraft alone at 08:03, then DeckCraft, GridCraft and SoundCraft with *Update all* at 08:35 in one pacman transaction, job exit 0. The notification was not exercised: the updates were found by a manual refresh, which shows the badge and does not notify; the six-hourly check notified correctly in the fixture test of 2026-10-17 |
+| 17 | Interrupted job reported as failed within 5 s, cleared by the next success | 5b48856 | PASS (user) | 2026-10-18, PdfCraft install interrupted at the password prompt: `LAST JOB FAILED` and the interrupted line, cleared by the next job |
+| 18 | Offline: cached list, `OFFLINE` meta, panel instant | 5b48856 | PASS with a defect | 2026-10-18: offline state correct, but `omarcraft state exited with status 15` repeated in red. Cause: every state read retried the failed check and every failed check poked the panel, so reads killed one another. Fixed in the next commit (retry at most every ten minutes, reads never killed, state read 0.2 s instead of 0.8 s); re-test pending |
+| 19 | Theme switch recolours the panel live | 5b48856 | PASS (user) | 2026-10-18 |
 | 20 | Fresh `plugin add` places the icon right and installs nothing | | pending | Testing.md § 1 |

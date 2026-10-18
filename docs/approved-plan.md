@@ -142,7 +142,7 @@ Each phase is independently testable; the next does not start before the previou
    `state`; open/close/toggle, Tab, Esc; no actions yet. Validate with `omarchy plugin validate`, screenshot.
 3. **Actions:** launch, install with inline confirm, update, group chips; job state from `job.json`;
    spinner, disabled actions, re-read on finish.
-4. **Bar and notifications:** urgent icon, six-hourly check, one notification per set, middle-click check.
+4. **Bar and notifications:** urgent icon, six-hourly check, one notification per set, middle-click check (amended 2026-10-17: right-click checks, middle-click switches the layout).
 5. **Polish and acceptance:** key legend, empty/offline states, `preview.png`, README rewrite,
    `v1-acceptance.md` filled with results. Remove `bin/omarcraft menu` (the text picker) if the decision
    below stands.

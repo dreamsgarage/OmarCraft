@@ -72,9 +72,10 @@ the catalog since you last opened the panel, and after a job that failed.
 
 ## Updates
 
-Every six hours, and whenever you press `r` or middle-click, OmarCraft compares your installed `-bin`
-packages with the AUR. Newer builds show on the tiles or rows, on the icon, and once per new set as a
-desktop notification that opens the panel. Updates are package-exact: `Enter` on the app updates that
+Every six hours, and whenever you press `r` or right-click the icon, OmarCraft compares your installed
+`-bin` packages with the AUR. Newer builds show on the tiles or rows and on the icon; the six-hourly check
+also sends one desktop notification per new set, which opens the panel. If the AUR cannot be reached the
+hero says `OFFLINE · CACHED LIST` and the panel retries on its own every ten minutes. Updates are package-exact: `Enter` on the app updates that
 one, *Update all* (`u`) every app with a newer build, each through the AUR helper Omarchy ships, in a
 floating terminal that asks for your password. `omarchy update` updates them too. "Newer" means a newer
 AUR build exists, which can trail an ArtCraft release by a day or so.

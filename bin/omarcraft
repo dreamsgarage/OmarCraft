@@ -36,6 +36,8 @@ CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/cra
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
 IPC_TARGET="omarcraft.productivity"
 CATALOG_MAX_AGE_MINUTES=1440
+REFRESH_RETRY_MINUTES=10        # after a failed check the panel retries on its own at most this often
+OFFICE_IDS_RE='^(wordcraft|deckcraft|gridcraft|pdfcraft)$'
 
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
 ICON_ARTCRAFT=$'\U000f03d8'
@@ -60,31 +62,20 @@ soundcraft	SoundCraft	Recording, editing and mixing audio	new	#1fa5c9	#0e7290	#5
 figcraft	FigCraft	Interface design and prototyping	new	#02da96	#047a56	#4fe8b6"
 CATALOG_COLUMNS=8   # id name tagline group version color ink-light ink-dark
 
+declare -A APP_ICON=(
+  [photocraft]=$'\U000f02e9' [vectorcraft]=$'\U000f0560' [filmcraft]=$'\U000f0567'
+  [lightcraft]=$'\U000f0100' [pdfcraft]=$'\U000f0226' [effectcraft]=$'\U000f0068'
+  [designcraft]=$'\U000f03d8' [wordcraft]=$'\U000f0219' [deckcraft]=$'\U000f0429'
+  [gridcraft]=$'\U000f04eb' [cadcraft]=$'\U000f0eec' [soundcraft]=$'\U000f075a'
+  [figcraft]=$'\U000f0001'
+)
 app_icon() {
-  case "$1" in
-    photocraft) printf '%s' $'\U000f02e9' ;;
-    vectorcraft) printf '%s' $'\U000f0560' ;;
-    filmcraft) printf '%s' $'\U000f0567' ;;
-    lightcraft) printf '%s' $'\U000f0100' ;;
-    pdfcraft) printf '%s' $'\U000f0226' ;;
-    effectcraft) printf '%s' $'\U000f0068' ;;
-    designcraft) printf '%s' $'\U000f03d8' ;;
-    wordcraft) printf '%s' $'\U000f0219' ;;
-    deckcraft) printf '%s' $'\U000f0429' ;;
-    gridcraft) printf '%s' $'\U000f04eb' ;;
-    cadcraft) printf '%s' $'\U000f0eec' ;;
-    soundcraft) printf '%s' $'\U000f075a' ;;
-    figcraft) printf '%s' $'\U000f0001' ;;
-    *) printf '%s' "$ICON_ARTCRAFT" ;;
-  esac
+  printf '%s' "${APP_ICON[$1]:-$ICON_ARTCRAFT}"
 }
 
 # The groups the panel shows. Upstream's classic/new stays in the catalog as data.
 group_for() {
-  case "$1" in
-    wordcraft | deckcraft | gridcraft | pdfcraft) printf office ;;
-    *) printf creative ;;
-  esac
+  [[ $1 =~ $OFFICE_IDS_RE ]] && printf office || printf creative
 }
 
 die() {
@@ -307,6 +298,15 @@ refreshing() {
   [[ -f $REFRESH_LOCK ]] || return 1
   pid=$(cat "$REFRESH_LOCK" 2>/dev/null || true)
   [[ -n $pid ]] && kill -0 "$pid" 2>/dev/null
+}
+
+# True when the panel may retry a failed check on its own: no failure recorded, or one older than
+# REFRESH_RETRY_MINUTES. A manual check (-f) never waits. Without this an offline machine looped:
+# every state read started a refresh, every failed refresh poked the panel, which read the state
+# again, and the reads killed one another.
+refresh_due() {
+  [[ -f $REFRESH_FAILED ]] || return 0
+  [[ -n $(find "$REFRESH_FAILED" -mmin +"$REFRESH_RETRY_MINUTES" 2>/dev/null) ]]
 }
 
 app_name() {
@@ -547,24 +547,38 @@ check() {
 # Local only: cache files and the package database. A stale cache starts a detached refresh.
 
 state() {
-  local id name tagline ugroup version color inkl inkd src current new rows="" job="null" last="null"
+  local id name tagline ugroup version color inkl inkd src current ready new group glyph
+  local rows="" job="null" last="null" office_json="[]" seen_known=0 office_ids=()
+  local -A seen=()
   load_installed
   ensure_cache
   reconcile_job
-  if { ! catalog_fresh || [[ -f $REFRESH_FAILED ]]; } && ! refreshing; then
+  if { ! catalog_fresh || [[ -f $REFRESH_FAILED ]]; } && ! refreshing && refresh_due; then
     refresh_detached
   fi
+  if [[ -f $SEEN ]]; then
+    seen_known=1
+    while read -r id; do [[ -n $id ]] && seen[$id]=1; done <"$SEEN"
+  fi
 
+  # One pass with no subshell per field: a forked helper for each of them made a read of thirteen
+  # installed apps take close to a second, long enough for the next read to collide with it.
   while IFS=$'\t' read -r id name tagline ugroup version color inkl inkd; do
-    src=$(install_source "$id")
-    current=$(installed_version "$id")
+    if [[ -n ${INSTALLED[$id-bin]:-} ]]; then src=bin; current=${INSTALLED[$id-bin]}
+    elif [[ -n ${INSTALLED[$id]:-} ]]; then src=source; current=${INSTALLED[$id]}
+    else src=""; current=""; fi
+    ready=0
+    if [[ $src == bin && -n $version && $current != "$version" ]] && (( $(vercmp "$current" "$version") < 0 )); then ready=1; fi
     new=0
-    is_new "$id" && new=1
-    rows+="$id"$'\t'"$name"$'\t'"$tagline"$'\t'"$(group_for "$id")"$'\t'"$ugroup"$'\t'"$(app_icon "$id")"$'\t'
-    rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'
-    rows+="$(update_ready "$id" "$version" && echo 1 || echo 0)"$'\t'"$new"$'\t'"ai.storyteller.$id"$'\t'
+    (( seen_known )) && [[ -z ${seen[$id]:-} ]] && new=1
+    [[ $id =~ $OFFICE_IDS_RE ]] && group=office || group=creative
+    [[ $group == office && -n $version ]] && office_ids+=("$id")
+    glyph=${APP_ICON[$id]:-$ICON_ARTCRAFT}
+    rows+="$id"$'\t'"$name"$'\t'"$tagline"$'\t'"$group"$'\t'"$ugroup"$'\t'"$glyph"$'\t'
+    rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'"$ready"$'\t'"$new"$'\t'"ai.storyteller.$id"$'\t'
     rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\n'
   done < <(catalog_rows)
+  (( ${#office_ids[@]} )) && office_json=$(printf '%s\n' "${office_ids[@]}" | jq -Rn '[inputs]')
 
   [[ -f $JOB_FILE ]] && job=$(jq -c . "$JOB_FILE" 2>/dev/null || echo null)
   [[ -f $LAST_JOB_FILE ]] && last=$(jq -c . "$LAST_JOB_FILE" 2>/dev/null || echo null)
@@ -575,7 +589,7 @@ state() {
     --argjson offline "$([[ -f $REFRESH_FAILED ]] && echo true || echo false)" \
     --argjson refreshing "$(refreshing && echo true || echo false)" \
     --argjson job "$job" --argjson last "$last" \
-    --argjson office "$(group_ids office | jq -Rn '[inputs]')" '
+    --argjson office "$office_json" '
     [inputs | select(length > 0) | split("\t") | {
       id: .[0], name: .[1], tagline: .[2], group: .[3], upstreamGroup: .[4], glyph: .[5],
       aurVersion: .[6], installedVersion: .[7],

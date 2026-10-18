@@ -29,6 +29,7 @@ stub omarchy-pkg-aur-add 0
 stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
 stub omarchy-launch-or-focus 0
+stub setsid 0                                 # detached refreshes are recorded, never run
 stub pacman 0 $'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\nother 1.0-1'
 export PATH="$TMP/bin:$PATH"
 
@@ -142,7 +143,17 @@ expect_eq "refresh returns failure when the AUR is unreachable" "$?" "1"
 cmp -s "$CATALOG" "$TMP/catalog.before" && ok "failed refresh leaves the catalog untouched" || fail "failed refresh leaves the catalog untouched"
 expect_true "failed refresh leaves a marker" "[[ -f '$REFRESH_FAILED' ]]"
 expect_eq "state reports offline after a failed refresh" "$(state | jq -c .offline)" "true"
+reset_log setsid
+state >/dev/null
+state >/dev/null
+expect_eq "state does not retry a check that failed moments ago" "$(calls setsid | grep -c '^bash -c')" "0"
+touch -d '-11 minutes' "$REFRESH_FAILED"
+state >/dev/null
+expect_eq "state retries once the failure is older than the backoff" "$(calls setsid | grep -c '^bash -c')" "1"
+touch "$REFRESH_FAILED"
+refresh_due && fail "refresh_due is false right after a failure" || ok "refresh_due is false right after a failure"
 rm -f "$REFRESH_FAILED"
+refresh_due && ok "refresh_due is true with no failure recorded" || fail "refresh_due is true with no failure recorded"
 
 # --- jobs --------------------------------------------------------------------------------------
 

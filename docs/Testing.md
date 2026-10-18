@@ -65,8 +65,9 @@ Middle-click: the layout flips.
 
 ## 6. Updates
 
-Real updates arrive when an AUR `-bin` package is bumped. To see the flow now, make the cached catalog
-claim a newer build of an app you installed in step 3:
+Real updates arrive when an AUR `-bin` package is bumped (the first set, 2026-10-18, was WordCraft,
+DeckCraft, GridCraft and SoundCraft 0.7.0 → 0.8.0). To see the flow without waiting, make the cached
+catalog claim a newer build of an app you installed in step 3:
 
 ```bash
 C=~/.cache/omarchy/omarcraft/catalog.tsv
@@ -77,13 +78,14 @@ omarchy-shell omarcraft.productivity refresh
 
 | Do | Expect |
 |---|---|
-| Look at the bar | Icon in the urgent colour with `1 ` before it |
+| Look at the bar | Rocket and a `1` before it, both in the urgent colour |
 | Open the panel | Hero `N OF 13 INSTALLED · 1 UPDATE`; an UPDATES · 1 section at the top with the FigCraft tile carrying `↑ 99.0.0` and an *Update all · u* button; FigCraft gone from INSTALLED |
-| `u` | Confirm line: `Runs Omarchy's AUR update, which upgrades every AUR package · a terminal opens…`; `Esc` cancels (don't run it: 99.0.0 does not exist) |
-| Middle-click the icon twice | One notification "ArtCraft updates available" the first time, none the second |
+| `Enter` on the tile | Confirm line `Update FigCraft 0.x.y → 99.0.0 · a terminal will open and ask for your password` with *Update ⏎*, *Launch instead*, *Cancel*; `Esc` cancels (don't run it: 99.0.0 does not exist) |
+| `u` or *Update all* | The same confirm naming every app with a newer build |
+| `$P/bin/omarcraft check --notify` twice | One notification "ArtCraft updates available" the first time, none the second. The panel runs this check at shell start and every six hours; a manual refresh (`r`, right-click) only shows the badge |
 
 Restore: `$P/bin/omarcraft refresh -f` then `omarchy-shell omarcraft.productivity refresh`. Expect the
-icon back to normal and the row back to its version.
+icon back to normal and the tile back in INSTALLED.
 
 ## 7. Failure and interruption
 
@@ -94,8 +96,9 @@ terminal`, icon urgent, actions enabled again. Install something successfully: t
 ## 8. Offline
 
 `nmcli networking off`, then `r` in the panel. Expect the hero `OFFLINE · CACHED LIST`, the status line
-`Could not reach the AUR · list from …`, rows unchanged, panel still instant. `nmcli networking on`, `r`:
-back to normal.
+`Could not reach the AUR · list from …`, rows unchanged, panel still instant, and nothing in red under the
+hero: while offline the panel retries the AUR at most every ten minutes (before 0.1.0 a retry loop printed
+`omarcraft state exited with status 15` repeatedly). `nmcli networking on`, `r`: back to normal.
 
 ## 9. Optional menu section and keybinding
 

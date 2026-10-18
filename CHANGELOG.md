@@ -16,6 +16,11 @@ packages.
   **tiles**, three per line with the glyph in the app's own ArtCraft colour (from the official catalog)
   over its name at full contrast, installed with a tinted fill and available with an outline only;
   **rows**, one per line with a caption and a right-edge action.
+- Offline: a failed AUR check is retried by the panel at most every ten minutes (a manual `r` or
+  right-click always tries). Before, every state read retried and every failed retry poked the panel,
+  a loop that printed `omarcraft state exited with status 15` in red while offline.
+- A state read is never killed by a newer request; requests coalesce. One read takes 0.2 s with all
+  13 apps installed (was 0.8 s): no forked helper per field any more.
 - Apps with a newer build move to an UPDATES section at the top with an `↑ 0.8.0` badge and an
   *Update all · u* button; the hero reads `4 OF 13 INSTALLED · 2 UPDATES`. Rocket logo in the hero
   and on the bar. No standing status line, no key legend, no *Install all* chip (per the 2026-10-17

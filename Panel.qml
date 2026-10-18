@@ -192,7 +192,7 @@ Panel {
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
     function refresh(): void { craft.refreshSoon() }
-    function status(): string { return JSON.stringify({ layout: root.layout, counts: craft.counts, job: craft.job, lastJob: craft.lastJob, offline: craft.offline, apps: craft.apps }) }
+    function status(): string { return JSON.stringify({ layout: root.layout, counts: craft.counts, job: craft.job, lastJob: craft.lastJob, offline: craft.offline, error: craft.lastError, apps: craft.apps }) }
     function layout(name: string): string {
       if (name !== "tiles" && name !== "rows") return "usage: layout tiles|rows (now " + root.layout + ")"
       root.setLayout(name)

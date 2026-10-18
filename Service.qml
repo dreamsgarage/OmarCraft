@@ -2,9 +2,11 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Owns the data. One short-lived `bin/omarcraft state` run per refresh (local files only), restarted
-// unconditionally so a stalled run can never wedge the panel; job.json is watched so a terminal job
-// started from the panel, or from anywhere else, shows up and clears without polling.
+// Owns the data. One short-lived `bin/omarcraft state` run per refresh (local files only). A read in
+// flight is never killed by a newer request: the request is queued and served by one more run when
+// the first ends. Only a read older than stallMs is restarted, so a wedged process cannot freeze the
+// panel. job.json is watched so a terminal job started from the panel, or from anywhere else, shows
+// up and clears without polling.
 Item {
   id: root
 
@@ -22,10 +24,20 @@ Item {
   property bool busy: false
   property string lastError: ""
   property string actionStatus: ""
+  property bool rerun: false
+  property double startedAt: 0
+  readonly property int stallMs: 10000
 
   function refresh() {
-    if (stateProc.running) stateProc.running = false
+    if (stateProc.running) {
+      if (Date.now() - startedAt < stallMs) {
+        rerun = true
+        return
+      }
+      stateProc.running = false
+    }
     busy = true
+    startedAt = Date.now()
     stateProc.running = true
   }
 
@@ -59,7 +71,8 @@ Item {
     try {
       s = JSON.parse(text)
     } catch (e) {
-      lastError = "state is not JSON"
+      // Empty output is a run that ended early; a later run will say what is true.
+      if (String(text || "").trim() !== "") lastError = "state is not JSON"
       return
     }
     apps = s.apps || []
@@ -80,9 +93,15 @@ Item {
       waitForEnd: true
       onStreamFinished: root.applyState(text)
     }
-    onExited: function(exitCode) {
+    onExited: function(exitCode, exitStatus) {
       root.busy = false
-      if (exitCode !== 0) root.lastError = "omarcraft state exited with status " + exitCode
+      // A normal exit with a status is a real failure. A signal exit (exitStatus 1) is a stalled run
+      // this service restarted, or a crash; the next read tells the truth, so nothing is shown.
+      if (exitStatus === 0 && exitCode !== 0) root.lastError = "omarcraft state exited with status " + exitCode
+      if (root.rerun) {
+        root.rerun = false
+        Qt.callLater(root.refresh)
+      }
     }
   }
 
