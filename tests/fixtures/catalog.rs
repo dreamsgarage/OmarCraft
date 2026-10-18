@@ -1,5 +1,8 @@
-// Excerpt of storytold/craft-launcher crates/core/src/catalog.rs (MIT OR Apache-2.0),
-// kept as an offline fixture for the catalog parser in bin/omarcraft.
+// Excerpt of storytold/craft-launcher crates/core/src/catalog.rs, kept as an offline fixture for
+// the catalog parser in bin/omarcraft. Copyright (c) 2026 ArtCraft Team and the ArtCraft Launcher
+// contributors; licensed under the MIT License or the Apache License 2.0, at your option. The
+// ArtCraft name and marks are their trademarks; this excerpt carries only app ids, names, taglines
+// and colours.
 
 const fn app(
     id: &'static str,
