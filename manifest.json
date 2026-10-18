@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "omarcraft.productivity",
   "name": "OmarCraft",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "author": "Entangled-Forge",
   "license": "MIT",
-  "description": "Productivity tools from the Omarchy bar: the ArtCraft Craft apps (PhotoCraft, FilmCraft, WordCraft and ten more) and Memos' desktop app, with more to come. See what is installed, launch, install one tool or a group, update, remove. Prebuilt AUR packages only, through Omarchy's own package commands. Unofficial.",
+  "description": "Productivity tools from the Omarchy bar: the ArtCraft Craft apps (PhotoCraft, FilmCraft, WordCraft and ten more), Typesetter, KolourPaint, Memospot and Vikunja. See what is installed, launch, install one tool or a group, update, remove. Prebuilt packages only (AUR -bin or the Arch repos), through Omarchy's own package commands. Unofficial.",
   "kinds": [
     "bar-widget"
   ],

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0 — unreleased
+
+Three more tools beyond ArtCraft, chosen by benchmark (`docs/v0.5-plan.md`), seventeen in all.
+
+- **Typesetter** (Typst documents with a live preview) in *Office* and **KolourPaint** (quick paint,
+  screenshot edits, pixel art) in *Creative*. Both come from the Arch repos: installed with
+  `omarchy-pkg-add`, version read from the local sync database, and updated with the system: their badge
+  reads `↑ system` and opens Omarchy's update. *Update all* keeps to AUR apps.
+- **Vikunja** (tasks, kanban, Gantt) joins Memospot in *Notes & tasks* (chip `n`, renamed from *Notes*).
+  It installs the desktop app and its server; OmarCraft runs the server under the user on
+  `127.0.0.1:3456` only while the app runs, keeps its data in `~/.local/share/omarcraft/vikunja`, and
+  writes a user desktop entry so the app launcher starts it the same way. A dot on the tile shows the
+  server running.
+- The qualification rule now reads: stable desktop release, prebuilt (Arch repos or AUR `-bin`),
+  maintained open-source upstream, about 150 MiB idle in one native process unless the tool adds something
+  ArtCraft lacks. Memospot and Vikunja are the documented exceptions.
+- Fix: an install job whose package command failed could be recorded as successful when a later step ran.
+
 ## 0.2.0 — 2026-10-18
 
 OmarCraft opens beyond ArtCraft: productivity tools for the Omarchy bar, by one rule (a prebuilt

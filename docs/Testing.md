@@ -137,3 +137,18 @@ moves to INSTALLED and `Enter` launches Memospot (its own window, `memospot.desk
 
 Include the step, what you saw, `git -C $P log --oneline -1`, `$P/bin/omarcraft state`, and the shell log
 lines from `journalctl --user _COMM=quickshell` around that time.
+
+## 0.5 on the author's machine (before any push)
+
+While a marketplace submission is open, `main` stays at the validated commit. Test the `v0.5` branch by
+pointing the installed plugin at it, and go back afterwards:
+
+```bash
+git -C $P fetch ~/Work/OmarCraft v0.5 && git -C $P checkout --detach FETCH_HEAD && omarchy restart shell
+# back to the released version
+git -C $P checkout main && omarchy restart shell
+```
+
+Rows 23–30 of `v1-acceptance.md`. For Vikunja, watch the server with `ss -ltnp 'sport = :3456'` and
+`cat ~/.local/state/omarchy/omarcraft/vikunja-server.pid`; its log is
+`~/.local/share/omarcraft/vikunja/server.log`. `omarcraft vikunja-stop` stops a server left behind.

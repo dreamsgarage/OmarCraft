@@ -7,27 +7,45 @@ Productivity tools from the Omarchy bar: the ArtCraft Craft apps and more.
 OmarCraft is for people who come to Omarchy for office, design and creative work, not only for code: simple,
 powerful desktop tools behind one bar icon, with a native Omarchy panel that shows what is installed, what
 is not, what has a newer build, and one action per tool to launch, install, update or remove. Every tool is
-a prebuilt `-bin` package from the AUR, installed through Omarchy's own package commands, so pacman owns
-it and nothing is ever compiled.
+a prebuilt package, a `-bin` from the AUR or a package from the Arch repos, installed through Omarchy's own
+package commands, so pacman owns it and nothing is ever compiled.
 
-The first release carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft,
-VectorCraft, FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft,
-CADCraft, SoundCraft, FigCraft) in the groups Creative and Office, and opens a third group, Notes, with
-[Memospot](https://memospot.github.io), the desktop build of [Memos](https://usememos.com). More tools
-follow the same rule (see *Beyond ArtCraft*).
+It carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft, VectorCraft, FilmCraft,
+LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft,
+FigCraft) in the groups Creative and Office, plus four tools that do what ArtCraft does not (see *Beyond
+ArtCraft*), seventeen in all.
 
 Plugin id `omarcraft.productivity`. MIT licensed. **Unofficial**: OmarCraft is not made by or affiliated with
-Storyteller, the makers of ArtCraft, nor with the Memos and Memospot projects. The names are theirs.
+Storyteller, the makers of ArtCraft, nor with the projects behind the other tools. The names are theirs.
 
 ## Beyond ArtCraft
 
-A tool gets a tile when it ships as a prebuilt `<id>-bin` package on the AUR with a desktop entry, from a
-maintained upstream under a permissive licence, and does something an office, design or creative user
-wants on the desktop. Today:
+A tool gets a tile when it:
 
-| Tool | Group | Package | What it is |
-|---|---|---|---|
-| Memospot | Notes | `memospot-bin` | Memos, the privacy-first notes and journal service, as a self-contained desktop app (pulls in webkit2gtk) |
+1. has a stable desktop release (tagged, not a release candidate or a source-only build),
+2. ships prebuilt, in the Arch repos or as an AUR `<id>-bin`, with a desktop entry,
+3. comes from a maintained upstream under an open-source licence,
+4. stays near **150 MiB idle in one native process**, like the Craft apps (70–90 MiB measured),
+5. does something an office, design or creative user wants on the desktop.
+
+A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so. Today:
+
+| Tool | Group | Package | What it is | Idle memory (measured) |
+|---|---|---|---|---|
+| [Typesetter](https://codeberg.org/haydn/typesetter) | Office | `typesetter` (Arch repos) | A focused [Typst](https://typst.app) editor with a live preview | 57 MiB, 1 process |
+| [KolourPaint](https://apps.kde.org/kolourpaint/) | Creative | `kolourpaint` (Arch repos) | Quick paint: screenshot edits, diagrams, pixel art | 66 MiB, 1 process |
+| [Memospot](https://memospot.github.io) | Notes & tasks | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
+| [Vikunja](https://vikunja.io) | Notes & tasks | `vikunja-desktop-bin`, `vikunja-bin` | Tasks, kanban, Gantt and lists, with its own local server | ~400 MiB while open, 0 when closed · **exception**: Electron app plus server |
+
+Tools from the Arch repos update with the system: their badge reads `↑ system` and opens Omarchy's
+update, because updating one repo package on its own is a partial upgrade.
+
+**Vikunja's server.** The Vikunja app is a client. OmarCraft installs the server too and runs it under your
+user, listening on `127.0.0.1:3456` only, while the app runs: it starts when you open Vikunja (from the
+panel or the app launcher) and stops when you choose *Quit* in Vikunja's tray menu (closing the window
+keeps it in the tray). The data and the server's config are in `~/.local/share/omarcraft/vikunja` and stay
+when Vikunja is removed. The first time, enter `http://127.0.0.1:3456` when the app asks for a server and
+register a local account. The package's own system service is not used.
 
 To propose one, open an issue with the package name and the upstream. Tools that only exist as a server or
 a command-line program (Typst's compiler, the Memos server itself) are not tiles: nothing to launch.
