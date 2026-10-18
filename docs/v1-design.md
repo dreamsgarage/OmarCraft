@@ -162,6 +162,10 @@ After using the tiles build the user asked for five changes, mocked up on the ca
    *Update all · u* button in the section header. The hero reads `4 OF 13 INSTALLED · 2 UPDATES`, the
    updates part in the urgent colour. `Enter` on such a tile asks *Update ⏎ / Launch instead / Cancel*.
 
+7. **Remove** (Round 4, 2026-10-18, option A): right-click or `x` on an installed tile opens the confirm
+   strip with *Remove ⏎* in the urgent colour, the one destructive action; the job is
+   `omarchy-pkg-drop <id>-bin`.
+
 The sections below describe the layouts as first built; where they differ from the list above, the list
 wins.
 
@@ -360,12 +364,13 @@ Declared on `PanelKeyCatcher { blocked: false }` (no text fields in v1, so never
 | `Enter` | primary action of the cursor row: launch, ask to update, or open the install confirm; with a confirm open: run it |
 | `u` | *Update all*: confirm line `Runs Omarchy's AUR update (every AUR package) in a terminal`, then the job |
 | `c` / `o` | confirm line for *Creative* / *Office* |
+| `x`, `Delete`, right-click | confirm line for *Remove* on an installed `-bin` app (added 2026-10-18) |
 | `r` | refresh (forced catalog refresh) |
 | `Tab` / `Shift+Tab` | `root.switchPanel(±1)`, the neighbouring bar panel |
 | `Esc` | close the confirm line if one is open, else close the panel |
 
-`h`/`l` are consumed by the catcher as horizontal moves and do nothing here; `x` (delete) does nothing in
-v1. The legend at the bottom lists only the keys that exist, caption size, dim.
+`h`/`l` are consumed by the catcher as horizontal moves and do nothing here; `x` (delete) asks to
+remove the app under the cursor (added 2026-10-18). The legend at the bottom lists only the keys that exist, caption size, dim.
 
 ## Components and tokens
 

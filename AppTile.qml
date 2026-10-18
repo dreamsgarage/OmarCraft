@@ -25,6 +25,7 @@ CursorSurface {
 
   signal hovered()
   signal activated()
+  signal secondary()      // right click: the remove confirm for an installed app
 
   hasCursor: false
   readonly property color glyphColor: failed ? urgent
@@ -49,11 +50,11 @@ CursorSurface {
     id: mouse
     anchors.fill: parent
     hoverEnabled: true
-    acceptedButtons: Qt.LeftButton
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
     enabled: tile.actionsEnabled
     onContainsMouseChanged: if (containsMouse) tile.hovered()
-    onClicked: tile.activated()
+    onClicked: function(mouse) { if (mouse.button === Qt.RightButton) tile.secondary(); else tile.activated() }
   }
 
   // The update badge, the urgent colour, top-right like the bar count.

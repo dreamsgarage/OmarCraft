@@ -125,7 +125,7 @@ function metaLine(craft) {
   var total = (craft.apps || []).length || SUITE_SIZE
   if (craft.job) {
     var ids = craft.job.ids || []
-    var verb = craft.job.verb === "update" ? "Updating " : "Installing "
+    var verb = craft.job.verb === "update" ? "Updating " : craft.job.verb === "remove" ? "Removing " : "Installing "
     if (ids.length === 1) {
       var a = appById(craft.apps, ids[0])
       return verb + (a ? a.name : ids[0]) + "…"
@@ -164,7 +164,7 @@ function refreshTip(craft) {
 }
 
 function subtext(app, craft) {
-  if (jobCovers(craft.job, app.id)) return craft.job.verb === "update" ? "Updating…" : "Installing…"
+  if (jobCovers(craft.job, app.id)) return craft.job.verb === "update" ? "Updating…" : craft.job.verb === "remove" ? "Removing…" : "Installing…"
   if (app.installed) {
     if (app.source === "source") return "Source build · updates via omarchy update"
     if (app.updateReady) return "Update ready " + app.installedVersion + " → " + app.aurVersion
@@ -174,9 +174,11 @@ function subtext(app, craft) {
   return "Install " + app.aurVersion + " · prebuilt, no compiling"
 }
 
-// Tiles have no caption; the same words go in the tooltip.
+// Tiles have no caption; the same words go in the tooltip, plus how to remove an installed package.
 function tileTip(app, craft) {
-  return app.name + " · " + subtext(app, craft)
+  var tip = app.name + " · " + subtext(app, craft)
+  if (app.installed && app.source === "bin" && !jobCovers(craft.job, app.id)) tip += " · right-click or x to remove"
+  return tip
 }
 
 function actionIcon(app) {
@@ -191,16 +193,19 @@ function actionTip(app) {
 }
 
 // "Install PhotoCraft 0.9.0 · a terminal will open and ask for your password"
+// "Remove PhotoCraft 0.9.0 · a terminal will open and ask for your password · your files stay"
 function confirmText(kind, apps, ids) {
   var parts = []
   for (var i = 0; i < ids.length; i++) {
     var a = appById(apps, ids[i])
     var name = a ? a.name : ids[i]
     if (kind === "update" && a) parts.push(name + " " + shortVersion(a.installedVersion) + " → " + shortVersion(a.aurVersion))
+    else if (kind === "remove" && a) parts.push(name + (a.installedVersion ? " " + shortVersion(a.installedVersion) : ""))
     else parts.push(name + (a && a.aurVersion ? " " + shortVersion(a.aurVersion) : ""))
   }
-  var head = (kind === "update" ? "Update " : "Install ") + (ids.length <= 3 ? parts.join(", ") : ids.length + " apps")
-  return head + " · a terminal will open and ask for your password"
+  var verb = kind === "update" ? "Update " : kind === "remove" ? "Remove " : "Install "
+  var head = verb + (ids.length <= 3 ? parts.join(", ") : ids.length + " apps")
+  return head + " · a terminal will open and ask for your password" + (kind === "remove" ? " · your files stay" : "")
 }
 
 function chipLabel(label, count) {

@@ -113,3 +113,4 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 18 | Offline: cached list, `OFFLINE` meta, panel instant | 5b48856 | PASS with a defect | 2026-10-18: offline state correct, but `omarcraft state exited with status 15` repeated in red. Cause: every state read retried the failed check and every failed check poked the panel, so reads killed one another. Fixed in the next commit (retry at most every ten minutes, reads never killed, state read 0.2 s instead of 0.8 s); re-test pending |
 | 19 | Theme switch recolours the panel live | 5b48856 | PASS (user) | 2026-10-18 |
 | 20 | Fresh `plugin add` places the icon right and installs nothing | | pending | Testing.md § 1 |
+| 21 | Remove from the panel: confirm, one terminal with Omarchy's drop command, tile back under AVAILABLE | | pending | Testing.md § 9 |

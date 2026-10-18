@@ -100,7 +100,15 @@ terminal`, icon urgent, actions enabled again. Install something successfully: t
 hero: while offline the panel retries the AUR at most every ten minutes (before 0.1.0 a retry loop printed
 `omarcraft state exited with status 15` repeatedly). `nmcli networking on`, `r`: back to normal.
 
-## 9. Optional menu section and keybinding
+## 9. Remove an app
+
+Right-click an installed tile (or `x` with the cursor on it). Expect the confirm line `Remove <App> x.y.z ·
+a terminal will open and ask for your password · your files stay` with *Remove ⏎* in the urgent colour and
+*Cancel*. `Enter`: one terminal titled `Removing <App>...` running Omarchy's `omarchy-pkg-drop <id>-bin`, one
+password prompt; when it closes the tile is back under AVAILABLE and `pacman -Q <id>-bin` says it is not
+installed. The app's documents and settings are untouched. `Esc` on the confirm cancels.
+
+## 10. Optional menu section and keybinding
 
 ```bash
 cp ~/.config/omarchy/extensions/omarchy-menu.jsonc /tmp/menu.bak
@@ -111,7 +119,7 @@ diff /tmp/menu.bak ~/.config/omarchy/extensions/omarchy-menu.jsonc && echo resto
 
 With the README's keybinding line in `bindings.lua`: `Super + Alt + A` toggles the panel.
 
-## 10. Plugin update and removal
+## 11. Plugin update and removal
 
 - Push a commit, `omarchy plugin update omarcraft.productivity`: fast-forward, valid, panel working after
   `omarchy restart shell`. Note any `exited with status` line in the shell log.

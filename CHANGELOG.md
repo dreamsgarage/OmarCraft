@@ -16,6 +16,10 @@ packages.
   **tiles**, three per line with the glyph in the app's own ArtCraft colour (from the official catalog)
   over its name at full contrast, installed with a tinted fill and available with an outline only;
   **rows**, one per line with a caption and a right-edge action.
+- Remove an app from the panel (2026-10-18, canvas Round 4, option A): right-click an installed tile or
+  `x` on the cursor, confirm *Remove ⏎* in the urgent colour, one terminal running Omarchy's
+  `omarchy-pkg-drop <id>-bin`; the tile returns to AVAILABLE. Apps installed some other way are not
+  offered. Also `omarcraft remove <id>…` and IPC `remove`.
 - Offline: a failed AUR check is retried by the panel at most every ten minutes (a manual `r` or
   right-click always tries). Before, every state read retried and every failed retry poked the panel,
   a loop that printed `omarcraft state exited with status 15` in red while offline.

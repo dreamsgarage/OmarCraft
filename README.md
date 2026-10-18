@@ -58,12 +58,17 @@ In both:
 - **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
   (Office = WordCraft, DeckCraft, GridCraft, PdfCraft), counting the apps you don't have. Same confirm,
   naming every app; one terminal, one run. A chip disappears when its group is complete.
+- **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft 0.9.0 ·
+  a terminal will open and ask for your password · your files stay`, then *Remove ⏎* or *Cancel*. The job
+  is Omarchy's `omarchy pkg drop photocraft-bin`; when the terminal closes the tile is back under
+  AVAILABLE. Apps installed some other way are not offered.
 While a job runs the row shows a spinner and `Installing…`, the hero says what runs, every install action
 is greyed out, and the terminal is the place to type your password. When the terminal finishes the panel
 re-reads the package database: what you see is what is installed, never what a click intended.
 
 **Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` launch, update or install · `u` Update
-all · `c` / `o` install the missing Creative / Office apps · `r` check the AUR · `t` switch layout ·
+all · `x` remove the app under the cursor · `c` / `o` install the missing Creative / Office apps · `r` check
+the AUR · `t` switch layout ·
 `Tab` neighbouring panel · `Esc` cancel or close.
 
 **Bar icon:** a rocket (󰓄), left = panel · right = check the AUR now · middle = switch layout. It turns to
@@ -108,6 +113,7 @@ $P list                       # catalog with install state
 $P launch <id>                # e.g. photocraft
 $P install <id>...            # floating terminal, one run
 $P install-group all|creative|office
+$P remove <id>...             # floating terminal, Omarchy's pkg drop; your files stay
 $P update [id...]             # the named apps, or every app with a newer build; floating terminal
 $P check [--notify]           # pending updates; exit 0 if any
 $P refresh [-f]               # fetch catalog and AUR versions now
@@ -118,6 +124,7 @@ omarchy-shell omarcraft.productivity open | close | toggle | refresh
 omarchy-shell omarcraft.productivity launch <id>
 omarchy-shell omarcraft.productivity install "<id> <id>"      # no confirm: a script is explicit
 omarchy-shell omarcraft.productivity update "<id> <id>"      # or "" for every app with a newer build
+omarchy-shell omarcraft.productivity remove "<id> <id>"      # apps installed as -bin packages
 omarchy-shell omarcraft.productivity layout tiles|rows
 omarchy-shell omarcraft.productivity status                   # JSON
 ```
@@ -139,8 +146,8 @@ reversible: `$P setup-menu` / `$P remove-menu`. It writes one marked block into
 omarchy plugin remove omarcraft.productivity
 ```
 
-Apps stay installed; remove them like any package, e.g. `omarchy pkg drop photocraft-bin`. Optional
-clean-up:
+Apps stay installed; remove them from the panel first if you want (right-click a tile), or like any
+package, e.g. `omarchy pkg drop photocraft-bin`. Optional clean-up:
 
 ```bash
 rm -rf ~/.cache/omarchy/omarcraft ~/.local/state/omarchy/omarcraft   # catalog cache, job records, seen list
@@ -152,8 +159,9 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 
 - Only `<id>-bin` package names, checked against the catalog and a strict pattern, ever reach a package
   command. The plugin never calls sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add`;
-  updates call the AUR helper Omarchy ships for exactly the named packages; both run in a visible Omarchy
-  terminal that asks for your password itself.
+  updates call the AUR helper Omarchy ships for exactly the named packages; removals go through Omarchy's
+  `omarchy-pkg-drop`, which takes the package and the dependencies nothing else needs, never your
+  documents or settings. All three run in a visible Omarchy terminal that asks for your password itself.
 - Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
   from the AUR RPC, every 24 hours, with bounded timeouts; a failed check keeps the old list and says
   `OFFLINE`, never "up to date". The panel itself never waits on the network.

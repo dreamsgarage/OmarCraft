@@ -53,7 +53,7 @@ Panel {
 
   // One confirm at a time: what it would do, and where it sits. In the tiles layout every confirm is
   // the strip under the hero; in rows an app's confirm sits under its row.
-  property string confirmKind: ""      // "" | "install" | "update"
+  property string confirmKind: ""      // "" | "install" | "update" | "remove"
   property var confirmIds: []
   property string confirmAt: ""        // "strip" | "app:<id>" | "group"
   readonly property bool confirmOpen: confirmKind !== ""
@@ -107,7 +107,7 @@ Panel {
 
   function runConfirm() {
     if (!confirmOpen) return
-    run((confirmKind === "update" ? "update " : "install ") + confirmIds.join(" "))
+    run((confirmKind === "update" ? "update " : confirmKind === "remove" ? "remove " : "install ") + confirmIds.join(" "))
     craft.flash("Opening a terminal…")
     cancelConfirm()
   }
@@ -140,6 +140,18 @@ Panel {
       return
     }
     openConfirm("install", [id], placementFor(key))
+  }
+
+  // x, Delete or a right click on an installed app: ask to remove its package. An app installed some
+  // other way is left to the path that installed it.
+  function confirmRemove(key) {
+    if (!key || key.indexOf("app:") !== 0) return
+    var id = key.slice(4)
+    var app = Model.appById(craft.apps, id)
+    if (!app || !app.installed) return
+    if (app.source !== "bin") { craft.flash(app.name + " was not installed by OmarCraft · remove it the way it was installed"); return }
+    setCursorTo(key)
+    openConfirm("remove", [id], placementFor(key))
   }
 
   function confirmGroup(ids) {
@@ -211,6 +223,18 @@ Panel {
       for (var i = 0; i < list.length; i++) if (!Model.appById(craft.apps, list[i])) return "unknown app: " + list[i]
       root.run("install " + list.join(" "))
       return "installing " + list.join(" ")
+    }
+    function remove(ids: string): string {
+      var list = String(ids).trim().split(/\s+/).filter(function(s) { return s.length > 0 })
+      if (list.length === 0) return "usage: remove <id>..."
+      for (var i = 0; i < list.length; i++) {
+        var app = Model.appById(craft.apps, list[i])
+        if (!app) return "unknown app: " + list[i]
+        if (!app.installed) return app.name + " is not installed"
+        if (app.source !== "bin") return app.name + " was not installed as a package by OmarCraft"
+      }
+      root.run("remove " + list.join(" "))
+      return "removing " + list.join(" ")
     }
     function update(ids: string): string {
       var list = String(ids || "").trim().split(/\s+/).filter(function(s) { return s.length > 0 })
@@ -305,6 +329,7 @@ Panel {
         fontFamily: root.fontFamily
         onHovered: root.setCursorTo(key)
         onActivated: { root.setCursorTo(key); root.primary(key) }
+        onSecondary: root.confirmRemove(key)
         Component.onCompleted: root.registerRow(key, this)
       }
     }
@@ -338,6 +363,7 @@ Panel {
         extra: root.confirmAt === key ? confirmLine : null
         onHovered: root.setCursorTo(key)
         onActivated: { root.setCursorTo(key); root.primary(key) }
+        onSecondary: root.confirmRemove(key)
         Component.onCompleted: root.registerRow(key, this)
       }
     }
@@ -365,9 +391,11 @@ Panel {
       }
       onCloseRequested: { if (root.confirmOpen) root.cancelConfirm(); else root.close() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
+      onDeleteRequested: if (root.cursorActive) root.confirmRemove(root.cursorKey)
       onTextKey: function(t) {
         var k = t.toLowerCase()
         if (k === "u") root.confirmUpdateAll()
+        else if (k === "x" && root.cursorActive) root.confirmRemove(root.cursorKey)
         else if (k === "c") root.confirmGroup(root.missingCreative)
         else if (k === "o") root.confirmGroup(root.missingOffice)
         else if (k === "r") root.refreshNow()
@@ -586,7 +614,8 @@ Panel {
     }
   }
 
-  // The confirm: one line naming what will happen, then Install/Update, Launch instead, Cancel.
+  // The confirm: one line naming what will happen, then Install/Update/Remove, Launch instead, Cancel.
+  // Remove is the one destructive action, so its button takes the urgent colour.
   Component {
     id: confirmLine
     Column {
@@ -605,11 +634,12 @@ Panel {
         width: parent.width
         spacing: Style.space(8)
         Button {
-          text: (root.confirmKind === "update" ? "Update" : "Install") + " ⏎"
+          text: (root.confirmKind === "update" ? "Update" : root.confirmKind === "remove" ? "Remove" : "Install") + " ⏎"
           bordered: true
           active: true
           fontSize: Style.font.bodySmall
           foreground: root.foreground
+          accent: root.confirmKind === "remove" ? root.urgent : root.accent
           fontFamily: root.fontFamily
           onClicked: root.runConfirm()
         }

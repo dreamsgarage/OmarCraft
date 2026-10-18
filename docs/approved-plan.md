@@ -196,6 +196,11 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
    `omarchy bar set omarcraft.productivity layout tiles|rows`, the `t` key, or IPC `layout`. The loser is
    removed before release; `v1-research.md` § F says how the choice is made.
 
+8. **Remove from the panel** (added 2026-10-18, user decision from canvas Round 4, option A): right-click
+   or `x` on an installed tile opens the same confirm strip; the job runs Omarchy's `omarchy-pkg-drop
+   <id>-bin`. Apps installed some other way are not offered. No new marketplace capability: package
+   management is already in the report.
+
 ## Out of scope until asked
 
 Remove-from-panel, AppImage path, settings schema, a search field, per-app pages, theme-coloured glyphs,

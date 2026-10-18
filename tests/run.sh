@@ -26,6 +26,7 @@ stub omarchy-shell 0
 stub omarchy-menu 0
 stub omarchy-notification-send 0
 stub omarchy-pkg-aur-add 0
+stub omarchy-pkg-drop 0
 stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
 stub omarchy-launch-or-focus 0
@@ -186,6 +187,14 @@ expect_eq "job update <id> is package-exact" "$(calls yay)" "-S --noconfirm word
 ( job update 'x;rm' ) >/dev/null 2>&1 && fail "job update refuses an unsafe id" || ok "job update refuses an unsafe id"
 expect_eq "the single-app update was the only helper call since the reset" "$(calls yay | wc -l)" "1"
 
+reset_log omarchy-pkg-drop
+( job remove photocraft wordcraft ) >/dev/null 2>&1
+expect_eq "job remove exits with the command's status" "$?" "0"
+expect_eq "job remove delegates to omarchy-pkg-drop with -bin names" "$(calls omarchy-pkg-drop)" "photocraft-bin wordcraft-bin"
+expect_eq "last job records the remove verb" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["remove",["photocraft","wordcraft"],0]'
+( job remove 'x;rm' ) >/dev/null 2>&1 && fail "job remove refuses an unsafe id" || ok "job remove refuses an unsafe id"
+expect_eq "a refused removal never reaches the command" "$(calls omarchy-pkg-drop | wc -l)" "1"
+
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
 st=$(state)
@@ -212,11 +221,18 @@ term=$(calls omarchy-launch-floating-terminal-with-presentation)
 expect_true "group install lists only the missing apps" "[[ '$term' == *'job install pdfcraft deckcraft gridcraft'* && '$term' != *'launch '* ]]"
 ( install_apps photocraft ) >/dev/null 2>&1
 expect_eq "installing an installed app launches it instead" "$(calls omarchy-launch-or-focus | wc -l)" "1"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( remove_apps photocraft ) >/dev/null 2>&1
+term=$(calls omarchy-launch-floating-terminal-with-presentation)
+expect_true "remove opens one floating terminal running job remove, no launch" "[[ \$(wc -l <<<'$term') == 1 && '$term' == *'job remove photocraft'* && '$term' != *'launch '* ]]"
+( remove_apps figcraft ) >/dev/null 2>&1 && fail "remove refuses an app that is not installed" || ok "remove refuses an app that is not installed"
+( remove_apps filmcraft ) >/dev/null 2>&1 && fail "remove refuses a source build" || ok "remove refuses a source build"
+expect_eq "refused removals open no terminal" "$(calls omarchy-launch-floating-terminal-with-presentation | wc -l)" "1"
 
 # --- hygiene -----------------------------------------------------------------------------------
 
 expect_eq "no privilege strings in the script" \
-  "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -S' "$ROOT/bin/omarcraft")" "0"
+  "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -[SR]' "$ROOT/bin/omarcraft")" "0"
 expect_eq "the helper is called in exactly one place (the update job)" \
   "$(grep -cE '(^|[^a-z-])yay ' "$ROOT/bin/omarcraft")" "1"
 expect_eq "manifest id" "$(jq -r .id "$ROOT/manifest.json")" "omarcraft.productivity"

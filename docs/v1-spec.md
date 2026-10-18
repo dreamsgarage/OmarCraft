@@ -66,6 +66,10 @@ its row says `Source build · updates via omarchy update`.
    for every app with a newer build. The job runs `yay -S --noconfirm <id>-bin…`, the helper Omarchy
    ships and uses itself, inside Omarchy's floating terminal. Installs still go through
    `omarchy-pkg-aur-add`. The plugin contains no `sudo` or `pkexec`.
+   **Remove** (added 2026-10-18, user decision, canvas Round 4 option A): right-click an installed app
+   or `x` on the cursor asks *Remove ⏎ / Cancel* with the same confirm line (`Remove PhotoCraft 0.9.0 ·
+   a terminal will open and ask for your password · your files stay`). The job runs Omarchy's
+   `omarchy-pkg-drop <id>-bin` in the floating terminal; only apps installed as `-bin` are offered.
 9. **Job tracking**: the terminal run writes `job.json` on start and removes it on exit (success or
    failure, with the exit status kept in `last-job.json`). While it exists, the involved rows show a
    spinning glyph and `Installing…`, every action is disabled, the hero says what runs. When it goes, the

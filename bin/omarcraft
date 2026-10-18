@@ -6,6 +6,7 @@
 #   omarcraft launch <id>           Launch (or focus) an installed app
 #   omarcraft install <id>...       Install apps (prebuilt <id>-bin from the AUR) in a floating terminal
 #   omarcraft install-group <g>     Install every missing app in a group: all, creative or office
+#   omarcraft remove <id>...        Remove apps (their -bin packages) in a floating terminal; files stay
 #   omarcraft update [id...]        Update the given apps (default: all with a newer build) in a floating terminal
 #   omarcraft job <install|update> [id...]   The terminal side of install/update; writes job.json
 #   omarcraft check [--notify]      List installed apps with a newer AUR build; exit 0 if any
@@ -422,7 +423,14 @@ job() {
         pkgs+=("$(pkg_for "$id")")
       done
       ;;
-    *) die "usage: omarcraft job <install|update> [id...]" ;;
+    remove)
+      (( $# > 0 )) || die "usage: omarcraft job remove <id>..."
+      for id in "$@"; do
+        known_id "$id"
+        pkgs+=("$(pkg_for "$id")")
+      done
+      ;;
+    *) die "usage: omarcraft job <install|update|remove> [id...]" ;;
   esac
 
   write_job "$verb" "$@"
@@ -432,6 +440,9 @@ job() {
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
     # directly here. It is the helper Omarchy ships and uses itself.
     update) yay -S --noconfirm "${pkgs[@]}" ;;
+    # Removal is Omarchy's own command: the package and the dependencies nothing else needs. The
+    # app's documents and settings are not touched.
+    remove) omarchy-pkg-drop "${pkgs[@]}" ;;
   esac
 }
 
@@ -450,6 +461,7 @@ run_job() {
   case "$verb" in
     install) printf -v message '%q' "Installing ${names[*]}..." ;;
     update) printf -v message '%q' "Updating ${names[*]}..." ;;
+    remove) printf -v message '%q' "Removing ${names[*]}..." ;;
   esac
   [[ -n $then_launch ]] && after=" && (setsid ${self} launch ${then_launch} >/dev/null 2>&1 &)"
   exec omarchy-launch-floating-terminal-with-presentation \
@@ -489,6 +501,20 @@ install_apps() {
     exit 0
   fi
   run_job install "$( (( $# == 1 )) && echo "$1")" "${ids[@]}"
+}
+
+# Remove apps installed as -bin packages. An app installed some other way (a source build) is left
+# alone with a message: only the path that installed it knows how to undo it.
+remove_apps() {
+  local ids=() id
+  load_installed
+  for id in "$@"; do
+    known_id "$id"
+    is_installed "$id" || die "$id is not installed"
+    [[ $(install_source "$id") == bin ]] || die "$id was not installed as a package by OmarCraft; remove it the way it was installed"
+    ids+=("$id")
+  done
+  run_job remove "" "${ids[@]}"
 }
 
 install_group() {
@@ -708,6 +734,7 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     launch) launch "${2:?usage: omarcraft launch <id>}" ;;
     install) shift; (( $# > 0 )) || die "usage: omarcraft install <id>..."; install_apps "$@" ;;
     install-group) install_group "${2:-all}" ;;
+    remove) shift; (( $# > 0 )) || die "usage: omarcraft remove <id>..."; remove_apps "$@" ;;
     update) shift; update "$@" ;;
     job) shift; job "$@" ;;
     missing) [[ -n $(missing_ids "${2:-all}") ]] ;;
@@ -718,7 +745,7 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     list) list ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
-    -h | --help | help) sed -n '3,21p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    -h | --help | help) sed -n '3,22p' "$SELF" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command: $1 (see omarcraft --help)" ;;
   esac
 fi

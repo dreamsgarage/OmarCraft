@@ -24,6 +24,7 @@ CursorSurface {
 
   signal hovered()
   signal activated()
+  signal secondary()      // right click: the remove confirm for an installed app
 
   hasCursor: isCursor
   readonly property color glyphColor: failed ? urgent : (dimmed && !busy ? Qt.darker(foreground, 1.5) : foreground)
@@ -38,11 +39,11 @@ CursorSurface {
     anchors.top: parent.top
     height: body.implicitHeight
     hoverEnabled: true
-    acceptedButtons: Qt.LeftButton
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
     enabled: row.actionsEnabled
     onContainsMouseChanged: if (containsMouse) row.hovered()
-    onClicked: row.activated()
+    onClicked: function(mouse) { if (mouse.button === Qt.RightButton) row.secondary(); else row.activated() }
   }
 
   Item {
