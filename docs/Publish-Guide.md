@@ -39,7 +39,9 @@ Two independent layers:
 | Manifest fields `schemaVersion`, `id`, `name`, `version`, `author`, `description`, `kinds`, `entryPoints` | All present; author `Entangled-Forge` as in OmasteelRGB |
 | No configuration changes without consent | Menu section and keybinding are opt-in, documented, reversible |
 
-Category: **Productivity**. Tags (one to three from the allowed list): `launcher, bar, quickshell`.
+Category: **Productivity**. Tags (one to three from the allowed list, which has nothing for office or
+design work): `launcher, media`; suggested missing tag `office`. Technical tags such as `bar` and
+`quickshell` were dropped on 2026-10-18 because they do not help the audience the plugin is for.
 
 The automated security baseline is a deterministic static scan (its rules are public in the
 marketplace's `SECURITY.md`, and its code runs locally, see below). OmarCraft's expected result is
