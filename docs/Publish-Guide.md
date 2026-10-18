@@ -113,7 +113,7 @@ Keep it that way.
 |---|---|---|
 | Unit tests | `bash tests/run.sh` | 95 passed |
 | Manifest and layout | `omarchy plugin validate` on the folder | valid (export check at tag time) |
-| Real install path | `omarchy plugin add <url> --enable --yes` from the private repo (v2 manifest) | cloned and validated; enable timed out once (see Troubleshooting), `omarchy plugin enable` placed it; re-run with the panel manifest pending |
+| Real install path | `omarchy plugin add <url> --enable --yes` from the public repo | 2026-10-18: cloned, validated, enabled and placed right in one go; nothing installed (acceptance row 20) |
 | Update path | `omarchy plugin update omarcraft.productivity --yes`, three times | fast-forwarded and validated each time |
 | Panel | bar icon right, hero, sections, cursor, confirm line, IPC | see `v1-acceptance.md` rows 1–12 |
 | App install / group install / update / interruption / offline / theme on real packages | through the panel | PASS, `v1-acceptance.md` rows 13–19 (2026-10-18); rows 20 (fresh add, after going public) and 21 (remove) pending |
