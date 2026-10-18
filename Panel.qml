@@ -54,7 +54,7 @@ Panel {
 
   // One confirm at a time: what it would do, and where it sits. In the tiles layout every confirm is
   // the strip under the hero; in rows an app's confirm sits under its row.
-  property string confirmKind: ""      // "" | "install" | "update" | "remove"
+  property string confirmKind: ""      // "" | "install" | "update" | "system-update" | "remove"
   property var confirmIds: []
   property string confirmAt: ""        // "strip" | "app:<id>" | "group"
   readonly property bool confirmOpen: confirmKind !== ""
@@ -108,13 +108,14 @@ Panel {
 
   function runConfirm() {
     if (!confirmOpen) return
-    run((confirmKind === "update" ? "update " : confirmKind === "remove" ? "remove " : "install ") + confirmIds.join(" "))
+    // system-update goes through `update`: the CLI sends repo apps to Omarchy's system update.
+    run((confirmKind === "update" || confirmKind === "system-update" ? "update " : confirmKind === "remove" ? "remove " : "install ") + confirmIds.join(" "))
     craft.flash("Opening a terminal…")
     cancelConfirm()
   }
 
   function launchInstead() {
-    if (confirmKind !== "update" || confirmIds.length !== 1) return
+    if ((confirmKind !== "update" && confirmKind !== "system-update") || confirmIds.length !== 1) return
     var id = confirmIds[0]
     cancelConfirm()
     launch(id)
@@ -136,7 +137,7 @@ Panel {
     if (!app) return
     if (confirmOpen && confirmIds.length === 1 && confirmIds[0] === id) { runConfirm(); return }
     if (app.installed) {
-      if (app.updateReady) openConfirm("update", [id], placementFor(key))
+      if (app.updateReady) openConfirm(app.source === "repo" ? "system-update" : "update", [id], placementFor(key))
       else launch(id)
       return
     }
@@ -150,7 +151,7 @@ Panel {
     var id = key.slice(4)
     var app = Model.appById(craft.apps, id)
     if (!app || !app.installed) return
-    if (app.source !== "bin") { craft.flash(app.name + " was not installed by OmarCraft · remove it the way it was installed"); return }
+    if (app.source !== "bin" && app.source !== "repo") { craft.flash(app.name + " was not installed by OmarCraft · remove it the way it was installed"); return }
     setCursorTo(key)
     openConfirm("remove", [id], placementFor(key))
   }
@@ -162,7 +163,10 @@ Panel {
 
   function confirmUpdateAll() {
     var ids = Model.outdatedIds(craft.apps)
-    if (ids.length === 0) { craft.flash("No ArtCraft updates pending"); return }
+    if (ids.length === 0) {
+      craft.flash(pending > 0 ? "The rest update with the system · Enter on their tile" : "No updates pending")
+      return
+    }
     openConfirm("update", ids, "strip")
   }
 
@@ -318,7 +322,8 @@ Panel {
         name: modelData.name
         tint: root.tintFor(modelData)
         installed: modelData.installed
-        badge: modelData.updateReady ? "↑ " + Model.shortVersion(modelData.aurVersion) : ""
+        badge: Model.badgeFor(modelData)
+        serverDot: !!modelData.serverRunning
         busy: Model.jobCovers(craft.job, modelData.id)
         failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
         actionsEnabled: modelData.installed || !root.jobRunning
@@ -574,7 +579,7 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
+              tooltipText: "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft, KolourPaint"
               onClicked: root.confirmGroup(root.missingCreative)
             }
             Button {
@@ -588,21 +593,21 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Word, Deck, Grid, PdfCraft"
+              tooltipText: "Word, Deck, Grid, PdfCraft, Typesetter"
               onClicked: root.confirmGroup(root.missingOffice)
             }
             Button {
               visible: root.missingNotes.length > 0
               iconText: "n"
               iconSize: Style.font.bodySmall
-              text: Model.chipLabel("Notes", root.missingNotes.length)
+              text: Model.chipLabel("Notes & tasks", root.missingNotes.length)
               bordered: true
               fontSize: Style.font.bodySmall
               foreground: root.foreground
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Memospot"
+              tooltipText: "Memospot, Vikunja"
               onClicked: root.confirmGroup(root.missingNotes)
             }
           }
@@ -650,7 +655,7 @@ Panel {
         width: parent.width
         spacing: Style.space(8)
         Button {
-          text: (root.confirmKind === "update" ? "Update" : root.confirmKind === "remove" ? "Remove" : "Install") + " ⏎"
+          text: (root.confirmKind === "update" ? "Update" : root.confirmKind === "system-update" ? "Update system" : root.confirmKind === "remove" ? "Remove" : "Install") + " ⏎"
           bordered: true
           active: true
           fontSize: Style.font.bodySmall
@@ -660,7 +665,7 @@ Panel {
           onClicked: root.runConfirm()
         }
         Button {
-          visible: root.confirmKind === "update" && root.confirmIds.length === 1
+          visible: (root.confirmKind === "update" || root.confirmKind === "system-update") && root.confirmIds.length === 1
           text: "Launch instead"
           fontSize: Style.font.bodySmall
           foreground: root.foreground

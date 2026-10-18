@@ -16,6 +16,7 @@ CursorSurface {
   property bool busy: false
   property bool failed: false
   property string badge: ""          // "↑ 0.8.0" on a tile with a newer build
+  property bool serverDot: false     // a local server runs for this app (Vikunja)
   property bool actionsEnabled: true
   property bool isCursor: false
   property color urgent: Color.urgent
@@ -55,6 +56,18 @@ CursorSurface {
     enabled: tile.actionsEnabled
     onContainsMouseChanged: if (containsMouse) tile.hovered()
     onClicked: function(mouse) { if (mouse.button === Qt.RightButton) tile.secondary(); else tile.activated() }
+  }
+
+  // A running local server: a small dot in the app's colour, top-left, opposite the update badge.
+  Rectangle {
+    visible: tile.serverDot && !tile.busy
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.margins: Style.space(7)
+    width: Style.space(7)
+    height: width
+    radius: width / 2
+    color: tile.tint
   }
 
   // The update badge, the urgent colour, top-right like the bar count.

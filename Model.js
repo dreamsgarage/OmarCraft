@@ -1,7 +1,7 @@
 // Pure helpers for the OmarCraft panel. No QML, no I/O: everything here is a function of the
 // state JSON that bin/omarcraft prints, so it can be read, and tested, without the shell.
 
-var SUITE_SIZE = 14
+var SUITE_SIZE = 17
 var COLUMNS = 3
 
 function urlToPath(url) {
@@ -73,10 +73,21 @@ function newCount(apps) {
   return n
 }
 
+// What Update all updates: AUR apps only. Repo apps (source "repo") update with the system.
 function outdatedIds(apps) {
   var ids = []
-  for (var i = 0; i < (apps || []).length; i++) if (apps[i].updateReady) ids.push(apps[i].id)
+  for (var i = 0; i < (apps || []).length; i++) if (apps[i].updateReady && apps[i].source !== "repo") ids.push(apps[i].id)
   return ids
+}
+
+// The tile badge: "↑ 0.9.0" for an AUR build, "↑ system" for a repo app behind the sync database.
+function badgeFor(app) {
+  if (!app || !app.updateReady) return ""
+  return app.source === "repo" ? "↑ system" : "↑ " + shortVersion(app.aurVersion)
+}
+
+function verbFor(kind) {
+  return kind === "update" ? "Updating " : kind === "remove" ? "Removing " : kind === "system-update" ? "Updating with the system: " : "Installing "
 }
 
 function namesFor(apps, ids) {
@@ -125,7 +136,8 @@ function metaLine(craft) {
   var total = (craft.apps || []).length || SUITE_SIZE
   if (craft.job) {
     var ids = craft.job.ids || []
-    var verb = craft.job.verb === "update" ? "Updating " : craft.job.verb === "remove" ? "Removing " : "Installing "
+    var verb = verbFor(craft.job.verb)
+    if (craft.job.verb === "system-update") return "Updating the system…"
     if (ids.length === 1) {
       var a = appById(craft.apps, ids[0])
       return verb + (a ? a.name : ids[0]) + "…"
@@ -164,20 +176,23 @@ function refreshTip(craft) {
 }
 
 function subtext(app, craft) {
-  if (jobCovers(craft.job, app.id)) return craft.job.verb === "update" ? "Updating…" : craft.job.verb === "remove" ? "Removing…" : "Installing…"
+  if (jobCovers(craft.job, app.id)) return verbFor(craft.job.verb).replace(/: $/, "").trim() + "…"
   if (app.installed) {
     if (app.source === "source") return "Source build · updates via omarchy update"
+    if (app.updateReady && app.source === "repo") return "Update with the system " + app.installedVersion + " → " + app.aurVersion
     if (app.updateReady) return "Update ready " + app.installedVersion + " → " + app.aurVersion
+    if (app.serverRunning) return app.installedVersion + " · server on 127.0.0.1:3456"
     return app.installedVersion
   }
-  if (app.new) return "New · install " + app.aurVersion
-  return "Install " + app.aurVersion + " · prebuilt, no compiling"
+  var where = app.kind === "repo" ? " · from the Arch repos" : app.id === "vikunja" ? " · app and local server" : " · prebuilt, no compiling"
+  if (app.new) return "New · install " + app.aurVersion + where
+  return "Install " + app.aurVersion + where
 }
 
 // Tiles have no caption; the same words go in the tooltip, plus how to remove an installed package.
 function tileTip(app, craft) {
   var tip = app.name + " · " + subtext(app, craft)
-  if (app.installed && app.source === "bin" && !jobCovers(craft.job, app.id)) tip += " · right-click or x to remove"
+  if (app.installed && (app.source === "bin" || app.source === "repo") && !jobCovers(craft.job, app.id)) tip += " · right-click or x to remove"
   return tip
 }
 
@@ -188,13 +203,20 @@ function actionIcon(app) {
 
 function actionTip(app) {
   if (!app.installed) return "Install " + app.name + " " + app.aurVersion
+  if (app.updateReady && app.source === "repo") return app.name + " " + app.aurVersion + " comes with the system update"
   if (app.updateReady) return "Update " + app.name + " to " + app.aurVersion
   return "Launch " + app.name
 }
 
 // "Install PhotoCraft 0.9.0 · a terminal will open and ask for your password"
 // "Remove PhotoCraft 0.9.0 · a terminal will open and ask for your password · your files stay"
+// "Typesetter 0.15.2 → 0.16 comes with the system update · a terminal will run Omarchy's update"
 function confirmText(kind, apps, ids) {
+  if (kind === "system-update") {
+    var s = appById(apps, ids[0])
+    var what = s ? s.name + " " + shortVersion(s.installedVersion) + " → " + shortVersion(s.aurVersion) : ids[0]
+    return what + " comes with the system update · a terminal will run Omarchy's update and ask for your password"
+  }
   var parts = []
   for (var i = 0; i < ids.length; i++) {
     var a = appById(apps, ids[i])
