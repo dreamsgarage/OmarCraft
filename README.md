@@ -158,7 +158,7 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 ## Safety
 
 - Only `<id>-bin` package names, checked against the catalog and a strict pattern, ever reach a package
-  command. The plugin never uses sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add`;
+  command. The plugin does not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add`;
   updates call the AUR helper Omarchy ships for exactly the named packages; removals go through Omarchy's
   `omarchy-pkg-drop`, which takes the package and the dependencies nothing else needs, never your
   documents or settings. All three run in a visible Omarchy terminal that asks for your password itself.

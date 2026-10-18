@@ -45,8 +45,9 @@ The automated security baseline is a deterministic static scan (its rules are pu
 marketplace's `SECURITY.md`, and its code runs locally, see below). OmarCraft's expected result is
 `review-required` with one capability, `package-manager`: the `yay -S` line of the update job and the
 `omarchy pkg drop` lines of the README. A `privilege` capability appears whenever a document mentions
-`sudo` or `pkexec` in a form the scanner does not recognise as a negation; it accepts "never uses sudo or
-pkexec" and "No sudo or pkexec is required", not "never calls". `review-required` is publishable once a
+`sudo` or `pkexec` in a form the scanner does not recognise as a negation; it accepts "does not use sudo or
+pkexec" and "No sudo or pkexec is required", not "never calls" or "never uses" (checked against the
+scanner's regular expression on 2026-10-18). `review-required` is publishable once a
 maintainer accepts the exact capability set, the path OmasteelRGB took and was approved on.
 
 Run the scanner yourself before every submission or update, on the commit you will submit:
