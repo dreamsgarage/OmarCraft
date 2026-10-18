@@ -24,7 +24,8 @@ Panel {
   readonly property bool darkBackground: Qt.color(String(Color.popups.background)).hslLightness < 0.5
   readonly property string pluginDir: Model.urlToPath(Qt.resolvedUrl("."))
   readonly property string scriptPath: pluginDir + "/bin/omarcraft"
-  readonly property string logo: "\u{F0535}"
+  // The rocket (Nerd Font md-rocket_launch), the mark the user chose from captures of the real bar.
+  readonly property string logo: "\u{F14DE}"
 
   readonly property string layout: setting("layout", "tiles") === "rows" ? "rows" : "tiles"
   readonly property bool tiles: layout === "tiles"
@@ -35,7 +36,10 @@ Panel {
   readonly property int pending: craft.counts.updates || 0
   readonly property bool jobRunning: !!craft.job
   readonly property bool jobFailed: Model.jobFailed(craft)
-  readonly property bool attention: pending > 0 || jobFailed
+  readonly property int newApps: Model.newCount(craft.apps)
+  // The bar icon turns urgent for pending updates, for Craft apps that appeared since the panel was
+  // last open, and after a failed job.
+  readonly property bool attention: pending > 0 || newApps > 0 || jobFailed
   readonly property var missingAll: Model.missingIds(craft.apps, "all")
   readonly property var missingCreative: Model.missingIds(craft.apps, "creative")
   readonly property var missingOffice: Model.missingIds(craft.apps, "office")
@@ -225,6 +229,9 @@ Panel {
       cursor = 0
       craft.refresh()
       if (panelFlick) panelFlick.contentY = 0
+    } else if (root.newApps > 0) {
+      // Closing the panel counts as having seen the new apps: the bar stops asking for attention.
+      craft.markSeen()
     }
   }
 
@@ -245,8 +252,9 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: root.pending > 0 && !vertical ? root.pending + " " + root.logo : root.logo
-    slotSize: Style.bar.statusSlot * (root.pending > 0 && !vertical ? 2 : 1)
-    fontSize: Style.font.caption
+    // The icon slot and 13 px glyph of the first-party panels (power, network), not the smaller
+    // status class: at 10 px the mark was unreadable next to its neighbours.
+    slotSize: Style.bar.iconSlot * (root.pending > 0 && !vertical ? 2 : 1)
     active: root.attention
     tooltipText: ""
     onPressed: function(b) {
@@ -360,7 +368,6 @@ Panel {
       onTextKey: function(t) {
         var k = t.toLowerCase()
         if (k === "u") root.confirmUpdateAll()
-        else if (k === "a") root.confirmGroup(root.missingAll)
         else if (k === "c") root.confirmGroup(root.missingCreative)
         else if (k === "o") root.confirmGroup(root.missingOffice)
         else if (k === "r") root.refreshNow()
@@ -383,7 +390,7 @@ Panel {
           width: panelFlick.width
           spacing: Style.space(10)
 
-          // ---------- Hero: trend logo · OmarCraft · "4 OF 13 INSTALLED · 2 UPDATES" · refresh ----------
+          // ---------- Hero: rocket logo · OmarCraft · "4 OF 13 INSTALLED · 2 UPDATES" · refresh ----------
           Item {
             width: parent.width
             implicitHeight: Math.max(heroLogo.implicitHeight, heroLabels.implicitHeight, heroRefresh.implicitHeight)
@@ -526,18 +533,6 @@ Panel {
             spacing: Style.space(6)
             visible: root.missingAll.length > 0 && root.sections.available.length > 0
 
-            Button {
-              iconText: "a"
-              iconSize: Style.font.bodySmall
-              text: Model.chipLabel("Install all", root.missingAll.length)
-              bordered: true
-              fontSize: Style.font.bodySmall
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              enabled: !root.jobRunning
-              opacity: enabled ? 1.0 : 0.45
-              onClicked: root.confirmGroup(root.missingAll)
-            }
             Button {
               visible: root.missingCreative.length > 0
               iconText: "c"

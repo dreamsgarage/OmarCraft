@@ -12,6 +12,7 @@
 #   omarcraft refresh [-f]          Fetch the catalog and AUR versions (cached 24h, -f forces)
 #   omarcraft list                  Print the catalog with install status
 #   omarcraft missing [group]       Exit 0 if any app of the group is not installed
+#   omarcraft seen                  Mark every catalog app as seen (clears "new"; the panel runs it on close)
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
 #   omarcraft remove-menu           Remove that section again
 #
@@ -325,6 +326,15 @@ is_new() {
 mark_seen() {
   mkdir -p "$STATE_DIR"
   grep -qx "$1" "$SEEN" 2>/dev/null || echo "$1" >>"$SEEN"
+}
+
+# Every catalog id at once: the panel was open, so nothing in it is new any more.
+mark_all_seen() {
+  local id
+  ensure_cache
+  while read -r id; do
+    [[ -n $id ]] && mark_seen "$id"
+  done < <(cut -f1 "$CATALOG")
 }
 
 # Ids of a group that have an AUR build: all, creative or office.
@@ -687,13 +697,14 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     update) shift; update "$@" ;;
     job) shift; job "$@" ;;
     missing) [[ -n $(missing_ids "${2:-all}") ]] ;;
+    seen) mark_all_seen ;;
     check) check "${2:-}" ;;
     refresh) refresh "${2:-}" ;;
     poke) poke_panel ;;
     list) list ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
-    -h | --help | help) sed -n '3,20p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    -h | --help | help) sed -n '3,21p' "$SELF" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command: $1 (see omarcraft --help)" ;;
   esac
 fi

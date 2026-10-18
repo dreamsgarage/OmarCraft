@@ -5,19 +5,21 @@
 First release. Exercised on Omarchy 4.0.4 with WordCraft, DeckCraft and GridCraft installed as prebuilt
 packages.
 
-- Bar icon in the right section: left = panel, right = check the AUR, middle = switch layout. Urgent
-  colour with the pending count while updates are ready, urgent after a failed job.
+- Bar icon in the right section, a rocket at the size of the first-party icons: left = panel, right =
+  check the AUR, middle = switch layout. Urgent colour with the pending count while updates are ready,
+  urgent while a new Craft app waits to be seen, urgent after a failed job.
 - Native panel (`KeyboardPanel`): hero with the one-line situation, INSTALLED / AVAILABLE
-  sections, group chips *Install all*, *Creative*, *Office* with counts, a confirm naming the package
+  sections, group chips *Creative* and *Office* with counts, a confirm naming the package
   before any install or update, spinner and greyed actions while a job runs, `h/l j/k`, `Enter`, `u`,
-  `a/c/o`, `s`, `r`, `t`, `Tab`, `Esc`.
+  `c/o`, `r`, `t`, `Tab`, `Esc`.
 - Two layouts, switchable live (`omarchy bar set omarcraft.productivity layout tiles|rows`, `t`, IPC):
   **tiles**, three per line with the glyph in the app's own ArtCraft colour (from the official catalog)
   over its name at full contrast, installed with a tinted fill and available with an outline only;
   **rows**, one per line with a caption and a right-edge action.
 - Apps with a newer build move to an UPDATES section at the top with an `↑ 0.8.0` badge and an
-  *Update all · u* button; the hero reads `4 OF 13 INSTALLED · 2 UPDATES`. Trend-line logo in the hero
-  and on the bar. No standing status line and no key legend (per the 2026-10-17 review).
+  *Update all · u* button; the hero reads `4 OF 13 INSTALLED · 2 UPDATES`. Rocket logo in the hero
+  and on the bar. No standing status line, no key legend, no *Install all* chip (per the 2026-10-17
+  reviews).
 - Clicking an installed app with a newer build asks: *Update* (that package), *Launch instead*, *Cancel*.
 - Jobs run in Omarchy's floating presentation terminal: installs through `omarchy-pkg-aur-add`, updates
   package-exact through the AUR helper Omarchy ships; `job.json` while running, `last-job.json` after;

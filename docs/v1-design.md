@@ -143,14 +143,20 @@ After using the tiles build the user asked for five changes, mocked up on the ca
    sections; section labels and hero meta `Style.font.bodySmall` (11 px) bold caps. Available tiles keep
    the name bright and dim only the glyph (60 %) and outline (28 %); installed tiles get the app colour
    as a 12 % fill and a 55 % outline. State is told by the fill, not by greying words.
-2. **Logo.** The Nerd Font trend line `󰔵` (U+F0535) in `Color.accent`, hero at `Style.font.display`,
-   bar at 13 px with the pending count before it (`2 󰔵`).
+2. **Logo.** The Nerd Font rocket `󰓄` (md-rocket_launch, U+F14DE), chosen on 2026-10-17 from captures
+   of the real bar: hero in `Color.accent` at `Style.font.display`; bar in the bar foreground at
+   `Style.bar.iconFont` (13 px) in `Style.bar.iconSlot`, the first-party icon class (v2 wrongly used the
+   10 px status class, which made the mark unreadable), with the pending count before it (`2 󰓄`).
+   The bar icon takes the urgent colour for pending updates, for a new Craft app not yet seen (cleared
+   when the panel closes, `omarcraft seen`), and after a failed job.
 3. **No standing status line.** Freshness lives in the refresh button's tooltip
    (`Check the AUR now · list from 2 h ago`); the line under the hero shows only a flash, an error, a
    running or failed job, or offline.
 4. **Brighter focus.** The cursor tile: accent outline 2 px, accent fill at 22 %, name in white and bold,
    glyph at full colour.
-5. **No key legend.** Removed. Chips carry their key letter as the icon slot (`a Install all · 9`).
+5. **No key legend.** Removed. Chips carry their key letter as the icon slot (`c Creative · 8`). The
+   *Install all* chip and the `a` key were removed on 2026-10-17 as redundant; a third category becomes
+   a third chip in the same row.
 6. **Pending updates.** Apps with a newer build leave INSTALLED for an **UPDATES · N** section at the top,
    label in the urgent colour, each tile with an `↑ 0.8.0` badge (pkgrel stripped), and an
    *Update all · u* button in the section header. The hero reads `4 OF 13 INSTALLED · 2 UPDATES`, the
@@ -190,8 +196,7 @@ is the first build. The research plan (§ F) decides which ships.
  │PhotoCraft│ │VectorCraf│ │ FilmCraft│
  └──────────┘ └──────────┘ └──────────┘
  … three lines of three …
- [ Install all · 9 ]  [ Creative · 8 ]  [ Office · 1 ]
- h/l j/k move · ⏎ launch, update or install · u update all · a/c/o · r · t rows · esc
+ [ c Creative · 8 ]  [ o Office · 1 ]
 ```
 
 - `AppTile.qml`: a `CursorSurface` with `bordered: true`; the glyph at `Style.font.display` in the
@@ -237,8 +242,7 @@ The sections below describe the rows layout; everything about data, bar, keys an
        Install 0.12.0 · prebuilt, no compiling
    … eight more rows, the Flickable scrolls …
 
-   [ Install all · 10 ]  [ Creative · 9 ]  [ Office · 1 ]
- j/k move · ⏎ launch/install · u update · a all · esc
+   [ c Creative · 9 ]  [ o Office · 1 ]
 ```
 
 - The hero is `PanelHero { title: "ArtCraft"; meta: Model.metaLine(craft) ; iconComponent: 󰏘 ;
@@ -304,7 +308,7 @@ destructive). This is OmasteelRGB's `requestWrite` guard applied to the one acti
  ▸ 󰋩  PhotoCraft                               󰇚
        Install 0.9.0 · prebuilt, no compiling
    …
-   [ Install all · 13 ]  [ Creative · 9 ]  [ Office · 4 ]
+   [ c Creative · 9 ]  [ o Office · 4 ]
 ```
 
 INSTALLED is hidden; the cursor starts on the first available row.
@@ -322,7 +326,7 @@ visibly if not).
        Source build · updates via omarchy update
 ```
 
-No update action, never counted in `counts.updates`; `Install all` / groups skip it.
+No update action, never counted in `counts.updates`; the group chips skip it.
 
 ## Row anatomy
 
@@ -355,7 +359,6 @@ Declared on `PanelKeyCatcher { blocked: false }` (no text fields in v1, so never
 | `j` `k` `↓` `↑` | move the cursor over rows (installed → available); first press only activates the cursor, like Power |
 | `Enter` | primary action of the cursor row: launch, ask to update, or open the install confirm; with a confirm open: run it |
 | `u` | *Update all*: confirm line `Runs Omarchy's AUR update (every AUR package) in a terminal`, then the job |
-| `a` | confirm line for *Install all* |
 | `c` / `o` | confirm line for *Creative* / *Office* |
 | `r` | refresh (forced catalog refresh) |
 | `Tab` / `Shift+Tab` | `root.switchPanel(±1)`, the neighbouring bar panel |

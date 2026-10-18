@@ -40,7 +40,8 @@ theme as shipped; validated on the author's machine with WordCraft, DeckCraft an
 5. Update: rows with a newer AUR build show `old → new`; `u` or *Update all* runs Omarchy's AUR update in a
    terminal; the bar icon shows the pending count in the urgent colour; one notification per new set.
 6. Keyboard-driven like the first-party panels: `j/k` move, `Enter` act on the row, `u` update all,
-   `a` install all, `r` refresh, `t` layout, `Tab` neighbouring panel, `Esc` close.
+   ~~`a` install all,~~ `r` refresh, `t` layout, `Tab` neighbouring panel, `Esc` close.
+   (Amended 2026-10-17: *Install all* and `a` removed as redundant with the group chips.)
 7. Truth over optimism: every state in the panel comes from `pacman -Q` and the AUR, re-read after every
    job. The panel never shows an app as installed because a click happened.
 8. Honest copy before anything happens: an available row says `Install 0.9.0 · prebuilt, no compiling`;
@@ -172,7 +173,7 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
    No permanent `3/13` label: the hero carries the count.
 3. **Inline confirm before every install and before Update all** (one extra `Enter`), naming the
    packages and the terminal. Launch needs no confirm.
-4. **Groups shown as chips under Available: *Install all*, *Creative*, *Office*.** Proposed mapping:
+4. **Groups shown as chips under Available: ~~*Install all*,~~ *Creative*, *Office*.** Proposed mapping:
    Office = WordCraft, DeckCraft, GridCraft, PdfCraft; Creative = the other nine. Upstream's *Classic/New*
    stays in the data but is not shown. The research plan's survey confirms or changes the mapping before
    release.

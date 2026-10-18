@@ -57,8 +57,9 @@ its row says `Source build · updates via omarchy update`.
    starts one job: `omarchy-pkg-aur-add <id>-bin` (Omarchy's own AUR add command) inside
    `omarchy-launch-floating-terminal-with-presentation`, then launches the app when the job succeeds
    (single app only).
-7. **Group install**: chips *Install all (N)*, *Creative (N)*, *Office (N)* under the available rows, each
-   showing how many are missing; hidden when nothing is missing. Same inline confirm, listing the names.
+7. **Group install**: chips *Creative (N)*, *Office (N)* under the available rows, each
+   showing how many are missing; hidden when nothing is missing (*Install all* removed 2026-10-17 as
+   redundant; a future category becomes another chip). Same inline confirm, listing the names.
    One job, every package on one `omarchy-pkg-aur-add` line, no launch afterwards.
 8. **Update** (amended 2026-10-17): package-exact. `Enter` or a click on an installed app with a newer
    build asks to update that app (*Update ⏎* / *Launch instead* / *Cancel*); `u` or *Update all* asks
@@ -79,7 +80,7 @@ its row says `Source build · updates via omarchy update`.
     the same, once.
 11. ~~**Studio**~~ Removed 2026-10-17: ArtCraft Studio is out of scope (another category of software).
 12. **Keyboard** (PanelKeyCatcher): `j/k` `↑/↓` move the cursor over rows; `Enter` primary action of the
-    row; `u` update all; `a` install all; `c` / `o` install Creative / Office; `r` refresh;
+    row; `u` update all; `c` / `o` install Creative / Office; `r` refresh;
     `Tab`/`Shift+Tab` neighbouring panel; `Esc` cancels an open confirm line, otherwise closes.
 13. **IPC** (`omarchy-shell omarcraft.productivity <verb>`): `open`, `close`, `toggle`, `refresh`,
     `install <id…>`, `update`, `launch <id>`, `layout`, `status` (returns the state JSON). Bad input

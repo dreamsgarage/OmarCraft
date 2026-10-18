@@ -43,7 +43,7 @@ Left-click the icon (or `Tab` from a neighbouring panel). Two layouts, switched 
 
 In both:
 
-- **Hero.** The trend-line logo, then the one-line situation: `4 OF 13 INSTALLED · 2 UPDATES` (the
+- **Hero.** The rocket logo, then the one-line situation: `4 OF 13 INSTALLED · 2 UPDATES` (the
   updates part in the urgent colour), `INSTALLING WORDCRAFT…`, `NOTHING INSTALLED YET`, `OFFLINE · CACHED
   LIST`, `LAST JOB FAILED`. The circular arrow at the right checks the AUR now; its tooltip says how old
   the list is. A line under the hero appears only while something needs saying (a job, an error, offline).
@@ -55,19 +55,20 @@ In both:
 - **AVAILABLE · N.** The rest. `Enter` or a click opens a one-line confirm under the hero (`Install
   PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
   cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
-- **Group chips** under the available apps, each with its key: *a Install all · N*, *c Creative · N*,
-  *o Office · N* (Office = WordCraft, DeckCraft, GridCraft, PdfCraft), counting the apps you don't have.
-  Same confirm, naming every app; one terminal, one run.
+- **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
+  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft), counting the apps you don't have. Same confirm,
+  naming every app; one terminal, one run. A chip disappears when its group is complete.
 While a job runs the row shows a spinner and `Installing…`, the hero says what runs, every install action
 is greyed out, and the terminal is the place to type your password. When the terminal finishes the panel
 re-reads the package database: what you see is what is installed, never what a click intended.
 
 **Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` launch, update or install · `u` Update
-all · `a` / `c` / `o` install all / Creative / Office · `r` check the AUR · `t` switch layout ·
+all · `c` / `o` install the missing Creative / Office apps · `r` check the AUR · `t` switch layout ·
 `Tab` neighbouring panel · `Esc` cancel or close.
 
-**Bar icon:** left = panel · right = check the AUR now · middle = switch layout. While updates are pending the
-icon turns to the urgent colour and shows the count (`2 󰏘`); it also turns urgent after a job that failed.
+**Bar icon:** a rocket (󰓄), left = panel · right = check the AUR now · middle = switch layout. It turns to
+the urgent colour while updates are pending, with the count in front (`2 󰓄`), when a Craft app appeared in
+the catalog since you last opened the panel, and after a job that failed.
 
 ## Updates
 

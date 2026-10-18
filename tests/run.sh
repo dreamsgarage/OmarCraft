@@ -128,6 +128,11 @@ is_new figcraft && ok "unseen app is new" || fail "unseen app is new"
 is_new photocraft && fail "seen app is not new" || ok "seen app is not new"
 mark_seen figcraft
 is_new figcraft && fail "mark_seen clears new" || ok "mark_seen clears new"
+grep -v -e figcraft -e cadcraft "$SEEN" >"$SEEN.tmp" && mv "$SEEN.tmp" "$SEEN"
+expect_eq "state reports the unseen packaged apps as new" "$(state | jq -r '[.apps[] | select(.new and .aurVersion != "")] | length')" "2"
+mark_all_seen
+expect_eq "seen clears every new mark" "$(state | jq -r '[.apps[] | select(.new)] | length')" "0"
+expect_eq "seen does not duplicate ids" "$(sort "$SEEN" | uniq -d | wc -l)" "0"
 
 # --- refresh: failure keeps the old data -------------------------------------------------------
 

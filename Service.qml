@@ -44,6 +44,11 @@ Item {
     if (!checkProc.running) checkProc.running = true
   }
 
+  // Marks every catalog app as seen (the panel was open), then re-reads so `new` clears.
+  function markSeen() {
+    if (!seenProc.running) seenProc.running = true
+  }
+
   function flash(text) {
     actionStatus = text
     flashTimer.restart()
@@ -84,6 +89,12 @@ Item {
   Process {
     id: catalogProc
     command: [root.scriptPath, "refresh", "-f"]
+    onExited: root.refreshSoon()
+  }
+
+  Process {
+    id: seenProc
+    command: [root.scriptPath, "seen"]
     onExited: root.refreshSoon()
   }
 

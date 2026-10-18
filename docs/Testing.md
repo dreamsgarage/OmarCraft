@@ -26,8 +26,8 @@ audio, monitor, power. Nothing installed, nothing written under `~/.config`. If 
 
 | Do | Expect |
 |---|---|
-| Left-click the icon | Panel under the icon within a second: trend-line logo, `OmarCraft`, `N OF 13 INSTALLED`; no line under the hero unless something is happening |
-| Read the sections (tiles) | INSTALLED tiles in each app's colour, AVAILABLE tiles dimmed, chips `Install all · N` `Creative · N` `Office · N`; hover a tile for its version |
+| Left-click the icon | Panel under the icon within a second: rocket logo, `OmarCraft`, `N OF 13 INSTALLED`; no line under the hero unless something is happening |
+| Read the sections (tiles) | INSTALLED tiles in each app's colour, AVAILABLE tiles dimmed, chips `c Creative · N` `o Office · N`; hover a tile for its version |
 | `t` | Rows: INSTALLED (version, ▶), AVAILABLE (dimmed, `Install x.y.z · prebuilt, no compiling`, download glyph); `t` again returns to tiles |
 | `j` four times | First press activates the cursor on the first row, then it moves down one row per press; the list scrolls to keep it in view |
 | `Tab` | The neighbouring bar panel opens instead |

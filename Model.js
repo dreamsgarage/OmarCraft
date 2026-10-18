@@ -66,6 +66,13 @@ function missingIds(apps, group) {
   return ids
 }
 
+// Craft apps that appeared in the catalog since the panel was last closed and are not installed.
+function newCount(apps) {
+  var n = 0
+  for (var i = 0; i < (apps || []).length; i++) if (apps[i].new && !apps[i].installed && apps[i].aurVersion) n++
+  return n
+}
+
 function outdatedIds(apps) {
   var ids = []
   for (var i = 0; i < (apps || []).length; i++) if (apps[i].updateReady) ids.push(apps[i].id)
