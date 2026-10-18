@@ -5,9 +5,9 @@ release. Based on the OmasteelRGB publish guide (Entangled Forge's first plugin)
 
 ## Current state
 
-- Repository `dreamsgarage/OmarCraft` is **private**. `omarchy plugin add` works from it only on machines
-  whose git can authenticate to the account (here, through `gh auth git-credential`).
-- The marketplace requires a public repository, so going public is step one of submission.
+- Repository `dreamsgarage/OmarCraft` is **public** since 2026-10-18 (`v0.1.0`). Before that, `omarchy plugin
+  add` worked only on machines whose git could authenticate to the account.
+- The marketplace requires a public repository, so going public was step one of submission.
 
 ## What publishing means for an Omarchy plugin
 
@@ -31,7 +31,7 @@ Two independent layers:
 
 | Requirement | OmarCraft |
 |---|---|
-| Public GitHub repository, one plugin, `manifest.json` at the root | Root manifest yes; **public: not yet** |
+| Public GitHub repository, one plugin, `manifest.json` at the root | Yes, public since 2026-10-18 |
 | Root README with install and removal instructions | Install, Remove, optional clean-up |
 | Root licence, external dependencies documented | MIT; only Omarchy's bundled tools, said in Requirements |
 | Globally unique id outside `omarchy.*`, permanent | `omarcraft.productivity`; not in the registry's 5,603 sources or retired ids as of 2026-10-17 |
@@ -115,7 +115,7 @@ Keep it that way.
 | Update path | `omarchy plugin update omarcraft.productivity --yes`, three times | fast-forwarded and validated each time |
 | Panel | bar icon right, hero, sections, cursor, confirm line, IPC | see `v1-acceptance.md` rows 1–12 |
 | App install / group install / update / interruption / offline / theme on real packages | through the panel | PASS, `v1-acceptance.md` rows 13–19 (2026-10-18); rows 20 (fresh add, after going public) and 21 (remove) pending |
-| Marketplace repository rules | table above | all but public |
+| Marketplace repository rules | table above | all |
 
 ## Troubleshooting for issue reports
 

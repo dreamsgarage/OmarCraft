@@ -133,6 +133,8 @@ same data, machine and day.
   stay with tiles as default and the question goes to the survey (C) with the two screenshots.
 - **What the design predicts:** tiles win T2 (colour and density) and T6 (the mark); rows win T3 for
   first-time users (the caption says "Install 0.9.0 · prebuilt"); the tooltip is meant to close that gap.
+- **Outcome for 0.1.0 (2026-10-18):** the timed comparison did not run before release. By the decision
+  rule's third branch both layouts ship, tiles as default, and the question goes to the survey (C).
 
 ## Timeline
 

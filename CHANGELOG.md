@@ -1,9 +1,9 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-10-18
 
-First release. Exercised on Omarchy 4.0.4 with WordCraft, DeckCraft and GridCraft installed as prebuilt
-packages.
+First release. Exercised on Omarchy 4.0.4 with all 13 Craft apps installed, updated and removed as
+prebuilt packages through the panel (acceptance rows 1–19 and 21 in `docs/v1-acceptance.md`).
 
 - Bar icon in the right section, a rocket at the size of the first-party icons: left = panel, right =
   check the AUR, middle = switch layout. Urgent colour with the pending count while updates are ready,
