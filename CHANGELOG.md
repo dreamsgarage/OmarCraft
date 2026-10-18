@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0 — 2026-10-18
+
+OmarCraft opens beyond ArtCraft: productivity tools for the Omarchy bar, by one rule (a prebuilt
+`<id>-bin` AUR package with a desktop entry, maintained upstream, permissive licence).
+
+- **Memospot**, the desktop build of Memos (notes and journal), as the first tool of a new *Notes* group:
+  tile in the amber of its icon, chip *n Notes · N*, `install-group notes`, menu entry *Install Notes*.
+  Same install, launch, update and remove path as the Craft apps; no new marketplace capability.
+- An existing catalog cache learns tools a newer plugin version knows: they are added and their AUR
+  version fetched on the next read, and they show as *New* until the panel is opened.
+- Manifest, README, menu labels and the new-app notification say "tools", not only "Craft apps"; the
+  hero counts fourteen.
+
 ## 0.1.0 — 2026-10-18
 
 First release. Exercised on Omarchy 4.0.4 with all 13 Craft apps installed, updated and removed as

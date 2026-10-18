@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "omarcraft.productivity",
   "name": "OmarCraft",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Entangled-Forge",
   "license": "MIT",
-  "description": "The ArtCraft Craft apps (PhotoCraft, FilmCraft, WordCraft and ten more) from the Omarchy bar: see what is installed, launch, install one app or a group, update. Prebuilt AUR packages only, through Omarchy's own package commands. Unofficial.",
+  "description": "Productivity tools from the Omarchy bar: the ArtCraft Craft apps (PhotoCraft, FilmCraft, WordCraft and ten more) and Memos' desktop app, with more to come. See what is installed, launch, install one tool or a group, update, remove. Prebuilt AUR packages only, through Omarchy's own package commands. Unofficial.",
   "kinds": [
     "bar-widget"
   ],
@@ -13,8 +13,8 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "ArtCraft apps",
-    "description": "Craft apps: installed, available, updates. Left = panel, right = check the AUR, middle = switch layout.",
+    "displayName": "Productivity tools",
+    "description": "Craft apps and more: installed, available, updates. Left = panel, right = check the AUR, middle = switch layout.",
     "category": "Productivity",
     "allowMultiple": false,
     "defaultSection": "right"

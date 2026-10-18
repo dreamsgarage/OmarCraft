@@ -63,9 +63,10 @@ It serves the scanner the repository at `HEAD` the way GitHub would and prints t
 followed by a machine summary (`outcome`, `findings`, `capabilities` with evidence lines).
 
 Trademark note: ArtCraft and the Craft app names belong to Storyteller, whose packages carry a separate
-brand licence. The README calls OmarCraft unofficial and unaffiliated, and the plugin uses no ArtCraft
-logo (the bar icon is a Nerd Font rocket glyph; the per-app colours are data from their public catalog).
-Keep it that way.
+brand licence; Memos and Memospot are their projects' names. The README calls OmarCraft unofficial and
+unaffiliated, and the plugin uses no project logo (the bar icon is a Nerd Font rocket glyph; the per-app
+colours are data from ArtCraft's public catalog and the dominant colour of Memospot's icon). Keep it that
+way for every tool added.
 
 ## Release procedure
 

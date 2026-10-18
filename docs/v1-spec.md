@@ -152,3 +152,15 @@ Apps are listed in catalog order; the panel sorts them into sections.
 7. ~~Studio remains a web app.~~ Studio removed from scope (2026-10-17).
 8. Two layouts, tiles (default) and rows, switchable; the app's own ArtCraft colour on tiles (amended
    2026-10-17).
+
+## Amendment 2026-10-18: tools beyond ArtCraft (0.2.0)
+
+The catalog has two sources: the ArtCraft suite (upstream `catalog.rs`, built-in copy as fallback) and a
+built-in list of extra tools (`EXTRA_CATALOG`, upstream group `extra`), merged on every refresh and on
+first run. Groups come from `GROUP_OF` (Craft apps not listed are Creative); the panel shows a chip per
+group with missing tools: *c Creative*, *o Office*, *n Notes*. Everything else (versions from the AUR
+RPC, `<id>-bin` packages, install, launch through the package's desktop entry, update, remove, badges,
+notifications) applies to extras unchanged. A cache written by an older version gains the new tools on
+the next read, without a version, and is made stale so the version arrives at once. Qualification rule
+for a tool: prebuilt `<id>-bin` on the AUR with a desktop entry, maintained upstream, permissive licence,
+something an office, design or creative user launches. First extra: Memospot (`memospot-bin`).

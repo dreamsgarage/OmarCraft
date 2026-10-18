@@ -1,18 +1,36 @@
 # OmarCraft
 
-The ArtCraft Craft apps, from the Omarchy bar.
+Productivity tools from the Omarchy bar: the ArtCraft Craft apps and more.
 
 ![OmarCraft panel](preview.png)
 
-[ArtCraft](https://getartcraft.com) ships thirteen creative and office apps (PhotoCraft, VectorCraft,
-FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft,
-SoundCraft, FigCraft). OmarCraft puts them behind one bar icon
-with a native Omarchy panel: what is installed, what is not, what has a newer build, and one action per
-row to launch, install or update. Installs use the prebuilt `-bin` packages from the AUR through Omarchy's
-own package commands, so pacman owns every app and nothing is ever compiled.
+OmarCraft is for people who come to Omarchy for office, design and creative work, not only for code: simple,
+powerful desktop tools behind one bar icon, with a native Omarchy panel that shows what is installed, what
+is not, what has a newer build, and one action per tool to launch, install, update or remove. Every tool is
+a prebuilt `-bin` package from the AUR, installed through Omarchy's own package commands, so pacman owns
+it and nothing is ever compiled.
+
+The first release carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft,
+VectorCraft, FilmCraft, LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft,
+CADCraft, SoundCraft, FigCraft) in the groups Creative and Office, and opens a third group, Notes, with
+[Memospot](https://memospot.github.io), the desktop build of [Memos](https://usememos.com). More tools
+follow the same rule (see *Beyond ArtCraft*).
 
 Plugin id `omarcraft.productivity`. MIT licensed. **Unofficial**: OmarCraft is not made by or affiliated with
-Storyteller, the makers of ArtCraft. ArtCraft and the app names are theirs.
+Storyteller, the makers of ArtCraft, nor with the Memos and Memospot projects. The names are theirs.
+
+## Beyond ArtCraft
+
+A tool gets a tile when it ships as a prebuilt `<id>-bin` package on the AUR with a desktop entry, from a
+maintained upstream under a permissive licence, and does something an office, design or creative user
+wants on the desktop. Today:
+
+| Tool | Group | Package | What it is |
+|---|---|---|---|
+| Memospot | Notes | `memospot-bin` | Memos, the privacy-first notes and journal service, as a self-contained desktop app (pulls in webkit2gtk) |
+
+To propose one, open an issue with the package name and the upstream. Tools that only exist as a server or
+a command-line program (Typst's compiler, the Memos server itself) are not tiles: nothing to launch.
 
 ## Requirements
 
@@ -56,8 +74,9 @@ In both:
   PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
   cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
 - **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
-  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft), counting the apps you don't have. Same confirm,
-  naming every app; one terminal, one run. A chip disappears when its group is complete.
+  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft), *n Notes · N* (Memospot), counting the apps you
+  don't have. Same confirm, naming every app; one terminal, one run. A chip disappears when its group is
+  complete.
 - **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft 0.9.0 ·
   a terminal will open and ask for your password · your files stay`, then *Remove ⏎* or *Cancel*. The job
   is Omarchy's `omarchy pkg drop photocraft-bin`; when the terminal closes the tile is back under
@@ -67,8 +86,8 @@ is greyed out, and the terminal is the place to type your password. When the ter
 re-reads the package database: what you see is what is installed, never what a click intended.
 
 **Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` launch, update or install · `u` Update
-all · `x` remove the app under the cursor · `c` / `o` install the missing Creative / Office apps · `r` check
-the AUR · `t` switch layout ·
+all · `x` remove the app under the cursor · `c` / `o` / `n` install the missing Creative / Office / Notes
+tools · `r` check the AUR · `t` switch layout ·
 `Tab` neighbouring panel · `Esc` cancel or close.
 
 **Bar icon:** a rocket (󰓄), left = panel · right = check the AUR now · middle = switch layout. It turns to
@@ -112,7 +131,7 @@ $P state                      # the JSON the panel reads (local files only)
 $P list                       # catalog with install state
 $P launch <id>                # e.g. photocraft
 $P install <id>...            # floating terminal, one run
-$P install-group all|creative|office
+$P install-group all|creative|office|notes
 $P remove <id>...             # floating terminal, Omarchy's pkg drop; your files stay
 $P update [id...]             # the named apps, or every app with a newer build; floating terminal
 $P check [--notify]           # pending updates; exit 0 if any
@@ -203,5 +222,7 @@ Release and marketplace steps: [docs/Publish-Guide.md](docs/Publish-Guide.md). C
 
 MIT, see [LICENSE](LICENSE). By Entangled Forge. The Craft apps and the app catalog are by
 [Storyteller](https://github.com/storytold), as are the per-app colours, taken from their launcher's catalog;
-the `-bin` packages are maintained by their AUR packagers. The panel follows Omarchy's first-party Network
+Memos is by [usememos](https://github.com/usememos/memos) and Memospot by
+[memospot](https://github.com/memospot/memospot) (colours from its icon); the `-bin` packages are maintained
+by their AUR packagers. The panel follows Omarchy's first-party Network
 and Power panels and Entangled Forge's OmasteelRGB.

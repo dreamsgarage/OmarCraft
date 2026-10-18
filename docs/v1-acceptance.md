@@ -114,3 +114,4 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 19 | Theme switch recolours the panel live | 5b48856 | PASS (user) | 2026-10-18 |
 | 20 | Fresh `plugin add` places the icon right and installs nothing | 5a9311a | PASS | 2026-10-18, from the public URL after `plugin remove`: cloned, validated, enabled, placed in the right section after the tray by itself; package count unchanged (972); status answered with no error |
 | 21 | Remove from the panel: confirm, one terminal with Omarchy's drop command, tile back under AVAILABLE | 51d29ba | PASS (user) | 2026-10-18 |
+| 22 | Memospot: tile, Notes chip, install, launch, remove through the same paths | | pending | Testing.md § 12 |

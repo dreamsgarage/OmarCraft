@@ -440,3 +440,11 @@ iterate, privately).
 | `PanelHero` elides a long meta | Meta strings ≤ 28 chars; checked in phase 2 at the default font size and at `Style.scale` 1.25 |
 | Glyph missing in a user's font | All glyphs from the MDI block shipped in every Nerd Font; fallback `󰏘` if `Model.GLYPHS` has no entry |
 | Confirm line adds a step | One `Enter`; IPC and group chips for power users; measured in research (install confidence vs. friction) |
+
+## Amendment 2026-10-18: Notes group and Memospot (0.2.0)
+
+- Catalog rows for extras use the same eight columns; `upstreamGroup` is `extra`, `desktopId` is the
+  package's own entry (`memospot`), found at launch time from the installed file list as for every app.
+- Glyph `󱇗` (md-note-text-outline, U+F11D7), checked by rendering; tint `#f6b028` on dark panels and
+  `#9a6a08` on light ones, the amber of the Memospot icon.
+- The third chip the row reserved is *n Notes · N*; `n` is its key. No other layout change.

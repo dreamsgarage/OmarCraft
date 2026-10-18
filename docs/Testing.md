@@ -125,6 +125,14 @@ With the README's keybinding line in `bindings.lua`: `Super + Alt + A` toggles t
   `omarchy restart shell`. Note any `exited with status` line in the shell log.
 - `omarchy plugin remove omarcraft.productivity`: icon gone; apps still installed.
 
+## 12. Memospot, the first tool beyond ArtCraft
+
+Open the panel. Expect a Memospot tile under AVAILABLE in amber with the note glyph, the chip `n Notes · 1`,
+and, on a machine that had 0.1.0, the tile marked *New* in the rows layout and the bar icon in the urgent
+colour until the panel is opened. `Enter` on the tile: `Install Memospot 1.0.5 · a terminal will open and
+ask for your password`; one terminal, one password prompt (webkit2gtk is pulled in); afterwards the tile
+moves to INSTALLED and `Enter` launches Memospot (its own window, `memospot.desktop`). `x` on it removes it.
+
 ## Reporting a problem
 
 Include the step, what you saw, `git -C $P log --oneline -1`, `$P/bin/omarcraft state`, and the shell log

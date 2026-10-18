@@ -204,6 +204,13 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
    <id>-bin`. Apps installed some other way are not offered. No new marketplace capability: package
    management is already in the report.
 
+9. **Beyond ArtCraft** (added 2026-10-18, user decision from canvas Round 5, option A): the plugin is a
+   productivity launcher-installer for the Omarchy bar, open to any tool that ships as a prebuilt `<id>-bin`
+   AUR package with a desktop entry, from a maintained upstream under a permissive licence. First extra:
+   Memospot (Memos' desktop build) in a new *Notes* group. Typst was evaluated and declined for now: no
+   mature desktop app exists (its compiler has nothing to launch; the only AUR desktop wrapper is a stale
+   3-star project); typst.app as a web-app tile is a possible later kind of entry. Release 0.2.0.
+
 ## Out of scope until asked
 
 Remove-from-panel, AppImage path, settings schema, a search field, per-app pages, theme-coloured glyphs,

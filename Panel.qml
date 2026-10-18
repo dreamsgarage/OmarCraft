@@ -43,6 +43,7 @@ Panel {
   readonly property var missingAll: Model.missingIds(craft.apps, "all")
   readonly property var missingCreative: Model.missingIds(craft.apps, "creative")
   readonly property var missingOffice: Model.missingIds(craft.apps, "office")
+  readonly property var missingNotes: Model.missingIds(craft.apps, "notes")
   readonly property string statusLine: craft.actionStatus !== "" ? craft.actionStatus
     : craft.lastError !== "" ? craft.lastError
     : Model.standingLine(craft)
@@ -398,6 +399,7 @@ Panel {
         else if (k === "x" && root.cursorActive) root.confirmRemove(root.cursorKey)
         else if (k === "c") root.confirmGroup(root.missingCreative)
         else if (k === "o") root.confirmGroup(root.missingOffice)
+        else if (k === "n") root.confirmGroup(root.missingNotes)
         else if (k === "r") root.refreshNow()
         else if (k === "t") root.toggleLayout()
       }
@@ -588,6 +590,20 @@ Panel {
               opacity: enabled ? 1.0 : 0.45
               tooltipText: "Word, Deck, Grid, PdfCraft"
               onClicked: root.confirmGroup(root.missingOffice)
+            }
+            Button {
+              visible: root.missingNotes.length > 0
+              iconText: "n"
+              iconSize: Style.font.bodySmall
+              text: Model.chipLabel("Notes", root.missingNotes.length)
+              bordered: true
+              fontSize: Style.font.bodySmall
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              enabled: !root.jobRunning
+              opacity: enabled ? 1.0 : 0.45
+              tooltipText: "Memospot"
+              onClicked: root.confirmGroup(root.missingNotes)
             }
           }
 

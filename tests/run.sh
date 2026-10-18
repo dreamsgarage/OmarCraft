@@ -67,12 +67,17 @@ expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
 ensure_cache
 expect_true "first run writes the built-in catalog without versions" "[[ \$(cut -f5 '$CATALOG' | sort -u) == '' ]]"
 expect_eq "cache has the full column set" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
-expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "13"
+expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "14"
+expect_true "built-in catalog carries the extras" "grep -q '^memospot' \"$CATALOG\""
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
+catalog_fresh && fail "first-run cache is stale so versions are fetched at once" || ok "first-run cache is stale so versions are fetched at once"
+expect_eq "first-run state keeps empty versions empty (no column shift)" "$(state | jq -r '[.apps[] | .aurVersion] | unique | join(",")')" ""
+expect_eq "first-run state carries the colours" "$(state | jq -r '.apps[] | select(.id=="photocraft") | .color')" "#2f7bf5"
 
 # --- groups and ids ----------------------------------------------------------------------------
 
 expect_eq "office group" "$(for i in wordcraft deckcraft gridcraft pdfcraft photocraft; do group_for $i; echo; done | tr '\n' ' ')" "office office office office creative "
+expect_eq "notes group" "$(group_for memospot)" "notes"
 ( valid_id "photocraft" ) 2>/dev/null && ok "valid id accepted" || fail "valid id accepted"
 ( valid_id 'x;rm -rf' ) 2>/dev/null && fail "unsafe id rejected" || ok "unsafe id rejected"
 ( known_id 'photocraft-git' ) 2>/dev/null && fail "id outside the catalog rejected" || ok "id outside the catalog rejected"
@@ -84,19 +89,27 @@ ensure_cache
 expect_eq "old cache layout is migrated" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
 expect_eq "migration keeps known versions" "$(awk -F'\t' '$1=="photocraft"{print $5}' "$CATALOG")" "0.5.0-1"
 
+# A cache from an older version lacks a tool this version knows: it is added and the cache made stale.
+grep -v "^memospot" "$CATALOG" >"$CATALOG.tmp" && mv "$CATALOG.tmp" "$CATALOG" && touch "$CATALOG"
+ensure_cache
+expect_true "a missing built-in tool is added to an existing cache" "grep -q '^memospot' \"$CATALOG\""
+catalog_fresh && fail "the cache is made stale so the version is fetched soon" || ok "the cache is made stale so the version is fetched soon"
+
 # Give the cache versions, as a successful refresh would.
 while IFS=$'\t' read -r id name tagline group color inkl inkd; do
   printf '%s\t%s\t%s\t%s\t1.0.0-1\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$color" "$inkl" "$inkd"
-done <<<"$BUILTIN_CATALOG" >"$CATALOG"
+done < <(builtin_rows) >"$CATALOG"
 printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
-expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "13"
+expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "14"
+expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot "
 expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft "
 expect_eq "group creative" "$(group_ids creative | wc -l)" "9"
 
 # --- installed state (pacman stubbed) -----------------------------------------------------------
 
+reset_log pacman   # the first-run checks above ran state in subshells
 is_installed photocraft && ok "-bin package counts as installed" || fail "-bin package counts as installed"
 is_installed filmcraft && ok "source build counts as installed" || fail "source build counts as installed"
 is_installed gridcraft && fail "missing app is not installed" || ok "missing app is not installed"
@@ -104,6 +117,7 @@ expect_eq "install source bin / source / none" "$(install_source photocraft)/$(i
 expect_eq "installed version through a subshell" "$(installed_version photocraft)" "0.8.0-1"
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
 expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
+expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot "
 expect_eq "one package-database read per run" "$(calls pacman | wc -l)" "1"
 
 # --- state JSON --------------------------------------------------------------------------------
@@ -111,9 +125,10 @@ expect_eq "one package-database read per run" "$(calls pacman | wc -l)" "1"
 reset_log curl
 st=$(state)
 jq -e . <<<"$st" >/dev/null && ok "state is valid JSON" || fail "state is valid JSON"
-expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":3,"available":10,"updates":1,"unpackaged":1}'
+expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":3,"available":11,"updates":1,"unpackaged":1}'
 expect_eq "state app shape" "$(jq -c '.apps[] | select(.id=="photocraft") | [.group,.upstreamGroup,.installed,.source,.installedVersion,.aurVersion,.updateReady,.new,.desktopId]' <<<"$st")" \
   '["creative","classic",true,"bin","0.8.0-1","1.0.0-1",true,false,"ai.storyteller.photocraft"]'
+expect_eq "state carries the extra tool with its own group, glyph and desktop id" "$(jq -c '.apps[] | select(.id=="memospot") | [.group,.upstreamGroup,.installed,.aurVersion,.desktopId,.color]' <<<"$st")" '["notes","extra",false,"1.0.0-1","memospot","#f6b028"]'
 expect_eq "state: source build is installed, never update-ready" "$(jq -c '.apps[] | select(.id=="filmcraft") | [.installed,.source,.updateReady]' <<<"$st")" '[true,"source",false]'
 expect_eq "state: unpackaged app has null source and no version" "$(jq -c '.apps[] | select(.id=="unpackaged") | [.installed,.source,.aurVersion]' <<<"$st")" '[false,null,""]'
 expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft"]'
@@ -219,6 +234,10 @@ reset_log omarchy-launch-floating-terminal-with-presentation
 ( install_group office ) >/dev/null 2>&1
 term=$(calls omarchy-launch-floating-terminal-with-presentation)
 expect_true "group install lists only the missing apps" "[[ '$term' == *'job install pdfcraft deckcraft gridcraft'* && '$term' != *'launch '* ]]"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( install_group notes ) >/dev/null 2>&1
+term=$(calls omarchy-launch-floating-terminal-with-presentation)
+expect_true "notes group installs memospot through the same job" "[[ '$term' == *'job install memospot'* ]]"
 ( install_apps photocraft ) >/dev/null 2>&1
 expect_eq "installing an installed app launches it instead" "$(calls omarchy-launch-or-focus | wc -l)" "1"
 reset_log omarchy-launch-floating-terminal-with-presentation
@@ -247,7 +266,7 @@ cp "$MENU_FILE" "$TMP/original.jsonc"
 setup_menu >/dev/null
 parse_menu_jsonc "$MENU_FILE" && ok "menu section parses as Omarchy JSONC" || fail "menu section parses as Omarchy JSONC"
 grep -q '"personal"' "$MENU_FILE" && ok "user entries kept" || fail "user entries kept"
-expect_eq "menu section has 7 entries" "$(grep -c '^  "\(install\.\)\{0,1\}omarcraft' "$MENU_FILE")" "7"
+expect_eq "menu section has 8 entries" "$(grep -c '^  "\(install\.\)\{0,1\}omarcraft' "$MENU_FILE")" "8"
 cp "$MENU_FILE" "$TMP/once.jsonc"
 setup_menu >/dev/null
 cmp -s "$MENU_FILE" "$TMP/once.jsonc" && ok "setup-menu is idempotent" || fail "setup-menu is idempotent"
