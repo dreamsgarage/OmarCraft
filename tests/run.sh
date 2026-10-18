@@ -31,7 +31,21 @@ stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
 stub omarchy-launch-or-focus 0
 stub setsid 0                                 # detached refreshes are recorded, never run
-stub pacman 0 $'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\nother 1.0-1'
+# pacman: -Si answers from a fake sync database, anything else lists the installed packages. Typesetter
+# is a repo tool behind the sync database; "vikunja" is the server's source build, not the Vikunja app.
+cat >"$TMP/bin/pacman" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/pacman"
+if [[ \$1 == -Si ]]; then
+  printf 'Repository      : extra\nName            : typesetter\nVersion         : 0.16-1\n\n'
+  printf 'Repository      : extra\nName            : kolourpaint\nVersion         : 26.08.2-1\n\n'
+  exit 0
+fi
+printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nvikunja 2.0.0-1\nother 1.0-1\n'
+STUB
+chmod +x "$TMP/bin/pacman"
+stub omarchy-pkg-add 0
+stub omarchy-update 0
 export PATH="$TMP/bin:$PATH"
 
 calls() { cat "$TMP/log/$1" 2>/dev/null; }
@@ -67,7 +81,7 @@ expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
 ensure_cache
 expect_true "first run writes the built-in catalog without versions" "[[ \$(cut -f5 '$CATALOG' | sort -u) == '' ]]"
 expect_eq "cache has the full column set" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
-expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "14"
+expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "17"
 expect_true "built-in catalog carries the extras" "grep -q '^memospot' \"$CATALOG\""
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
 catalog_fresh && fail "first-run cache is stale so versions are fetched at once" || ok "first-run cache is stale so versions are fetched at once"
@@ -102,10 +116,10 @@ done < <(builtin_rows) >"$CATALOG"
 printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
-expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "14"
-expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot "
-expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft "
-expect_eq "group creative" "$(group_ids creative | wc -l)" "9"
+expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "17"
+expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot vikunja "
+expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft typesetter "
+expect_eq "group creative" "$(group_ids creative | wc -l)" "10"
 
 # --- installed state (pacman stubbed) -----------------------------------------------------------
 
@@ -117,21 +131,47 @@ expect_eq "install source bin / source / none" "$(install_source photocraft)/$(i
 expect_eq "installed version through a subshell" "$(installed_version photocraft)" "0.8.0-1"
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
 expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
-expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot "
+expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot vikunja "
 expect_eq "one package-database read per run" "$(calls pacman | wc -l)" "1"
+
+# --- package kinds ------------------------------------------------------------------------------
+
+expect_eq "kinds: Craft app, repo tool, multi-package tool" "$(kind_for photocraft)/$(kind_for typesetter)/$(kind_for vikunja)" "aur/repo/aur"
+expect_eq "packages of a tool, the app's own first" "$(pkgs_for vikunja)|$(pkg_for vikunja)|$(pkg_for typesetter)|$(pkg_for memospot)" \
+  "vikunja-desktop-bin vikunja-bin|vikunja-desktop-bin|typesetter|memospot-bin"
+expect_eq "a repo tool is installed from the repo" "$(install_source typesetter)" "repo"
+is_installed vikunja && fail "the server's source build is not the Vikunja app" || ok "the server's source build is not the Vikunja app"
+expect_eq "Update all takes only AUR apps" "$(outdated_ids | tr '\n' ' ')" "photocraft "
+expect_eq "repo apps behind the sync database are listed apart" "$(outdated_ids repo | tr '\n' ' ')" "typesetter "
+expect_eq "repo versions come from the sync database, mapped to ids" "$(repo_versions photocraft typesetter kolourpaint vikunja | tr '\t\n' '= ')" \
+  "typesetter=0.16-1 kolourpaint=26.08.2-1 "
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/curl"
+echo '{"results":[{"Name":"vikunja-desktop-bin","Version":"2.7.0-1"},{"Name":"memospot-bin","Version":"1.0.5-1"}]}'
+STUB
+expect_eq "AUR names map back to ids; repo tools are not asked" "$(aur_versions vikunja memospot typesetter | tr '\t\n' '= ')" \
+  "vikunja=2.7.0-1 memospot=1.0.5-1 "
+expect_true "the AUR query names the app package of a multi-package tool" "calls curl | grep -q 'arg\[\]=vikunja-desktop-bin' && ! calls curl | grep -q typesetter"
+stub curl 7
+reset_log curl
 
 # --- state JSON --------------------------------------------------------------------------------
 
 reset_log curl
 st=$(state)
 jq -e . <<<"$st" >/dev/null && ok "state is valid JSON" || fail "state is valid JSON"
-expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":3,"available":11,"updates":1,"unpackaged":1}'
+expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":13,"updates":2,"unpackaged":1}'
+expect_eq "state: a repo tool" "$(jq -c '.apps[] | select(.id=="typesetter") | [.group,.kind,.source,.installedVersion,.updateReady,.desktopId]' <<<"$st")" \
+  '["office","repo","repo","0.15.2-1",true,"net.trowell.typesetter"]'
+expect_eq "state: Vikunja, not installed, server down" "$(jq -c '.apps[] | select(.id=="vikunja") | [.group,.kind,.installed,.serverRunning,.desktopId]' <<<"$st")" \
+  '["notes","aur",false,false,"vikunja-desktop"]'
 expect_eq "state app shape" "$(jq -c '.apps[] | select(.id=="photocraft") | [.group,.upstreamGroup,.installed,.source,.installedVersion,.aurVersion,.updateReady,.new,.desktopId]' <<<"$st")" \
   '["creative","classic",true,"bin","0.8.0-1","1.0.0-1",true,false,"ai.storyteller.photocraft"]'
 expect_eq "state carries the extra tool with its own group, glyph and desktop id" "$(jq -c '.apps[] | select(.id=="memospot") | [.group,.upstreamGroup,.installed,.aurVersion,.desktopId,.color]' <<<"$st")" '["notes","extra",false,"1.0.0-1","memospot","#f6b028"]'
 expect_eq "state: source build is installed, never update-ready" "$(jq -c '.apps[] | select(.id=="filmcraft") | [.installed,.source,.updateReady]' <<<"$st")" '[true,"source",false]'
 expect_eq "state: unpackaged app has null source and no version" "$(jq -c '.apps[] | select(.id=="unpackaged") | [.installed,.source,.aurVersion]' <<<"$st")" '[false,null,""]'
-expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft"]'
+expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft","typesetter"]'
 expect_eq "state: no job, no last job" "$(jq -c '[.job,.lastJob,.offline,.refreshing]' <<<"$st")" '[null,null,false,false]'
 expect_eq "state carries the brand colours" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.color,.inkLight,.inkDark]' <<<"$st")" '["#3f5fe0","#2a44b8","#8ea2ff"]'
 expect_eq "state glyph is the verified codepoint" "$(printf '%s' "$(jq -r '.apps[] | select(.id=="wordcraft") | .glyph' <<<"$st")" | od -An -tx1 | tr -d ' \n')" "f3b08899"
@@ -210,6 +250,56 @@ expect_eq "last job records the remove verb" "$(jq -c '[.verb,.ids,.exit]' "$LAS
 ( job remove 'x;rm' ) >/dev/null 2>&1 && fail "job remove refuses an unsafe id" || ok "job remove refuses an unsafe id"
 expect_eq "a refused removal never reaches the command" "$(calls omarchy-pkg-drop | wc -l)" "1"
 
+# Repo tools install through omarchy-pkg-add, AUR tools through omarchy-pkg-aur-add, in one job.
+reset_log omarchy-pkg-add; reset_log omarchy-pkg-aur-add
+( job install kolourpaint vikunja memospot ) >/dev/null 2>&1
+expect_eq "mixed install exits 0" "$?" "0"
+expect_eq "repo packages go to omarchy-pkg-add" "$(calls omarchy-pkg-add)" "kolourpaint"
+expect_eq "AUR packages, every package of a tool, go to omarchy-pkg-aur-add" "$(calls omarchy-pkg-aur-add)" "vikunja-desktop-bin vikunja-bin memospot-bin"
+expect_true "installing Vikunja writes its user desktop entry" "grep -qx 'X-OmarCraft=true' '$VIKUNJA_ENTRY'"
+expect_true "the entry runs OmarCraft's launcher" "grep -q '^Exec=\"$VIKUNJA_DIR/launch\" %U' '$VIKUNJA_ENTRY'"
+expect_true "the launcher falls back to the plain app" "[[ -x '$VIKUNJA_DIR/launch' ]] && grep -q 'exec vikunja-desktop' '$VIKUNJA_DIR/launch' && grep -q 'vikunja-session' '$VIKUNJA_DIR/launch'"
+stub omarchy-pkg-add 1
+reset_log omarchy-pkg-aur-add
+( job install kolourpaint memospot ) >/dev/null 2>&1
+expect_eq "a failed repo install fails the job" "$(jq -c '[.verb,.exit]' "$LAST_JOB_FILE")" '["install",1]'
+expect_eq "and stops before the AUR part" "$(calls omarchy-pkg-aur-add | wc -l)" "0"
+stub omarchy-pkg-add 0
+
+reset_log omarchy-pkg-drop
+( job remove vikunja typesetter ) >/dev/null 2>&1
+expect_eq "remove drops every package of a tool, repo tools too" "$(calls omarchy-pkg-drop)" "vikunja-desktop-bin vikunja-bin typesetter"
+expect_true "removing Vikunja removes the entry OmarCraft wrote" "[[ ! -e '$VIKUNJA_ENTRY' && ! -e '$VIKUNJA_DIR/launch' ]]"
+printf '[Desktop Entry]\nName=My Vikunja\n' >"$VIKUNJA_ENTRY"
+( job remove vikunja ) >/dev/null 2>&1
+expect_true "an entry the user wrote is left alone" "grep -q 'My Vikunja' '$VIKUNJA_ENTRY'"
+rm -f "$VIKUNJA_ENTRY"
+
+reset_log yay
+( job update typesetter ) >/dev/null 2>&1 && fail "a repo tool is never updated alone" || ok "a repo tool is never updated alone"
+expect_eq "so the helper is not called for it" "$(calls yay | wc -l)" "0"
+reset_log omarchy-update
+( job system-update typesetter ) >/dev/null 2>&1
+expect_eq "system-update runs Omarchy's update" "$(calls omarchy-update | wc -l)" "1"
+expect_eq "and is recorded like any job" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["system-update",["typesetter"],0]'
+
+# --- Vikunja's local server (no server is started here) --------------------------------------
+
+vikunja_config
+cfg="$VIKUNJA_DIR/config.yml"
+expect_true "config listens on loopback only" "grep -q 'interface: \"127.0.0.1:3456\"' '$cfg' && grep -q 'publicurl: \"http://127.0.0.1:3456/\"' '$cfg'"
+expect_true "config keeps the data under the user's data dir" "grep -q \"path: \\\"$VIKUNJA_DIR/vikunja.db\\\"\" '$cfg'"
+expect_eq "config is private (it holds the secret)" "$(stat -c %a "$cfg")" "600"
+expect_true "config has a generated 64-hex secret" "grep -qE 'secret: \"[0-9a-f]{64}\"' '$cfg'"
+echo '# edited' >>"$cfg"
+vikunja_config
+expect_true "config is never overwritten" "grep -q '# edited' '$cfg'"
+vikunja_server_running && fail "no pid file: server not running" || ok "no pid file: server not running"
+mkdir -p "$STATE_DIR" && echo "$$" >"$VIKUNJA_PID"
+vikunja_server_running && fail "a pid that is not vikunja does not count" || ok "a pid that is not vikunja does not count"
+vikunja_stop
+expect_true "stop never kills a process that is not the server, and clears the pid file" "kill -0 $$ && [[ ! -e '$VIKUNJA_PID' ]]"
+
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
 st=$(state)
@@ -244,6 +334,15 @@ reset_log omarchy-launch-floating-terminal-with-presentation
 ( remove_apps photocraft ) >/dev/null 2>&1
 term=$(calls omarchy-launch-floating-terminal-with-presentation)
 expect_true "remove opens one floating terminal running job remove, no launch" "[[ \$(wc -l <<<'$term') == 1 && '$term' == *'job remove photocraft'* && '$term' != *'launch '* ]]"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( remove_apps typesetter ) >/dev/null 2>&1
+expect_true "a repo tool can be removed" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job remove typesetter'"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update typesetter ) >/dev/null 2>&1
+expect_true "updating a repo tool opens the system update" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update typesetter'"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update ) >/dev/null 2>&1
+expect_true "Update all leaves repo tools to the system" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update photocraft$'"
 ( remove_apps figcraft ) >/dev/null 2>&1 && fail "remove refuses an app that is not installed" || ok "remove refuses an app that is not installed"
 ( remove_apps filmcraft ) >/dev/null 2>&1 && fail "remove refuses a source build" || ok "remove refuses a source build"
 expect_eq "refused removals open no terminal" "$(calls omarchy-launch-floating-terminal-with-presentation | wc -l)" "1"
@@ -251,7 +350,7 @@ expect_eq "refused removals open no terminal" "$(calls omarchy-launch-floating-t
 # --- hygiene -----------------------------------------------------------------------------------
 
 expect_eq "no privilege strings in the script" \
-  "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -[SR]' "$ROOT/bin/omarcraft")" "0"
+  "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -R|pacman -S([^i]|$)' "$ROOT/bin/omarcraft")" "0"
 expect_eq "the helper is called in exactly one place (the update job)" \
   "$(grep -cE '(^|[^a-z-])yay ' "$ROOT/bin/omarcraft")" "1"
 expect_eq "manifest id" "$(jq -r .id "$ROOT/manifest.json")" "omarcraft.productivity"

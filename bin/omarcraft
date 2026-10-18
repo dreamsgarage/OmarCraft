@@ -5,21 +5,25 @@
 #
 #   omarcraft state                 JSON for the panel: catalog, installed state, job, counts (local only)
 #   omarcraft launch <id>           Launch (or focus) an installed app
-#   omarcraft install <id>...       Install apps (prebuilt <id>-bin from the AUR) in a floating terminal
+#   omarcraft install <id>...       Install apps (prebuilt packages: AUR -bin or the Arch repos) in a floating terminal
 #   omarcraft install-group <g>     Install every missing app in a group: all, creative, office or notes
-#   omarcraft remove <id>...        Remove apps (their -bin packages) in a floating terminal; files stay
-#   omarcraft update [id...]        Update the given apps (default: all with a newer build) in a floating terminal
-#   omarcraft job <install|update> [id...]   The terminal side of install/update; writes job.json
-#   omarcraft check [--notify]      List installed apps with a newer AUR build; exit 0 if any
-#   omarcraft refresh [-f]          Fetch the catalog and AUR versions (cached 24h, -f forces)
+#   omarcraft remove <id>...        Remove apps (their packages) in a floating terminal; files stay
+#   omarcraft update [id...]        Update the given apps (default: all AUR apps with a newer build) in a floating
+#                                   terminal; an app from the Arch repos opens Omarchy's system update instead
+#   omarcraft job <verb> [id...]    The terminal side of install/update/system-update/remove; writes job.json
+#   omarcraft check [--notify]      List installed apps with a newer build; exit 0 if any
+#   omarcraft refresh [-f]          Fetch the catalog and versions (cached 24h, -f forces)
+#   omarcraft vikunja-session       Start Vikunja's local server, run the app, stop the server when it quits
+#   omarcraft vikunja-stop          Stop Vikunja's local server
 #   omarcraft list                  Print the catalog with install status
 #   omarcraft missing [group]       Exit 0 if any app of the group is not installed
 #   omarcraft seen                  Mark every catalog app as seen (clears "new"; the panel runs it on close)
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
 #   omarcraft remove-menu           Remove that section again
 #
-# Only prebuilt -bin packages are ever installed, so nothing is compiled. Installs go through Omarchy's
-# omarchy-pkg-aur-add; per-app updates call the AUR helper Omarchy ships (yay). This script never elevates.
+# Only prebuilt packages are ever installed, so nothing is compiled: AUR -bin packages through Omarchy's
+# omarchy-pkg-aur-add, Arch repo packages through omarchy-pkg-add. Per-app AUR updates call the AUR helper
+# Omarchy ships (yay); repo packages update with the system (omarchy-update). This script never elevates.
 
 set -euo pipefail
 
@@ -33,6 +37,13 @@ JOB_FILE="$STATE_DIR/job.json"
 LAST_JOB_FILE="$STATE_DIR/last-job.json"
 SEEN="$STATE_DIR/seen"
 NOTIFIED="$STATE_DIR/notified-updates"
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+VIKUNJA_DIR="$DATA_HOME/omarcraft/vikunja"
+VIKUNJA_PID="$STATE_DIR/vikunja-server.pid"
+VIKUNJA_ENTRY="$DATA_HOME/applications/vikunja-desktop.desktop"
+VIKUNJA_PORT=3456
+VIKUNJA_URL="http://127.0.0.1:$VIKUNJA_PORT"
+VIKUNJA_CLIENT_MATCH="/usr/lib/vikunja-desktop/"   # in the command line of every running client process
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
@@ -42,8 +53,18 @@ REFRESH_RETRY_MINUTES=10        # after a failed check the panel retries on its 
 GROUPS_RE='^(all|creative|office|notes)$'
 # Panel groups. Craft apps not listed here are Creative.
 declare -A GROUP_OF=(
-  [wordcraft]=office [deckcraft]=office [gridcraft]=office [pdfcraft]=office
-  [memospot]=notes
+  [wordcraft]=office [deckcraft]=office [gridcraft]=office [pdfcraft]=office [typesetter]=office
+  [memospot]=notes [vikunja]=notes
+)
+
+# Where a tool comes from. Not listed: "aur", one package <id>-bin, desktop id ai.storyteller.<id>.
+# "repo" tools come from the Arch repos and update with the system. The first package is the app;
+# the others install and remove with it (Vikunja's local server).
+declare -A KIND_OF=([typesetter]=repo [kolourpaint]=repo)
+declare -A PKGS_OF=([typesetter]=typesetter [kolourpaint]=kolourpaint [vikunja]="vikunja-desktop-bin vikunja-bin")
+declare -A DESKTOP_OF=(
+  [memospot]=memospot [typesetter]=net.trowell.typesetter [kolourpaint]=org.kde.kolourpaint
+  [vikunja]=vikunja-desktop
 )
 
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
@@ -67,10 +88,15 @@ gridcraft	GridCraft	Spreadsheets and data	new	#1f9d55	#12703a	#4fd68a
 cadcraft	CADCraft	Computer-aided design and drafting	new	#3ea6e8	#1a6fa8	#7cc8ff
 soundcraft	SoundCraft	Recording, editing and mixing audio	new	#1fa5c9	#0e7290	#5fd0ee
 figcraft	FigCraft	Interface design and prototyping	new	#02da96	#047a56	#4fe8b6"
-# Tools beyond ArtCraft, same columns, upstream group "extra". A tool qualifies when it ships as a
-# prebuilt <id>-bin package on the AUR with a desktop entry, from a maintained upstream under a
-# permissive licence. Memospot is Memos' own desktop build (memospot.github.io); colours from its icon.
-EXTRA_CATALOG="memospot	Memospot	Notes and journal: Memos on the desktop	extra	#f6b028	#9a6a08	#f6b028"
+# Tools beyond ArtCraft, same columns, upstream group "extra". A tool qualifies when it has a stable
+# desktop release, ships prebuilt (Arch repos or an AUR -bin) with a desktop entry, comes from a
+# maintained open-source upstream, and stays near ~150 MiB idle in one native process unless it adds
+# something ArtCraft lacks (see README, Beyond ArtCraft). Colours from each tool's icon; Typesetter's
+# icon is grey, so it takes Typst's teal.
+EXTRA_CATALOG="memospot	Memospot	Notes and journal: Memos on the desktop	extra	#f6b028	#9a6a08	#f6b028
+typesetter	Typesetter	Typst documents with a live preview	extra	#239dad	#16707c	#5cc8d6
+kolourpaint	KolourPaint	Quick paint: screenshots, diagrams, pixel art	extra	#ac4b37	#8a3626	#e9806a
+vikunja	Vikunja	Tasks, kanban and Gantt, with a local server	extra	#196aff	#1250c4	#7fa8ff"
 CATALOG_COLUMNS=8   # id name tagline group version color ink-light ink-dark
 
 declare -A APP_ICON=(
@@ -78,7 +104,8 @@ declare -A APP_ICON=(
   [lightcraft]=$'\U000f0100' [pdfcraft]=$'\U000f0226' [effectcraft]=$'\U000f0068'
   [designcraft]=$'\U000f03d8' [wordcraft]=$'\U000f0219' [deckcraft]=$'\U000f0429'
   [gridcraft]=$'\U000f04eb' [cadcraft]=$'\U000f0eec' [soundcraft]=$'\U000f075a'
-  [figcraft]=$'\U000f0001' [memospot]=$'\U000f11d7'
+  [figcraft]=$'\U000f0001' [memospot]=$'\U000f11d7' [typesetter]=$'\U000f0284'
+  [kolourpaint]=$'\U000f00e3' [vikunja]=$'\U000f0756'
 )
 app_icon() {
   printf '%s' "${APP_ICON[$1]:-$ICON_ARTCRAFT}"
@@ -122,8 +149,20 @@ known_id() {
   catalog_rows | cut -d $'\037' -f1 | grep -qx "$1" || die "unknown app: $1 (see omarcraft list)"
 }
 
+kind_for() {
+  printf '%s' "${KIND_OF[$1]:-aur}"
+}
+
+# Every package of a tool, space-separated; the app's own first.
+pkgs_for() {
+  printf '%s' "${PKGS_OF[$1]:-$1-bin}"
+}
+
+# The app's own package: what decides installed, version and update.
 pkg_for() {
-  printf '%s-bin' "$1"
+  local pkgs
+  pkgs=$(pkgs_for "$1")
+  printf '%s' "${pkgs%% *}"
 }
 
 # One read of the installed packages per run: name -> version.
@@ -139,12 +178,13 @@ load_installed() {
   INSTALLED_LOADED=1
 }
 
-# A source build of the same app (pkgname <id>) counts as installed too.
+# A source build of a Craft app (pkgname <id>) counts as installed too. Not for tools with their own
+# package list: AUR "vikunja" is the server's source build, not the app.
 installed_pkg() {
   load_installed
   if [[ -n ${INSTALLED[$(pkg_for "$1")]:-} ]]; then
     pkg_for "$1"
-  elif [[ -n ${INSTALLED[$1]:-} ]]; then
+  elif [[ -z ${PKGS_OF[$1]:-} && -n ${INSTALLED[$1]:-} ]]; then
     printf '%s' "$1"
   else
     return 1
@@ -162,16 +202,24 @@ installed_version() {
   printf '%s' "${INSTALLED[$pkg]}"
 }
 
-# "bin", "source" or "" for an app.
+# "bin", "repo", "source" or "" for an app.
 install_source() {
   local pkg
   pkg=$(installed_pkg "$1" 2>/dev/null) || return 0
-  [[ $pkg == *-bin ]] && printf bin || printf source
+  if [[ $(kind_for "$1") == repo ]]; then
+    printf repo
+  elif [[ $pkg == *-bin ]]; then
+    printf bin
+  else
+    printf source
+  fi
 }
 
+# A newer build exists. For a repo app it means the system has not been updated since the last sync.
 update_ready() {
-  local id="$1" version="$2" current
-  [[ -n $version && $(install_source "$id") == bin ]] || return 1
+  local id="$1" version="$2" current src
+  src=$(install_source "$id")
+  [[ -n $version && ( $src == bin || $src == repo ) ]] || return 1
   current=$(installed_version "$id")
   [[ -n $current ]] && (( $(vercmp "$current" "$version") < 0 ))
 }
@@ -214,11 +262,37 @@ parse_upstream_catalog() {
 }
 
 # The AUR -bin version is what actually installs, so it (not the GitHub tag) defines "latest".
+# Prints id<TAB>version for the AUR tools among the ids.
 aur_versions() {
-  local args=() id
-  for id in "$@"; do args+=(--data-urlencode "arg[]=$(pkg_for "$id")"); done
-  curl -fsSL --max-time 15 -G "$AUR_RPC" "${args[@]}" 2>/dev/null |
-    jq -r '.results[] | "\(.Name | sub("-bin$"; ""))\t\(.Version)"' 2>/dev/null
+  local args=() id name version
+  local -A id_of=()
+  for id in "$@"; do
+    [[ $(kind_for "$id") == aur ]] || continue
+    id_of[$(pkg_for "$id")]=$id
+    args+=(--data-urlencode "arg[]=$(pkg_for "$id")")
+  done
+  (( ${#args[@]} > 0 )) || return 0
+  while IFS=$'\t' read -r name version; do
+    [[ -n ${id_of[$name]:-} ]] && printf '%s\t%s\n' "${id_of[$name]}" "$version"
+  done < <(curl -fsSL --max-time 15 -G "$AUR_RPC" "${args[@]}" 2>/dev/null |
+    jq -r '.results[] | "\(.Name)\t\(.Version)"' 2>/dev/null)
+  return 0
+}
+
+# Repo tools: the version in the local sync database, which is what an install would get. No network.
+repo_versions() {
+  local pkgs=() id name version
+  local -A id_of=()
+  for id in "$@"; do
+    [[ $(kind_for "$id") == repo ]] || continue
+    id_of[$(pkg_for "$id")]=$id
+    pkgs+=("$(pkg_for "$id")")
+  done
+  (( ${#pkgs[@]} > 0 )) || return 0
+  while IFS=$'\t' read -r name version; do
+    [[ -n ${id_of[$name]:-} ]] && printf '%s\t%s\n' "${id_of[$name]}" "$version"
+  done < <(pacman -Si -- "${pkgs[@]}" 2>/dev/null | awk -F' *: ' '$1 == "Name" { n = $2 } $1 == "Version" { print n "\t" $2 }')
+  return 0
 }
 
 catalog_fresh() {
@@ -288,6 +362,8 @@ refresh() {
     now_iso >"$REFRESH_FAILED"
     return 1
   fi
+  # shellcheck disable=SC2046
+  versions+=$'\n'$(repo_versions $(cut -f1 <<<"$upstream") || true)
 
   local tmp
   tmp=$(mktemp)
@@ -388,11 +464,13 @@ missing_ids() {
   done < <(group_ids "${1:-all}")
 }
 
+# Installed apps with a newer build: AUR apps (what Update all updates), or with "repo" the Arch repo
+# apps, which update with the system.
 outdated_ids() {
-  local id name tagline group version
+  local want="${1:-bin}" id name tagline group version
   load_installed
   while IFS=$'\037' read -r id name tagline group version _; do
-    update_ready "$id" "$version" && echo "$id"
+    update_ready "$id" "$version" && [[ $(install_source "$id") == "$want" ]] && echo "$id"
   done < <(catalog_rows)
   return 0
 }
@@ -433,14 +511,15 @@ reconcile_job() {
 
 # Runs inside the floating terminal. Exit status is the package command's.
 job() {
-  local verb="${1:-}" id pkgs=()
+  local verb="${1:-}" id pkgs=() repo_pkgs=() aur_pkgs=() own=()
   shift || true
   case "$verb" in
     install)
       (( $# > 0 )) || die "usage: omarcraft job install <id>..."
       for id in "$@"; do
         known_id "$id"
-        pkgs+=("$(pkg_for "$id")")
+        read -ra own <<<"$(pkgs_for "$id")"
+        if [[ $(kind_for "$id") == repo ]]; then repo_pkgs+=("${own[@]}"); else aur_pkgs+=("${own[@]}"); fi
       done
       ;;
     update)
@@ -451,29 +530,57 @@ job() {
       (( $# > 0 )) || die "nothing to update"
       for id in "$@"; do
         known_id "$id"
-        pkgs+=("$(pkg_for "$id")")
+        [[ $(kind_for "$id") == aur ]] || die "$id comes from the Arch repos and updates with the system: omarcraft update $id"
+        read -ra own <<<"$(pkgs_for "$id")"
+        pkgs+=("${own[@]}")
       done
+      ;;
+    system-update)
+      for id in "$@"; do known_id "$id"; done
       ;;
     remove)
       (( $# > 0 )) || die "usage: omarcraft job remove <id>..."
       for id in "$@"; do
         known_id "$id"
-        pkgs+=("$(pkg_for "$id")")
+        read -ra own <<<"$(pkgs_for "$id")"
+        pkgs+=("${own[@]}")
       done
       ;;
-    *) die "usage: omarcraft job <install|update|remove> [id...]" ;;
+    *) die "usage: omarcraft job <install|update|system-update|remove> [id...]" ;;
   esac
 
   write_job "$verb" "$@"
   trap 'rc=$?; trap - EXIT; end_job $rc; exit $rc' EXIT
   case "$verb" in
-    install) omarchy-pkg-aur-add "${pkgs[@]}" ;;
+    install)
+      # Explicit returns: the status of a failed install must reach end_job even without set -e.
+      if (( ${#repo_pkgs[@]} > 0 )); then omarchy-pkg-add "${repo_pkgs[@]}" || return; fi
+      if (( ${#aur_pkgs[@]} > 0 )); then omarchy-pkg-aur-add "${aur_pkgs[@]}" || return; fi
+      for id in "$@"; do after_install "$id"; done
+      ;;
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
     # directly here. It is the helper Omarchy ships and uses itself.
     update) yay -S --noconfirm "${pkgs[@]}" ;;
+    # Arch repo packages are never updated one by one (a partial upgrade); Omarchy updates them all.
+    system-update) omarchy-update ;;
     # Removal is Omarchy's own command: the package and the dependencies nothing else needs. The
     # app's documents and settings are not touched.
-    remove) omarchy-pkg-drop "${pkgs[@]}" ;;
+    remove)
+      for id in "$@"; do before_remove "$id"; done
+      omarchy-pkg-drop "${pkgs[@]}"
+      ;;
+  esac
+}
+
+after_install() {
+  case "$1" in
+    vikunja) vikunja_entry_install ;;
+  esac
+}
+
+before_remove() {
+  case "$1" in
+    vikunja) vikunja_stop; vikunja_entry_remove ;;
   esac
 }
 
@@ -492,6 +599,7 @@ run_job() {
   case "$verb" in
     install) printf -v message '%q' "Installing ${names[*]}..." ;;
     update) printf -v message '%q' "Updating ${names[*]}..." ;;
+    system-update) printf -v message '%q' "${names[*]} update with the system: running Omarchy's update..." ;;
     remove) printf -v message '%q' "Removing ${names[*]}..." ;;
   esac
   [[ -n $then_launch ]] && after=" && (setsid ${self} launch ${then_launch} >/dev/null 2>&1 &)"
@@ -503,6 +611,7 @@ run_job() {
 
 desktop_id_for() {
   local file
+  [[ -n ${DESKTOP_OF[$1]:-} ]] && { printf '%s' "${DESKTOP_OF[$1]}"; return; }
   file=$(pacman -Qlq "$(installed_pkg "$1")" 2>/dev/null | grep -m1 '/usr/share/applications/.*\.desktop$' || true)
   if [[ -n $file ]]; then
     basename "$file" .desktop
@@ -516,6 +625,11 @@ launch() {
   known_id "$id"
   is_installed "$id" || die "$id is not installed (try: omarcraft install $id)"
   mark_seen "$id"
+  if [[ $id == vikunja ]]; then
+    # Through the session, so the local server starts with the app and stops when it quits.
+    [[ -f $VIKUNJA_ENTRY ]] || vikunja_entry_install
+    exec omarchy-launch-or-focus "Vikunja" "uwsm-app -- $(printf '%q' "$SELF") vikunja-session"
+  fi
   exec omarchy-launch-or-focus "$id" "uwsm-app -- gtk-launch $(desktop_id_for "$id")"
 }
 
@@ -534,15 +648,16 @@ install_apps() {
   run_job install "$( (( $# == 1 )) && echo "$1")" "${ids[@]}"
 }
 
-# Remove apps installed as -bin packages. An app installed some other way (a source build) is left
-# alone with a message: only the path that installed it knows how to undo it.
+# Remove apps installed as packages (-bin or Arch repo). An app installed some other way (a source
+# build) is left alone with a message: only the path that installed it knows how to undo it.
 remove_apps() {
-  local ids=() id
+  local ids=() id src
   load_installed
   for id in "$@"; do
     known_id "$id"
     is_installed "$id" || die "$id is not installed"
-    [[ $(install_source "$id") == bin ]] || die "$id was not installed as a package by OmarCraft; remove it the way it was installed"
+    src=$(install_source "$id")
+    [[ $src == bin || $src == repo ]] || die "$id was not installed as a package by OmarCraft; remove it the way it was installed"
     ids+=("$id")
   done
   run_job remove "" "${ids[@]}"
@@ -558,19 +673,23 @@ install_group() {
   run_job install "" "${ids[@]}"
 }
 
-# update [id...]: the given apps, or every app with a newer build.
+# update [id...]: the given apps, or every AUR app with a newer build. Repo apps given by id open
+# Omarchy's system update instead (only when no AUR app is asked for in the same call).
 update() {
-  local ids=() id
+  local ids=() system=() id
   if (( $# > 0 )); then
     for id in "$@"; do
       known_id "$id"
-      ids+=("$id")
+      if [[ $(kind_for "$id") == repo ]]; then system+=("$id"); else ids+=("$id"); fi
     done
   else
     mapfile -t ids < <(outdated_ids)
   fi
+  if (( ${#ids[@]} == 0 && ${#system[@]} > 0 )); then
+    run_job system-update "" "${system[@]}"
+  fi
   if (( ${#ids[@]} == 0 )); then
-    notify "No ArtCraft updates pending"
+    notify "No updates pending"
     exit 0
   fi
   run_job update "" "${ids[@]}"
@@ -579,7 +698,7 @@ update() {
 check() {
   local notify_flag="${1:-}" ids names=() id
   refresh >/dev/null 2>&1 || true
-  ids=$(outdated_ids)
+  ids=$(outdated_ids; outdated_ids repo)
   if [[ -z $ids ]]; then
     rm -f "$NOTIFIED"
     return 1
@@ -594,7 +713,7 @@ check() {
   if [[ $notify_flag == "--notify" ]] && [[ $(cat "$NOTIFIED" 2>/dev/null) != "$ids" ]]; then
     mkdir -p "$STATE_DIR"
     printf '%s\n' "$ids" >"$NOTIFIED"
-    notify -g "$ICON_UPDATE" "ArtCraft updates available" "$(printf '%s\n' "${names[@]}")" \
+    notify -g "$ICON_UPDATE" "OmarCraft updates available" "$(printf '%s\n' "${names[@]}")" \
       --exec omarchy-shell "$IPC_TARGET" open
   fi
   return 0
@@ -604,10 +723,11 @@ check() {
 # Local only: cache files and the package database. A stale cache starts a detached refresh.
 
 state() {
-  local id name tagline ugroup version color inkl inkd src current ready new group glyph
-  local rows="" job="null" last="null" office_json="[]" seen_known=0 office_ids=()
+  local id name tagline ugroup version color inkl inkd src current ready new group glyph pkg kind server
+  local rows="" job="null" last="null" office_json="[]" seen_known=0 office_ids=() vikunja_up=0
   local -A seen=()
   load_installed
+  vikunja_server_running && vikunja_up=1
   ensure_cache
   reconcile_job
   if { ! catalog_fresh || [[ -f $REFRESH_FAILED ]]; } && ! refreshing && refresh_due; then
@@ -621,19 +741,26 @@ state() {
   # One pass with no subshell per field: a forked helper for each of them made a read of thirteen
   # installed apps take close to a second, long enough for the next read to collide with it.
   while IFS=$'\037' read -r id name tagline ugroup version color inkl inkd; do
-    if [[ -n ${INSTALLED[$id-bin]:-} ]]; then src=bin; current=${INSTALLED[$id-bin]}
-    elif [[ -n ${INSTALLED[$id]:-} ]]; then src=source; current=${INSTALLED[$id]}
+    pkg=${PKGS_OF[$id]:-$id-bin}
+    pkg=${pkg%% *}
+    kind=${KIND_OF[$id]:-aur}
+    if [[ -n ${INSTALLED[$pkg]:-} ]]; then
+      current=${INSTALLED[$pkg]}
+      if [[ $kind == repo ]]; then src=repo; elif [[ $pkg == *-bin ]]; then src=bin; else src=source; fi
+    elif [[ -z ${PKGS_OF[$id]:-} && -n ${INSTALLED[$id]:-} ]]; then src=source; current=${INSTALLED[$id]}
     else src=""; current=""; fi
     ready=0
-    if [[ $src == bin && -n $version && $current != "$version" ]] && (( $(vercmp "$current" "$version") < 0 )); then ready=1; fi
+    if [[ ( $src == bin || $src == repo ) && -n $version && $current != "$version" ]] && (( $(vercmp "$current" "$version") < 0 )); then ready=1; fi
+    server=0
+    [[ $id == vikunja ]] && server=$vikunja_up
     new=0
     (( seen_known )) && [[ -z ${seen[$id]:-} ]] && new=1
     group=${GROUP_OF[$id]:-creative}
     [[ $group == office && -n $version ]] && office_ids+=("$id")
     glyph=${APP_ICON[$id]:-$ICON_ARTCRAFT}
     rows+="$id"$'\t'"$name"$'\t'"$tagline"$'\t'"$group"$'\t'"$ugroup"$'\t'"$glyph"$'\t'
-    rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'"$ready"$'\t'"$new"$'\t'"$([[ $ugroup == extra ]] && printf '%s' "$id" || printf 'ai.storyteller.%s' "$id")"$'\t'
-    rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\n'
+    rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'"$ready"$'\t'"$new"$'\t'"${DESKTOP_OF[$id]:-ai.storyteller.$id}"$'\t'
+    rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\t'"$kind"$'\t'"$server"$'\n'
   done < <(catalog_rows)
   (( ${#office_ids[@]} )) && office_json=$(printf '%s\n' "${office_ids[@]}" | jq -Rn '[inputs]')
 
@@ -652,7 +779,7 @@ state() {
       aurVersion: .[6], installedVersion: .[7],
       installed: (.[8] != ""), source: (if .[8] == "" then null else .[8] end),
       updateReady: (.[9] == "1"), new: (.[10] == "1"), desktopId: .[11],
-      color: .[12], inkLight: .[13], inkDark: .[14]
+      color: .[12], inkLight: .[13], inkDark: .[14], kind: .[15], serverRunning: (.[16] == "1")
     }] as $apps
     | {
         generatedAt: $generated, catalogAgeSeconds: $age, offline: $offline, refreshing: $refreshing,
@@ -685,6 +812,134 @@ list() {
   done < <(catalog_rows)
 }
 
+# --- Vikunja's local server --------------------------------------------------------------------
+# The Vikunja app is a client; its server (/usr/bin/vikunja from vikunja-bin) runs under the user, on
+# demand: started with the app, stopped when the app quits. The package's system service is never used.
+# Data and config live in VIKUNJA_DIR and stay when Vikunja is removed.
+
+vikunja_server_running() {
+  local pid comm
+  [[ -f $VIKUNJA_PID ]] || return 1
+  pid=$(<"$VIKUNJA_PID")
+  [[ $pid =~ ^[0-9]+$ && -r /proc/$pid/comm ]] || return 1
+  comm=$(<"/proc/$pid/comm")
+  [[ $comm == vikunja ]]
+}
+
+vikunja_port_taken() {
+  (exec 3<>"/dev/tcp/127.0.0.1/$VIKUNJA_PORT") 2>/dev/null
+}
+
+# Written once; the user may edit it afterwards and it is never overwritten.
+vikunja_config() {
+  local config="$VIKUNJA_DIR/config.yml" secret tz
+  [[ -f $config ]] && return 0
+  mkdir -p "$VIKUNJA_DIR/files"
+  secret=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
+  tz=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
+  (
+    umask 077
+    cat >"$config" <<EOF
+# Written once by OmarCraft for Vikunja's local server. Edit freely: OmarCraft never overwrites it.
+service:
+  interface: "127.0.0.1:$VIKUNJA_PORT"
+  publicurl: "$VIKUNJA_URL/"
+  secret: "$secret"
+  enableregistration: true
+  timezone: "${tz:-GMT}"
+database:
+  type: "sqlite"
+  path: "$VIKUNJA_DIR/vikunja.db"
+files:
+  basepath: "$VIKUNJA_DIR/files"
+EOF
+  )
+}
+
+vikunja_start() {
+  local i
+  vikunja_server_running && return 0
+  command -v vikunja >/dev/null || die "Vikunja's server is not installed (vikunja-bin); reinstall Vikunja from OmarCraft"
+  if vikunja_port_taken; then
+    notify "Vikunja" "Port $VIKUNJA_PORT is in use by another program, so the local server cannot start."
+    die "port $VIKUNJA_PORT is in use"
+  fi
+  vikunja_config
+  mkdir -p "$STATE_DIR"
+  # The shell writes its own pid and then becomes the server, so the pid file names the server.
+  (
+    setsid bash -c 'printf "%s" "$$" >"$1"; cd "$2" && exec vikunja --config "$2/config.yml" >>"$2/server.log" 2>&1' \
+      _ "$VIKUNJA_PID" "$VIKUNJA_DIR" </dev/null >/dev/null 2>&1 &
+  )
+  for (( i = 0; i < 40; i++ )); do
+    curl -fs --max-time 1 "$VIKUNJA_URL/api/v1/info" >/dev/null 2>&1 && return 0
+    sleep 0.25
+  done
+  die "Vikunja's local server did not start; see $VIKUNJA_DIR/server.log"
+}
+
+vikunja_stop() {
+  local pid i
+  if vikunja_server_running; then
+    pid=$(<"$VIKUNJA_PID")
+    kill "$pid" 2>/dev/null || true
+    for (( i = 0; i < 20; i++ )); do
+      vikunja_server_running || break
+      sleep 0.25
+    done
+    vikunja_server_running && kill -9 "$pid" 2>/dev/null
+  fi
+  rm -f "$VIKUNJA_PID"
+}
+
+# Start the server, run the app until it quits, stop the server. A second launch hands over to the
+# running app and returns at once; the server then stays up for that app, whose own session stops it.
+vikunja_session() {
+  vikunja_start
+  poke_panel
+  if [[ ! -f $VIKUNJA_DIR/.welcomed ]]; then
+    notify "Vikunja is ready" "When the app asks for a server, enter $VIKUNJA_URL and register a local account."
+    touch "$VIKUNJA_DIR/.welcomed"
+  fi
+  vikunja-desktop "$@" || true
+  pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null || vikunja_stop
+  poke_panel
+}
+
+# A user desktop entry, so Vikunja started from the app launcher also gets its server. It runs a small
+# launcher that falls back to the plain app when OmarCraft is gone.
+vikunja_entry_install() {
+  local source=/usr/share/applications/vikunja-desktop.desktop launcher="$VIKUNJA_DIR/launch" self
+  mkdir -p "$VIKUNJA_DIR" "$(dirname "$VIKUNJA_ENTRY")"
+  printf -v self '%q' "$SELF"
+  cat >"$launcher" <<EOF
+#!/bin/bash
+# Written by OmarCraft: Vikunja with its local server. Without OmarCraft, the plain app.
+omarcraft=$self
+[[ -x \$omarcraft ]] && exec "\$omarcraft" vikunja-session "\$@"
+exec vikunja-desktop "\$@"
+EOF
+  chmod +x "$launcher"
+  {
+    if [[ -f $source ]]; then
+      awk -v exec_line="Exec=\"$launcher\" %U" '
+        /^Exec=/ { print exec_line; next }
+        /^TryExec=/ { next }
+        { print }
+        /^\[Desktop Entry\]/ { print "X-OmarCraft=true" }
+      ' "$source"
+    else
+      printf '[Desktop Entry]\nX-OmarCraft=true\nType=Application\nName=Vikunja\nExec="%s" %%U\nIcon=vikunja-desktop\nStartupWMClass=Vikunja Desktop\nCategories=Office;ProjectManagement;\n' "$launcher"
+    fi
+  } >"$VIKUNJA_ENTRY"
+}
+
+# Only the entry OmarCraft wrote; one the user made is left alone.
+vikunja_entry_remove() {
+  grep -qx 'X-OmarCraft=true' "$VIKUNJA_ENTRY" 2>/dev/null && rm -f "$VIKUNJA_ENTRY"
+  rm -f "$VIKUNJA_DIR/launch"
+}
+
 # --- optional Omarchy-menu section -------------------------------------------------------------
 
 json_entry() {
@@ -709,10 +964,10 @@ menu_block() {
   json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Newer builds of your tools"
   json_entry "omarcraft.install-all" "$ICON_GROUP" "Install all" "$self install-group all" "$self missing all" "Every tool"
   json_entry "omarcraft.install-creative" "$ICON_GROUP" "Install Creative" "$self install-group creative" "$self missing creative" \
-    "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
+    "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft, KolourPaint"
   json_entry "omarcraft.install-office" "$ICON_GROUP" "Install Office" "$self install-group office" "$self missing office" \
-    "Word, Deck, Grid, PdfCraft"
-  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes" "$self install-group notes" "$self missing notes" "Memospot"
+    "Word, Deck, Grid, PdfCraft, Typesetter"
+  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes & tasks" "$self install-group notes" "$self missing notes" "Memospot, Vikunja"
   json_entry "install.omarcraft" "$ICON_ARTCRAFT" "OmarCraft" "$open" "" "Craft apps and more"
   echo "  // <<< omarcraft"
 }
@@ -775,9 +1030,11 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     refresh) refresh "${2:-}" ;;
     poke) poke_panel ;;
     list) list ;;
+    vikunja-session) shift; vikunja_session "$@" ;;
+    vikunja-stop) vikunja_stop; poke_panel ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
-    -h | --help | help) sed -n '3,22p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    -h | --help | help) sed -n '3,26p' "$SELF" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command: $1 (see omarcraft --help)" ;;
   esac
 fi
