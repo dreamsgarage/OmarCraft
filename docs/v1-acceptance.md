@@ -120,6 +120,6 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 25 | 0.5 · Repo update badge: a stale system shows `↑ system`; Enter opens the confirm, which runs Omarchy's update | | pending | needs a repo app behind the sync database |
 | 26 | 0.5 · Install Vikunja: one AUR job with `vikunja-desktop-bin` and `vikunja-bin`; user desktop entry appears | f4a2e0a | PASS | 2026-10-19, one job, user desktop entry present |
 | 27 | 0.5 · First Vikunja launch: server on 127.0.0.1:3456, app opens, notification shows the URL; register, create a task | f4a2e0a | PASS | 2026-10-19, registered a local account, created a task |
-| 28 | 0.5 · Vikunja lifecycle: close window → app quits, server stops within 5 s, port free, dot off; *Quit* from tray → same | | pending | 2026-10-19: tray *Quit* passed (port free, dot off); closing the window only hid it to the tray, so OmarCraft now quits the app when its window closes; retest |
+| 28 | 0.5 · Vikunja lifecycle: close window → app quits, server stops within 5 s, port free, dot off; *Quit* from tray → same | c948963 | PASS | 2026-10-19: closing the window stopped the server, dot off; tray *Quit* passed earlier |
 | 29 | 0.5 · Vikunja from the app launcher starts the server too | f4a2e0a | PASS | 2026-10-19, from the app launcher: server started, tile dot on |
 | 30 | 0.5 · Remove Vikunja: both packages dropped, desktop entry gone, data kept | | pending | |
