@@ -123,3 +123,4 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 28 | 0.5 · Vikunja lifecycle: close window → app quits, server stops within 5 s, port free, dot off; *Quit* from tray → same | c948963 | PASS | 2026-10-19: closing the window stopped the server, dot off; tray *Quit* passed earlier |
 | 29 | 0.5 · Vikunja from the app launcher starts the server too | f4a2e0a | PASS | 2026-10-19, from the app launcher: server started, tile dot on |
 | 30 | 0.5 · Remove Vikunja: both packages dropped, desktop entry gone, data kept | | pending | |
+| 31 | 0.5 · First Vikunja launch hides its tray icon (bar's Hide list); after *Show*, later launches leave it shown | | pending | |

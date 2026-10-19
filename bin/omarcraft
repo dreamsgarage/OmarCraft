@@ -44,6 +44,7 @@ VIKUNJA_ENTRY="$DATA_HOME/applications/vikunja-desktop.desktop"
 VIKUNJA_PORT=3456
 VIKUNJA_URL="http://127.0.0.1:$VIKUNJA_PORT"
 VIKUNJA_CLIENT_MATCH="/usr/lib/vikunja-desktop/"   # in the command line of every running client process
+VIKUNJA_TRAY_ID="vikunja-desktop_status_icon_1"     # the app's tray item id, as the bar's Hide list stores it
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
@@ -930,6 +931,7 @@ vikunja_session() {
     notify "Vikunja is ready" "When the app asks for a server, enter $VIKUNJA_URL and register a local account."
     touch "$VIKUNJA_DIR/.welcomed"
   fi
+  [[ -f $VIKUNJA_DIR/.tray-hidden ]] || { vikunja_hide_tray_icon && touch "$VIKUNJA_DIR/.tray-hidden"; }
   # Already open (in its window or the tray): the app shows the window it has and this session ends.
   if pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null; then
     exec vikunja-desktop "$@"
@@ -939,6 +941,19 @@ vikunja_session() {
   wait
   pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null || vikunja_stop
   poke_panel
+}
+
+# Vikunja's tray icon only offers what closing the window and the panel already do, so its id goes on the
+# bar's tray Hide list, once: Show in that list stays the user's choice. The shell reloads shell.json
+# when it changes. Fails, leaving the file alone, when there is no tray on the bar.
+vikunja_hide_tray_icon() {
+  local config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json" updated
+  [[ -f $config ]] || return 1
+  jq -e '[.bar.layout[]?[]? | select(.id? == "omarchy.tray")] | length > 0' "$config" >/dev/null 2>&1 || return 1
+  updated=$(jq --arg id "$VIKUNJA_TRAY_ID" '.bar.layout |= map_values(map(
+    if .id? == "omarchy.tray" then .hidden = ((.hidden // []) - [$id] + [$id]) else . end))' "$config") || return 1
+  printf '%s\n' "$updated" >"$config.omarcraft.tmp" && chmod --reference="$config" "$config.omarcraft.tmp" \
+    && mv "$config.omarcraft.tmp" "$config"
 }
 
 # Vikunja hides to the tray when its window closes; like every other tool, closing the window quits it

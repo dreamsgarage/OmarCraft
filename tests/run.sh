@@ -357,6 +357,22 @@ reset_log setsid
 ( install_apps photocraft ) >/dev/null 2>&1
 expect_true "installing an installed app launches it instead" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"
 
+# Vikunja's tray icon goes on the bar's Hide list; the rest of shell.json is left as it was.
+shell_json="$XDG_CONFIG_HOME/omarchy/shell.json"
+mkdir -p "$(dirname "$shell_json")"
+echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}],"right":[{"id":"omarchy.tray","pinned":["a"],"hidden":["other"]},{"id":"omarcraft.productivity"}]}}}' >"$shell_json"
+chmod 600 "$shell_json"
+vikunja_hide_tray_icon; vikunja_hide_tray_icon
+expect_eq "the tray icon joins the Hide list once, next to what the user hid" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
+expect_eq "and nothing else in shell.json changes" "$(jq -c 'del(.bar.layout.right[0].hidden)' "$shell_json")" \
+  '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}],"right":[{"id":"omarchy.tray","pinned":["a"]},{"id":"omarcraft.productivity"}]}}}'
+expect_eq "the file stays private to the user" "$(stat -c %a "$shell_json")" "600"
+echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}]}}}' >"$shell_json"
+before=$(cat "$shell_json")
+vikunja_hide_tray_icon && fail "with no tray on the bar, nothing is hidden" || ok "with no tray on the bar, nothing is hidden"
+expect_eq "and shell.json is untouched" "$(cat "$shell_json")" "$before"
+rm -f "$shell_json"
+
 # Launch focuses the app's own window by class; a window that only has the name in its title is not it.
 fake_clients() {
   printf '#!/bin/bash\nprintf "%%s\\n" "$*" >>"%s/log/hyprctl"\n[[ $1 == clients ]] && echo %q\nexit 0\n' "$TMP" "$1" >"$TMP/bin/hyprctl"
