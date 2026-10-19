@@ -368,6 +368,12 @@ expect_eq "and nothing else in shell.json changes" "$(jq -c 'del(.bar.layout.rig
   '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}],"right":[{"id":"omarchy.tray","pinned":["a"]},{"id":"omarcraft.productivity"}]}}}'
 expect_eq "the file stays private to the user" "$(stat -c %a "$shell_json")" "600"
 expect_true "and the running shell is told to reload it" "calls omarchy-shell | grep -q 'shell reloadConfig'"
+reset_log omarchy-shell; before=$(stat -c %Y.%i "$shell_json")
+vikunja_hide_tray_icon
+expect_true "when it is already hidden, the file is not rewritten and the shell not reloaded" "[[ \$(stat -c %Y.%i '$shell_json') == '$before' ]] && ! calls omarchy-shell | grep -q reloadConfig"
+jq '.bar.layout.right[0].hidden = ["other"]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
+vikunja_hide_tray_icon
+expect_eq "after Show, the next launch hides it again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
 echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}]}}}' >"$shell_json"
 before=$(cat "$shell_json")
 vikunja_hide_tray_icon && fail "with no tray on the bar, nothing is hidden" || ok "with no tray on the bar, nothing is hidden"
