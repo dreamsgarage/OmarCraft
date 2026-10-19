@@ -65,6 +65,13 @@ reset_log() { rm -f "$TMP/log/$1"; }
 
 # shellcheck source=../bin/omarcraft
 source "$ROOT/bin/omarcraft"
+
+# Nothing the script touches or signals may be real: every directory it writes and the app directory it
+# matches processes with must point into the test folder, or the suite stops before any test.
+VIKUNJA_APP_DIR="$TMP/vikunja-desktop/"
+for var in CACHE_DIR STATE_DIR VIKUNJA_DIR VIKUNJA_ENTRY VIKUNJA_APP_DIR; do
+  [[ ${!var} == "$TMP"/* ]] || { echo "refusing to run: $var=${!var} is outside $TMP" >&2; exit 2; }
+done
 set +e
 
 # Every path the script writes must be inside $TMP, or a test run edits the user's real files.
@@ -340,7 +347,6 @@ rm -f "$TMP/bin/hyprctl"
 # Removing Vikunja quits the running app first: its main process only, by pid, and nothing else. The
 # fakes have the real shape: an executable named electron (a copy of cat, blocked on a pipe) whose
 # whole command line is one space-joined argument, as Chromium rewrites it.
-VIKUNJA_APP_DIR="$TMP/vikunja-desktop/"
 cp /usr/bin/cat "$TMP/bin/electron"; mkfifo "$TMP/fifo"; exec 7<>"$TMP/fifo"
 ( exec -a "$TMP/bin/electron --app $TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & app=$!
 ( exec -a "$TMP/bin/electron --type=renderer --app-path=$TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & helper=$!

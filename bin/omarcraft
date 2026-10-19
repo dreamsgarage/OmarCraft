@@ -44,7 +44,6 @@ VIKUNJA_PID="$STATE_DIR/vikunja-server.pid"
 VIKUNJA_ENTRY="$DATA_HOME/applications/vikunja-desktop.desktop"
 VIKUNJA_PORT=3456
 VIKUNJA_URL="http://127.0.0.1:$VIKUNJA_PORT"
-VIKUNJA_CLIENT_MATCH="/usr/lib/vikunja-desktop/"   # in the command line of every running client process
 VIKUNJA_APP_DIR="/usr/lib/vikunja-desktop/"       # the app's main process runs electron --app <here>
 VIKUNJA_TRAY_ID="vikunja-desktop_status_icon_1"     # the app's tray item id, as the bar's Hide list stores it
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
@@ -969,13 +968,13 @@ vikunja_session() {
   fi
   vikunja_hide_tray_icon >/dev/null 2>&1 &
   # Already open (in its window or the tray): the app shows the window it has and this session ends.
-  if pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null; then
+  if [[ -n $(vikunja_app_pids) ]]; then
     exec vikunja-desktop "$@"
   fi
   vikunja-desktop "$@" &
   vikunja_watch_window $!
   wait
-  pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null || vikunja_stop
+  [[ -n $(vikunja_app_pids) ]] || vikunja_stop
   poke_panel
 }
 
