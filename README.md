@@ -49,8 +49,9 @@ and closing the window quits it, so the icon has nothing left to do. The data an
 when Vikunja is removed. The first time, enter `http://127.0.0.1:3456` when the app asks for a server and
 register a local account. The package's own system service is not used.
 
-To propose one, open an issue with the package name and the upstream. Tools that only exist as a server or
-a command-line program (Typst's compiler, the Memos server itself) are not tiles: nothing to launch.
+To propose a tool, or suggest any new addition, open an issue or email **correlate@entangledforge.com**
+with the package name and the upstream — proposals are welcome. Tools that only exist as a server or a
+command-line program (Typst's compiler, the Memos server itself) are not tiles: nothing to launch.
 
 ## Requirements
 
@@ -81,7 +82,7 @@ Left-click the icon (or `Tab` from a neighbouring panel). Two layouts, switched 
 
 In both:
 
-- **Hero.** The rocket logo, then the one-line situation: `4 OF 13 INSTALLED · 2 UPDATES` (the
+- **Hero.** The rocket logo, then the one-line situation: `4 OF 16 INSTALLED · 2 UPDATES` (the
   updates part in the urgent colour), `INSTALLING WORDCRAFT…`, `NOTHING INSTALLED YET`, `OFFLINE · CACHED
   LIST`, `LAST JOB FAILED`. The circular arrow at the right checks the AUR now; its tooltip says how old
   the list is. A line under the hero appears only while something needs saying (a job, an error, offline).
@@ -94,9 +95,9 @@ In both:
   PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
   cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
 - **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
-  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft), *n Notes · N* (Memospot), counting the apps you
-  don't have. Same confirm, naming every app; one terminal, one run. A chip disappears when its group is
-  complete.
+  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot, Vikunja),
+  counting the apps you don't have. Same confirm, naming every app; one terminal, one run. A chip
+  disappears when its group is complete.
 - **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft 0.9.0 ·
   a terminal will open and ask for your password · your files stay`, then *Remove ⏎* or *Cancel*. The job
   is Omarchy's `omarchy pkg drop photocraft-bin`; when the terminal closes the tile is back under
