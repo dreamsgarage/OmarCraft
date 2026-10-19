@@ -367,6 +367,7 @@ expect_eq "the tray icon joins the Hide list once, next to what the user hid" "$
 expect_eq "and nothing else in shell.json changes" "$(jq -c 'del(.bar.layout.right[0].hidden)' "$shell_json")" \
   '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}],"right":[{"id":"omarchy.tray","pinned":["a"]},{"id":"omarcraft.productivity"}]}}}'
 expect_eq "the file stays private to the user" "$(stat -c %a "$shell_json")" "600"
+expect_true "and the running shell is told to reload it" "calls omarchy-shell | grep -q 'shell reloadConfig'"
 echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}]}}}' >"$shell_json"
 before=$(cat "$shell_json")
 vikunja_hide_tray_icon && fail "with no tray on the bar, nothing is hidden" || ok "with no tray on the bar, nothing is hidden"
