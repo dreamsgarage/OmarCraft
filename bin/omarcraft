@@ -620,6 +620,33 @@ desktop_id_for() {
   fi
 }
 
+# The window classes an app's window can carry: its desktop id (the Wayland app id) and the entry's
+# StartupWMClass.
+window_classes_for() {
+  local desktop file
+  desktop=$(desktop_id_for "$1")
+  printf '%s\n' "$desktop"
+  for file in "$DATA_HOME/applications/$desktop.desktop" "/usr/share/applications/$desktop.desktop"; do
+    [[ -f $file ]] && sed -n 's/^StartupWMClass=//p' "$file" | head -1
+  done
+}
+
+# Focus the app's open window, or run the launch command. Matches the window class exactly, never the
+# title: omarchy-launch-or-focus also matches titles, so a terminal titled "Vikunja testing" was
+# focused instead of opening Vikunja.
+launch_or_focus() {
+  local id=$1 command=$2 classes address
+  classes=$(window_classes_for "$id" | jq -R 'ascii_downcase | select(. != "")' | jq -sc .)
+  address=$(hyprctl clients -j 2>/dev/null \
+    | jq -r --argjson classes "$classes" 'first(.[] | select(.class | ascii_downcase | IN($classes[]))) | .address' 2>/dev/null || true)
+  if [[ -n $address ]]; then
+    hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null 2>&1 \
+      || hyprctl dispatch focuswindow "address:$address" >/dev/null
+    exit 0
+  fi
+  eval exec setsid "$command"
+}
+
 launch() {
   local id="$1"
   known_id "$id"
@@ -628,9 +655,9 @@ launch() {
   if [[ $id == vikunja ]]; then
     # Through the session, so the local server starts with the app and stops when it quits.
     [[ -f $VIKUNJA_ENTRY ]] || vikunja_entry_install
-    exec omarchy-launch-or-focus "Vikunja" "uwsm-app -- $(printf '%q' "$SELF") vikunja-session"
+    launch_or_focus "$id" "uwsm-app -- $(printf '%q' "$SELF") vikunja-session"
   fi
-  exec omarchy-launch-or-focus "$id" "uwsm-app -- gtk-launch $(desktop_id_for "$id")"
+  launch_or_focus "$id" "uwsm-app -- gtk-launch $(desktop_id_for "$id")"
 }
 
 install_apps() {

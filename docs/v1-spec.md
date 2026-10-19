@@ -50,8 +50,8 @@ its row says `Source build · updates via omarchy update`.
    `Update ready 0.7.0 → 0.8.0` · `Install 0.9.0 · prebuilt, no compiling` · `New · install 0.6.0` ·
    `Installing…` · `Source build · updates via omarchy update`. Actions: launch `󰐊`, update `󰑐`, install
    `󰇚`, open `󰖟`.
-5. **Launch**: Enter or the action on an installed row runs `omarchy-launch-or-focus <id> …`; an already
-   open window is focused, not duplicated.
+5. **Launch**: Enter or the action on an installed row focuses the app's open window, matched by window
+   class only (its desktop id or `StartupWMClass`, never the title), or launches it.
 6. **Install**: Enter or the action on an available row expands an inline confirm line
    (`wordcraft-bin 0.7.0 · a terminal opens and asks your password`) with *Install* and *Cancel*. Confirm
    starts one job: `omarchy-pkg-aur-add <id>-bin` (Omarchy's own AUR add command) inside

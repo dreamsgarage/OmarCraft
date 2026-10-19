@@ -8,6 +8,9 @@ Three more tools beyond ArtCraft, chosen by benchmark (`docs/v0.5-plan.md`), sev
   screenshot edits, pixel art) in *Creative*. Both come from the Arch repos: installed with
   `omarchy-pkg-add`, version read from the local sync database, and updated with the system: their badge
   reads `↑ system` and opens Omarchy's update. *Update all* keeps to AUR apps.
+- **Launch matches the app's window class only.** It used `omarchy-launch-or-focus`, which also matches
+  window titles, so a terminal titled "Vikunja testing" was focused instead of opening Vikunja (a
+  browser tab titled "PhotoCraft docs" would do the same for PhotoCraft).
 - **Vikunja** (tasks, kanban, Gantt) joins Memospot in *Notes & tasks* (chip `n`, renamed from *Notes*).
   It installs the desktop app and its server; OmarCraft runs the server under the user on
   `127.0.0.1:3456` only while the app runs, keeps its data in `~/.local/share/omarcraft/vikunja`, and

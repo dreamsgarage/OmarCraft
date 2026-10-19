@@ -30,7 +30,6 @@ stub omarchy-pkg-aur-add 0
 stub omarchy-pkg-drop 0
 stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
-stub omarchy-launch-or-focus 0
 stub setsid 0                                 # detached refreshes are recorded, never run
 # pacman: -Si answers from a fake sync database, anything else lists the installed packages. Typesetter
 # is a repo tool behind the sync database; "vikunja" is the server's source build, not the Vikunja app.
@@ -354,8 +353,28 @@ reset_log omarchy-launch-floating-terminal-with-presentation
 ( install_group notes ) >/dev/null 2>&1
 term=$(calls omarchy-launch-floating-terminal-with-presentation)
 expect_true "notes group installs memospot through the same job" "[[ '$term' == *'job install memospot'* ]]"
+reset_log setsid
 ( install_apps photocraft ) >/dev/null 2>&1
-expect_eq "installing an installed app launches it instead" "$(calls omarchy-launch-or-focus | wc -l)" "1"
+expect_true "installing an installed app launches it instead" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"
+
+# Launch focuses the app's own window by class; a window that only has the name in its title is not it.
+fake_clients() {
+  printf '#!/bin/bash\nprintf "%%s\\n" "$*" >>"%s/log/hyprctl"\n[[ $1 == clients ]] && echo %q\nexit 0\n' "$TMP" "$1" >"$TMP/bin/hyprctl"
+  chmod +x "$TMP/bin/hyprctl"
+}
+fake_clients '[{"class":"org.omarchy.agent","title":"Vikunja testing session recovery","address":"0xa"},{"class":"firefox","title":"PhotoCraft docs","address":"0xb"}]'
+reset_log setsid; reset_log hyprctl
+( launch_or_focus vikunja "uwsm-app -- omarcraft vikunja-session" ) >/dev/null 2>&1
+expect_true "a terminal titled Vikunja does not stop Vikunja from launching" "calls setsid | grep -q 'vikunja-session'"
+( launch photocraft ) >/dev/null 2>&1
+expect_true "nor does a browser tab titled PhotoCraft" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"
+expect_true "and neither window is focused" "! calls hyprctl | grep -q address"
+fake_clients '[{"class":"ai.storyteller.photocraft","title":"untitled","address":"0xc"}]'
+reset_log setsid; reset_log hyprctl
+( launch photocraft ) >/dev/null 2>&1
+expect_true "an open window of the app is focused" "calls hyprctl | grep -q 'address:0xc'"
+expect_eq "and not launched again" "$(calls setsid | grep -c gtk-launch)" "0"
+rm -f "$TMP/bin/hyprctl"
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( remove_apps photocraft ) >/dev/null 2>&1
 term=$(calls omarchy-launch-floating-terminal-with-presentation)
