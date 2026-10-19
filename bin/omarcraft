@@ -962,7 +962,7 @@ vikunja_session() {
     notify "Vikunja is ready" "When the app asks for a server, enter $VIKUNJA_URL and register a local account."
     touch "$VIKUNJA_DIR/.welcomed"
   fi
-  vikunja_hide_tray_icon || true
+  vikunja_hide_tray_icon >/dev/null 2>&1 &
   # Already open (in its window or the tray): the app shows the window it has and this session ends.
   if pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null; then
     exec vikunja-desktop "$@"
@@ -974,17 +974,30 @@ vikunja_session() {
   poke_panel
 }
 
-# Vikunja's tray icon only offers what closing the window and the panel already do, so every launch keeps
-# its id on the bar's tray Hide list. When it is missing, the file is rewritten and the running shell
-# reloads it, as Omarchy's own omarchy-shell-config does. Fails, leaving the file alone, with no tray.
+# Vikunja's tray icon only offers what closing the window and the panel already do, so every launch puts
+# its id on the bar's tray Hide list and has the running shell reload it, as Omarchy's own
+# omarchy-shell-config does. When the id is already there it is taken off and put back: after a plugin
+# reload the bar's tray can show it while the file hides it, and a reload of an unchanged file does not
+# reach the tray. Fails, leaving the file alone, when there is no tray on the bar.
 vikunja_hide_tray_icon() {
-  local config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json" updated
+  local config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json"
   [[ -f $config ]] || return 1
   jq -e '[.bar.layout[]?[]? | select(.id? == "omarchy.tray")] | length > 0' "$config" >/dev/null 2>&1 || return 1
-  jq -e --arg id "$VIKUNJA_TRAY_ID" 'all(.bar.layout[]?[]? | select(.id? == "omarchy.tray"); (.hidden // []) | index($id))' \
-    "$config" >/dev/null 2>&1 && return 0
-  updated=$(jq --arg id "$VIKUNJA_TRAY_ID" '.bar.layout |= map_values(map(
-    if .id? == "omarchy.tray" then .hidden = ((.hidden // []) - [$id] + [$id]) else . end))' "$config") || return 1
+  if jq -e --arg id "$VIKUNJA_TRAY_ID" 'any(.bar.layout[]?[]? | select(.id? == "omarchy.tray"); (.hidden // []) | index($id))' \
+    "$config" >/dev/null 2>&1; then
+    tray_hidden_set "$config" remove || return 1
+    sleep 0.5
+  fi
+  tray_hidden_set "$config" add
+}
+
+# tray_hidden_set <shell.json> add|remove: Vikunja's id on or off the tray's Hide list, the rest of the
+# file and its mode kept; then the running shell reloads it.
+tray_hidden_set() {
+  local config=$1 updated
+  updated=$(jq --arg id "$VIKUNJA_TRAY_ID" --arg op "$2" '.bar.layout |= map_values(map(
+    if .id? == "omarchy.tray" then .hidden = ((.hidden // []) - [$id] + (if $op == "add" then [$id] else [] end))
+    else . end))' "$config") || return 1
   printf '%s\n' "$updated" >"$config.omarcraft.tmp" && chmod --reference="$config" "$config.omarcraft.tmp" \
     && mv "$config.omarcraft.tmp" "$config" || return 1
   omarchy-shell shell reloadConfig >/dev/null 2>&1 || true
