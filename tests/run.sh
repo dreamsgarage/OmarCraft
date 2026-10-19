@@ -11,7 +11,8 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-export HOME="$TMP/home" XDG_CACHE_HOME="$TMP/cache" XDG_STATE_HOME="$TMP/state"
+export HOME="$TMP/home" XDG_CACHE_HOME="$TMP/cache" XDG_STATE_HOME="$TMP/state" XDG_DATA_HOME="$TMP/data"
+export XDG_CONFIG_HOME="$TMP/config"
 mkdir -p "$HOME" "$TMP/bin" "$TMP/log"
 
 # --- stubs --------------------------------------------------------------------------------------
@@ -54,6 +55,11 @@ reset_log() { rm -f "$TMP/log/$1"; }
 # shellcheck source=../bin/omarcraft
 source "$ROOT/bin/omarcraft"
 set +e
+
+# Every path the script writes must be inside $TMP, or a test run edits the user's real files.
+for dir in "$CACHE_DIR" "$STATE_DIR" "$DATA_HOME" "$VIKUNJA_DIR" "$VIKUNJA_ENTRY"; do
+  [[ $dir == "$TMP"/* ]] || { echo "refusing to run: $dir is outside the test folder" >&2; exit 1; }
+done
 
 passed=0
 failed=0
