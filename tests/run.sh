@@ -23,7 +23,19 @@ stub() {
   chmod +x "$TMP/bin/$1"
 }
 stub curl 7                                   # any network call fails loudly
-stub omarchy-shell 0
+# omarchy-shell: records its calls; `shell listShellConfig` answers with the config file, as the shell
+# does once it applied a change. $TMP/shell-lag N makes it answer the previous content N times first.
+cat >"$TMP/bin/omarchy-shell" <<STUB
+#!/bin/bash
+printf '%s\\n' "\$*" >>"$TMP/log/omarchy-shell"
+if [[ \$1 == shell && \$2 == listShellConfig ]]; then
+  lag=\$(cat "$TMP/shell-lag" 2>/dev/null || echo 0)
+  if (( lag > 0 )); then echo \$(( lag - 1 )) >"$TMP/shell-lag"; cat "$TMP/shell-previous" 2>/dev/null; exit 0; fi
+  cat "$TMP/config/omarchy/shell.json" 2>/dev/null
+fi
+exit 0
+STUB
+chmod +x "$TMP/bin/omarchy-shell"
 stub omarchy-menu 0
 stub omarchy-notification-send 0
 stub omarchy-pkg-aur-add 0
@@ -325,18 +337,22 @@ vikunja_watch_window "$client"
 expect_true "a client whose window never showed is left alone until it exits" "(( SECONDS - start >= 2 ))"
 rm -f "$TMP/bin/hyprctl"
 
-# Removing Vikunja quits the running app first: its main process only, by pid, and nothing else.
+# Removing Vikunja quits the running app first: its main process only, by pid, and nothing else. The
+# fakes have the real shape: an executable named electron (a copy of cat, blocked on a pipe) whose
+# whole command line is one space-joined argument, as Chromium rewrites it.
 VIKUNJA_APP_DIR="$TMP/vikunja-desktop/"
-bash -c 'sleep 30; :' electron --app "$TMP/vikunja-desktop/app.asar" & app=$!
-bash -c 'sleep 30; :' electron --type=renderer "--app-path=$TMP/vikunja-desktop/app.asar" & helper=$!
+cp /usr/bin/cat "$TMP/bin/electron"; mkfifo "$TMP/fifo"; exec 7<>"$TMP/fifo"
+( exec -a "$TMP/bin/electron --app $TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & app=$!
+( exec -a "$TMP/bin/electron --type=renderer --app-path=$TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & helper=$!
 bash -c "sleep 30; : '--app $TMP/vikunja-desktop/app.asar'" & mention=$!
 sleep 0.2
+expect_eq "the app's main process is found by its one-argument command line" "$(vikunja_app_pids)" "$app"
 vikunja_quit_app
 sleep 0.2
 kill -0 "$app" 2>/dev/null && fail "removing Vikunja quits the running app" || ok "removing Vikunja quits the running app"
 expect_true "and leaves its helpers alone" "kill -0 $helper"
 expect_true "and a shell that only mentions it" "kill -0 $mention && kill -0 $$"
-kill "$helper" "$mention" 2>/dev/null; pkill -P "$helper" 2>/dev/null; pkill -P "$mention" 2>/dev/null
+kill "$helper" "$mention" 2>/dev/null; pkill -P "$mention" 2>/dev/null; exec 7>&-
 start=${EPOCHREALTIME/./}; vikunja_quit_app
 expect_true "with no app running, it returns at once" "(( ${EPOCHREALTIME/./} - start < 1000000 ))"
 
@@ -391,6 +407,21 @@ expect_true "and the file ends as it was" "cmp -s '$shell_json' '$TMP/shell.befo
 jq '.bar.layout.right[0].hidden = ["other"]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
 vikunja_hide_tray_icon
 expect_eq "after Show, the next launch hides it again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
+# The shell applies a reload a moment later; each step waits for it instead of racing the next write.
+cp "$shell_json" "$TMP/shell-previous"; echo 3 >"$TMP/shell-lag"; reset_log omarchy-shell
+start=${EPOCHREALTIME/./}
+tray_hidden_set "$shell_json" remove
+expect_true "a step waits until the shell reports the change" "(( $(calls omarchy-shell | grep -c listShellConfig) >= 4 )) && (( ${EPOCHREALTIME/./} - start >= 300000 ))"
+rm -f "$TMP/shell-lag" "$TMP/shell-previous"
+# tray-sync, run by the panel when the shell reloads the plugin: only while Vikunja runs.
+reset_log omarchy-shell
+tray_sync
+expect_eq "tray-sync with no Vikunja running touches nothing" "$(calls omarchy-shell | wc -l)" "0"
+exec 7<>"$TMP/fifo"
+( exec -a "$TMP/bin/electron --app $TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & app=$!
+sleep 0.2; tray_sync; kill "$app" 2>/dev/null; exec 7>&-
+expect_eq "tray-sync with Vikunja running hides the icon again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
+expect_eq "with one reload, since the previous step had left it shown" "$(calls omarchy-shell | grep -c reloadConfig)" "1"
 mv "$shell_json" "$TMP/dotfiles-shell.json" && ln -s "$TMP/dotfiles-shell.json" "$shell_json"
 vikunja_hide_tray_icon
 expect_true "a symlinked shell.json stays a symlink, and its target is updated" \

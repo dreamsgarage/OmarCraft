@@ -123,6 +123,15 @@ Item {
     onExited: root.refreshSoon()
   }
 
+  // The shell re-creates this service whenever it reloads a plugin, and that is when the bar forgets
+  // the tray icon it hides for Vikunja (it re-applies the tray's settings from when the bar was built).
+  // Hide it again; the script does nothing unless Vikunja is running. Started from onCompleted:
+  // `running: true` would start it before the command's binding resolves.
+  Process {
+    id: traySyncProc
+    command: [root.scriptPath, "tray-sync"]
+  }
+
   FileView {
     path: root.jobPath
     watchChanges: true
@@ -154,5 +163,8 @@ Item {
     onTriggered: root.check()
   }
 
-  Component.onCompleted: refresh()
+  Component.onCompleted: {
+    refresh()
+    traySyncProc.running = true
+  }
 }

@@ -44,8 +44,9 @@ update, because updating one repo package on its own is a partial upgrade.
 user, listening on `127.0.0.1:3456` only, while the app runs: it starts when you open Vikunja (from the
 panel or the app launcher) and stops when you close Vikunja's window (or choose *Quit* in its tray menu):
 OmarCraft quits the app instead of letting it hide in the tray. OmarCraft also keeps Vikunja's
-tray icon on the bar's tray Hide list (`~/.config/omarchy/shell.json`) at every launch: the panel and the
-app launcher open it, and closing the window quits it, so the icon has nothing left to do. The data and the server's config are in `~/.local/share/omarcraft/vikunja` and stay
+tray icon on the bar's tray Hide list (`~/.config/omarchy/shell.json`) at every launch, and again whenever the
+shell reloads a plugin (the bar then forgets hidden icons): the panel and the app launcher open Vikunja,
+and closing the window quits it, so the icon has nothing left to do. The data and the server's config are in `~/.local/share/omarcraft/vikunja` and stay
 when Vikunja is removed. The first time, enter `http://127.0.0.1:3456` when the app asks for a server and
 register a local account. The package's own system service is not used.
 

@@ -16,8 +16,9 @@ Three more tools beyond ArtCraft, chosen by benchmark (`docs/v0.5-plan.md`), sev
   `127.0.0.1:3456` only while the app runs, keeps its data in `~/.local/share/omarcraft/vikunja`, and
   writes a user desktop entry so the app launcher starts it the same way. A dot on the tile shows the
   server running. Closing Vikunja's window quits it and stops the server (the app alone would hide in the
-  tray and keep both running). Its tray icon stays on the bar's tray Hide list: every launch puts it back if
-  it is missing.
+  tray and keep both running). Its tray icon stays on the bar's tray Hide list: every launch puts it there,
+  and so does the panel whenever the shell reloads a plugin, which makes the bar forget it (the bar
+  re-applies the tray's settings from when it was built).
   Removing Vikunja quits the app first, if it is open, then stops the server.
 - The qualification rule now reads: stable desktop release, prebuilt (Arch repos or AUR `-bin`),
   maintained open-source upstream, about 150 MiB idle in one native process unless the tool adds something

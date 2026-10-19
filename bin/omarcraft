@@ -15,6 +15,7 @@
 #   omarcraft refresh [-f]          Fetch the catalog and versions (cached 24h, -f forces)
 #   omarcraft vikunja-session       Start Vikunja's local server, run the app, stop the server when it quits
 #   omarcraft vikunja-stop          Stop Vikunja's local server
+#   omarcraft tray-sync             Hide Vikunja's tray icon again after the shell reloaded a plugin
 #   omarcraft list                  Print the catalog with install status
 #   omarcraft missing [group]       Exit 0 if any app of the group is not installed
 #   omarcraft seen                  Mark every catalog app as seen (clears "new"; the panel runs it on close)
@@ -938,12 +939,16 @@ vikunja_quit_app() {
   done
 }
 
-# The user's processes whose arguments are `--app <path in VIKUNJA_APP_DIR>`, as separate arguments: a
-# shell or editor that only mentions that text in a longer argument never matches.
+# The user's Vikunja app processes: an Electron binary whose arguments are `--app <path in
+# VIKUNJA_APP_DIR>`. Chromium rewrites its argv into one space-joined argument, so a single-argument
+# command line is split on spaces; a shell or editor that only mentions that text has several
+# arguments, and is not Electron, so it never matches.
 vikunja_app_pids() {
   local pid args i
   for pid in $(pgrep -u "$UID" -f -- "$VIKUNJA_APP_DIR"); do
+    [[ $(readlink "/proc/$pid/exe" 2>/dev/null) == */electron ]] || continue
     mapfile -d '' -t args <"/proc/$pid/cmdline" 2>/dev/null || continue
+    (( ${#args[@]} == 1 )) && read -ra args <<<"${args[0]}"
     for (( i = 0; i + 1 < ${#args[@]}; i++ )); do
       if [[ ${args[i]} == --app && ${args[i+1]} == "$VIKUNJA_APP_DIR"* ]]; then
         echo "$pid"
@@ -974,27 +979,41 @@ vikunja_session() {
   poke_panel
 }
 
-# Vikunja's tray icon only offers what closing the window and the panel already do, so every launch puts
-# its id on the bar's tray Hide list and has the running shell reload it, as Omarchy's own
-# omarchy-shell-config does. When the id is already there it is taken off and put back: after a plugin
-# reload the bar's tray can show it while the file hides it, and a reload of an unchanged file does not
-# reach the tray. Fails, leaving the file alone, when there is no tray on the bar.
+# Vikunja's tray icon only offers what closing the window and the panel already do, so it stays on the
+# bar's tray Hide list. After any plugin reload Omarchy's bar re-applies the tray's settings from when
+# the bar was built, so an icon hidden since then shows again while the file still hides it, and a
+# reload of an unchanged file does not reach the tray. A sync therefore takes the id off and puts it
+# back, waiting for the shell to apply each step. Fails, leaving the file alone, with no tray.
 vikunja_hide_tray_icon() {
   local config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json"
   [[ -f $config ]] || return 1
   jq -e '[.bar.layout[]?[]? | select(.id? == "omarchy.tray")] | length > 0' "$config" >/dev/null 2>&1 || return 1
-  if jq -e --arg id "$VIKUNJA_TRAY_ID" 'any(.bar.layout[]?[]? | select(.id? == "omarchy.tray"); (.hidden // []) | index($id))' \
-    "$config" >/dev/null 2>&1; then
+  if ! tray_state_is remove <"$config"; then
     tray_hidden_set "$config" remove || return 1
-    sleep 0.5
   fi
   tray_hidden_set "$config" add
 }
 
-# tray_hidden_set <shell.json> add|remove: Vikunja's id on or off the tray's Hide list, the rest of the
-# file and its mode kept; then the running shell reloads it.
+# The panel calls this when the shell (re)loads the plugin, which is when the bar forgets the hidden
+# icon. Only while Vikunja runs: a launch syncs on its own.
+tray_sync() {
+  [[ -n $(vikunja_app_pids) ]] || return 0
+  vikunja_hide_tray_icon
+}
+
+# tray_state_is add|remove: whether the shell config on stdin has Vikunja's id on every tray entry's
+# Hide list (add) or on none (remove).
+tray_state_is() {
+  jq -e --arg id "$VIKUNJA_TRAY_ID" --arg op "$1" \
+    '[.bar.layout[]?[]? | select(.id? == "omarchy.tray") | ((.hidden // []) | index($id) != null)]
+     | if $op == "add" then all else map(not) | all end' >/dev/null 2>&1
+}
+
+# tray_hidden_set <shell.json> add|remove: Vikunja's id on or off every tray entry's Hide list, the rest
+# of the file and its mode kept. Then the running shell reloads it, as Omarchy's own omarchy-shell-config
+# does, and this waits (up to 3 s) until the shell reports the change, so the next step lands after it.
 tray_hidden_set() {
-  local config updated tmp
+  local config updated tmp i
   config=$(readlink -f "$1")   # a symlinked shell.json (dotfiles) stays a symlink
   updated=$(jq --arg id "$VIKUNJA_TRAY_ID" --arg op "$2" '.bar.layout |= map_values(map(
     if .id? == "omarchy.tray" then .hidden = ((.hidden // []) - [$id] + (if $op == "add" then [$id] else [] end))
@@ -1004,7 +1023,11 @@ tray_hidden_set() {
     rm -f "$tmp"
     return 1
   fi
-  omarchy-shell shell reloadConfig >/dev/null 2>&1 || true
+  omarchy-shell shell reloadConfig >/dev/null 2>&1 || return 0   # no shell running: the file is enough
+  for (( i = 0; i < 30; i++ )); do
+    omarchy-shell shell listShellConfig 2>/dev/null | tray_state_is "$2" && return 0
+    sleep 0.1
+  done
 }
 
 # Vikunja hides to the tray when its window closes; like every other tool, closing the window quits it
@@ -1149,6 +1172,7 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     list) list ;;
     vikunja-session) shift; vikunja_session "$@" ;;
     vikunja-stop) vikunja_stop; poke_panel ;;
+    tray-sync) tray_sync ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
     -h | --help | help) sed -n '3,26p' "$SELF" | sed 's/^# \{0,1\}//' ;;
