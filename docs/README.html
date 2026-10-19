@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OmarCraft</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..48,500;12..48,700;12..48,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+    html, body { margin: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+    img { max-width: 100%; height: auto; }
+    [hidden] { display: none !important; }
+  /* Layout: one reading column on a cool-slate ground; full-width bands (hero, tool roster,
+     suggestions) carry their own gutter; package names and commands set in mono. */
+  :root {
+    --bg: #f5f6fb;
+    --surface: #ffffff;
+    --surface-2: #eef0f7;
+    --fg: #191c26;
+    --muted: #5b6276;
+    --faint: #878da0;
+    --border: #e3e6f0;
+    --accent: #4f6bed;
+    --accent-ink: #3850d6;
+    --accent-2: #0f8f79;
+    --warn: #b06a08;
+    --code-bg: #eceef6;
+    --shadow: 0 1px 2px rgba(20,24,40,.05), 0 8px 28px rgba(20,24,40,.06);
+    --radius: 14px;
+    --maxw: 50rem;
+    --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1016;
+      --surface: #161922;
+      --surface-2: #1b1f2a;
+      --fg: #e8eaf2;
+      --muted: #9aa1b6;
+      --faint: #6b7288;
+      --border: #272b38;
+      --accent: #8097f7;
+      --accent-ink: #9fb0ff;
+      --accent-2: #39cdb4;
+      --warn: #e0a24a;
+      --code-bg: #1b1f2a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1016;
+    --surface: #161922;
+    --surface-2: #1b1f2a;
+    --fg: #e8eaf2;
+    --muted: #9aa1b6;
+    --faint: #6b7288;
+    --border: #272b38;
+    --accent: #8097f7;
+    --accent-ink: #9fb0ff;
+    --accent-2: #39cdb4;
+    --warn: #e0a24a;
+    --code-bg: #1b1f2a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: var(--maxw);
+    margin-inline: auto;
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+  .band-inner {
+    max-width: var(--maxw);
+    margin-inline: auto;
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.12; margin: 0; }
+  h2 {
+    font-size: clamp(1.4rem, 1.1rem + 1.4vw, 1.9rem);
+    font-weight: 700;
+    letter-spacing: -.01em;
+    margin-top: 3.2rem;
+    margin-bottom: 1rem;
+    scroll-margin-top: 1rem;
+  }
+  h2 .num {
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    color: var(--accent);
+    font-weight: 500;
+    vertical-align: middle;
+    margin-right: .6em;
+  }
+  h3 { font-size: 1.08rem; font-weight: 600; margin-top: 1.8rem; margin-bottom: .5rem; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent-ink); text-underline-offset: 2px; text-decoration-thickness: 1px; }
+  strong { font-weight: 600; }
+  section > p, section > ul, section > ol { max-width: 42rem; }
+
+  code, kbd, .mono { font-family: var(--font-mono); }
+  :not(pre) > code {
+    background: var(--code-bg);
+    padding: .12em .4em;
+    border-radius: 5px;
+    font-size: .86em;
+    word-break: break-word;
+  }
+  kbd {
+    display: inline-block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    padding: .05em .45em;
+    font-size: .82em;
+    font-weight: 500;
+    box-shadow: 0 1px 0 rgba(0,0,0,.02);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-size: .85rem;
+    line-height: 1.7;
+    margin: 0 0 1rem;
+  }
+  pre code { white-space: pre; }
+  .cmt { color: var(--muted); }
+
+  /* ---- Hero ---- */
+  .hero {
+    background:
+      radial-gradient(120% 140% at 85% -10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+      var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-inner { padding-block: clamp(2.4rem, 1.5rem + 5vw, 4rem); }
+  .brandrow { display: flex; align-items: center; gap: .85rem; margin-bottom: 1.4rem; }
+  .rocket {
+    width: 46px; height: 46px; flex: none;
+    display: grid; place-items: center;
+    border-radius: 12px;
+    background: linear-gradient(145deg, var(--accent), var(--accent-2));
+    color: #fff; box-shadow: var(--shadow);
+  }
+  .rocket svg { width: 26px; height: 26px; display: block; }
+  .wordmark { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem, 1.4rem + 3vw, 3rem); letter-spacing: -.02em; }
+  .lede { font-size: clamp(1.05rem, 1rem + .6vw, 1.3rem); color: var(--fg); max-width: 40rem; margin-bottom: 1.5rem; }
+  .lede b { font-weight: 600; }
+  .badges { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .badge {
+    font-family: var(--font-mono); font-size: .76rem; font-weight: 500;
+    padding: .3em .7em; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); display: inline-flex; align-items: center; gap: .45em;
+  }
+  .badge.key { color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  /* ---- Tool roster ---- */
+  .roster { background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  .roster-inner { padding-block: 2.6rem; }
+  .roster h2 { margin-top: 0; }
+  .roster .sub { color: var(--muted); margin-top: -.4rem; }
+  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin-top: 1.4rem; }
+  .group {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.1rem 1.15rem 1.2rem; box-shadow: var(--shadow); min-width: 0;
+  }
+  .group-head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .85rem; }
+  .group-head .name { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; }
+  .group-head .key { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: .05em .4em; }
+  .tool { display: flex; align-items: center; gap: .6rem; padding: .32rem 0; min-width: 0; }
+  .tool .d { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent); color: inherit; }
+  .tool .tn { font-weight: 500; min-width: 0; }
+  .tool .tag { color: var(--faint); font-size: .8rem; margin-left: auto; text-align: right; }
+  .tool.new .tn::after { content: "new"; font-family: var(--font-mono); font-size: .62rem; color: var(--accent-ink); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: 4px; padding: .05em .35em; margin-left: .5em; vertical-align: 1px; }
+
+  /* ---- generic content ---- */
+  .main { padding-top: .4rem; padding-bottom: 3rem; }
+  ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+  li { margin-bottom: .4rem; }
+  ul.clean { list-style: none; padding-left: 0; }
+
+  .rule-list { counter-reset: r; list-style: none; padding-left: 0; display: grid; gap: .6rem; max-width: 42rem; }
+  .rule-list li { counter-increment: r; position: relative; padding-left: 2.4rem; margin: 0; }
+  .rule-list li::before {
+    content: counter(r); position: absolute; left: 0; top: .05em;
+    width: 1.7rem; height: 1.7rem; border-radius: 7px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: .8rem; font-weight: 600; color: var(--accent-ink);
+    display: grid; place-items: center;
+  }
+
+  .tbl-wrap { overflow-x: auto; margin: 0 0 1rem; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 34rem; background: var(--surface); }
+  .main table { min-width: 30rem; }
+  th, td { text-align: left; padding: .7rem .85rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-family: var(--font-mono); font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); }
+  tr:last-child td { border-bottom: none; }
+  td .pk { font-family: var(--font-mono); font-size: .82rem; }
+  td .exc { display: inline-block; margin-top: .25rem; font-size: .76rem; color: var(--warn); font-weight: 500; }
+
+  .callout {
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    background: var(--surface); border-radius: 12px; padding: 1.1rem 1.2rem; margin: 0 0 1rem;
+    box-shadow: var(--shadow);
+  }
+  .callout h3 { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .5rem .9rem; max-width: 44rem; list-style: none; padding: 0; margin: .5rem 0 1rem; }
+  .keys li { display: flex; align-items: baseline; gap: .55rem; margin: 0; }
+  .keys .kcell { flex: none; min-width: 3.4rem; }
+  .keys .kd { color: var(--muted); font-size: .92rem; }
+
+  /* ---- Suggest band ---- */
+  .suggest { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .suggest-inner { padding-block: 2.4rem; }
+  .suggest h2 { margin-top: 0; }
+  .mailbox {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .6rem;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
+    padding: .7rem .8rem; max-width: 34rem; margin-top: 1rem;
+  }
+  .mailbox .addr { font-family: var(--font-mono); font-weight: 500; font-size: .95rem; user-select: all; word-break: break-all; min-width: 0; }
+  .copybtn {
+    margin-left: auto; font-family: var(--font-body); font-size: .82rem; font-weight: 600;
+    border: 1px solid var(--accent); color: #fff; background: var(--accent);
+    border-radius: 8px; padding: .4em .8em; cursor: pointer; white-space: nowrap;
+  }
+  .copybtn:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .copybtn.done { background: var(--accent-2); border-color: var(--accent-2); }
+  .copybtn:focus-visible, a:focus-visible, .themebtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+  /* ---- footer ---- */
+  footer { padding-block: 2.2rem 2.6rem; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--border); }
+  footer a { color: var(--accent-ink); }
+  .unofficial { font-size: .85rem; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: .7rem .9rem; margin-top: 1rem; max-width: 44rem; }
+
+  /* ---- theme toggle ---- */
+  .themebtn {
+    position: fixed; z-index: 20;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    right: calc(env(safe-area-inset-right, 0px) + 12px);
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--fg);
+    cursor: pointer; display: grid; place-items: center; box-shadow: var(--shadow);
+  }
+  .themebtn svg { width: 18px; height: 18px; }
+
+  .eyebrow { font-family: var(--font-mono); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .copybtn, .themebtn { transition: background .15s ease, border-color .15s ease; }
+  }
+</style>
+
+</head>
+<body>
+<button class="themebtn" id="themebtn" aria-label="Switch light or dark theme" title="Toggle theme">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+</button>
+
+<header class="hero">
+  <div class="band-inner hero-inner">
+    <div class="brandrow">
+      <span class="rocket" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>
+      </span>
+      <span class="wordmark">OmarCraft</span>
+    </div>
+    <p class="lede">Productivity tools from the Omarchy bar: the <b>ArtCraft</b> Craft apps and more — behind one bar icon, in a native panel that shows what is installed, what is not, what has a newer build, and one action per tool to launch, install, update or remove.</p>
+    <div class="badges">
+      <span class="badge key"><span class="dot"></span>v0.5 · 16 tools</span>
+      <span class="badge"><span class="mono">omarcraft.productivity</span></span>
+      <span class="badge">MIT licensed</span>
+      <span class="badge">Nothing is ever compiled</span>
+    </div>
+  </div>
+</header>
+
+<section class="roster" aria-labelledby="tools-h">
+  <div class="band-inner roster-inner">
+    <p class="eyebrow">The suite</p>
+    <h2 id="tools-h">Sixteen tools, three groups</h2>
+    <p class="sub">Thirteen ArtCraft Craft apps across Creative and Office, plus three tools that do what ArtCraft does not. Each tile carries the app's own glyph in its own colour.</p>
+    <div class="groups">
+      <div class="group">
+        <div class="group-head"><span class="name">Creative</span><span class="key">c</span></div>
+        <div class="tool"><span class="d" style="color:#2f7bf5"></span><span class="tn">PhotoCraft</span><span class="tag">image editing</span></div>
+        <div class="tool"><span class="d" style="color:#e8573f"></span><span class="tn">VectorCraft</span><span class="tag">vector art</span></div>
+        <div class="tool"><span class="d" style="color:#8b5cf6"></span><span class="tn">FilmCraft</span><span class="tag">video</span></div>
+        <div class="tool"><span class="d" style="color:#f2a516"></span><span class="tn">LightCraft</span><span class="tag">photo library</span></div>
+        <div class="tool"><span class="d" style="color:#e0368f"></span><span class="tn">EffectCraft</span><span class="tag">motion fx</span></div>
+        <div class="tool"><span class="d" style="color:#7bb51c"></span><span class="tn">DesignCraft</span><span class="tag">layout</span></div>
+        <div class="tool"><span class="d" style="color:#3ea6e8"></span><span class="tn">CADCraft</span><span class="tag">CAD</span></div>
+        <div class="tool"><span class="d" style="color:#1fa5c9"></span><span class="tn">SoundCraft</span><span class="tag">audio</span></div>
+        <div class="tool"><span class="d" style="color:#02da96"></span><span class="tn">FigCraft</span><span class="tag">UI design</span></div>
+      </div>
+      <div class="group">
+        <div class="group-head"><span class="name">Office</span><span class="key">o</span></div>
+        <div class="tool"><span class="d" style="color:#3f5fe0"></span><span class="tn">WordCraft</span><span class="tag">writing</span></div>
+        <div class="tool"><span class="d" style="color:#f07a1e"></span><span class="tn">DeckCraft</span><span class="tag">slides</span></div>
+        <div class="tool"><span class="d" style="color:#1f9d55"></span><span class="tn">GridCraft</span><span class="tag">spreadsheets</span></div>
+        <div class="tool"><span class="d" style="color:#12a58a"></span><span class="tn">PdfCraft</span><span class="tag">PDFs</span></div>
+        <div class="tool new"><span class="d" style="color:#239dad"></span><span class="tn">Typesetter</span><span class="tag">Typst</span></div>
+      </div>
+      <div class="group">
+        <div class="group-head"><span class="name">Notes</span><span class="key">n</span></div>
+        <div class="tool"><span class="d" style="color:#f6b028"></span><span class="tn">Memospot</span><span class="tag">memos, journal</span></div>
+        <div class="tool new"><span class="d" style="color:#196aff"></span><span class="tn">Vikunja</span><span class="tag">tasks, kanban</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="wrap main">
+
+  <section aria-labelledby="beyond-h">
+    <h2 id="beyond-h"><span class="num">01</span>Beyond ArtCraft</h2>
+    <p>Every tool is a prebuilt package — a <code>-bin</code> from the AUR or a package from the Arch repos, installed through Omarchy's own package commands — so pacman owns it and nothing is ever compiled. A tool earns a tile when it:</p>
+    <ol class="rule-list">
+      <li>has a stable desktop release (tagged, not a release candidate or source-only build),</li>
+      <li>ships prebuilt, in the Arch repos or as an AUR <code>&lt;id&gt;-bin</code>, with a desktop entry,</li>
+      <li>comes from a maintained upstream under an open-source licence,</li>
+      <li>stays near <strong>150 MiB idle in one native process</strong>, like the Craft apps (70–90 MiB measured),</li>
+      <li>does something an office, design or creative user wants on the desktop.</li>
+    </ol>
+    <p>A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so. Today's three:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Tool</th><th>Group</th><th>Package</th><th>What it is</th><th>Idle memory</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><a href="https://codeberg.org/haydn/typesetter" target="_blank" rel="noopener">Typesetter</a></td>
+            <td>Office</td>
+            <td><span class="pk">typesetter</span><br><span class="exc">Arch repos</span></td>
+            <td>A focused <a href="https://typst.app" target="_blank" rel="noopener">Typst</a> editor with a live preview</td>
+            <td>57 MiB · 1 process</td>
+          </tr>
+          <tr>
+            <td><a href="https://memospot.github.io" target="_blank" rel="noopener">Memospot</a></td>
+            <td>Notes</td>
+            <td><span class="pk">memospot-bin</span></td>
+            <td><a href="https://usememos.com" target="_blank" rel="noopener">Memos</a>, the notes and journal service, as a desktop app</td>
+            <td>371 MiB · 4 processes<span class="exc">exception: web-based</span></td>
+          </tr>
+          <tr>
+            <td><a href="https://vikunja.io" target="_blank" rel="noopener">Vikunja</a></td>
+            <td>Notes</td>
+            <td><span class="pk">vikunja-desktop-bin</span><br><span class="pk">vikunja-bin</span></td>
+            <td>Tasks, kanban, Gantt and lists, with its own local server</td>
+            <td>~400 MiB open, 0 closed<span class="exc">exception: Electron + server</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Tools from the Arch repos update with the system: their badge reads <code>↑ system</code> and opens Omarchy's update, because updating one repo package on its own is a partial upgrade.</p>
+
+    <div class="callout">
+      <h3>Vikunja's local server</h3>
+      <p>The Vikunja app is a client. OmarCraft installs the server too and runs it under your user, listening on <code>127.0.0.1:3456</code> only while the app runs: it starts when you open Vikunja and stops when you close the window. OmarCraft also keeps Vikunja's tray icon on the bar's Hide list at every launch — the panel and the app launcher open Vikunja, and closing the window quits it, so the icon has nothing left to do. Data and config live in <code>~/.local/share/omarcraft/vikunja</code> and stay when Vikunja is removed. The package's own system service is never used.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="panel-h">
+    <h2 id="panel-h"><span class="num">02</span>The panel</h2>
+    <p>Left-click the bar icon (or <kbd>Tab</kbd> from a neighbouring panel). Two layouts, switched live with <kbd>t</kbd>:</p>
+    <ul>
+      <li><strong>Tiles</strong> (default): three apps per line, each tile the app's glyph in its own ArtCraft colour over its name. Installed tiles have a tinted fill, available ones only an outline.</li>
+      <li><strong>Rows</strong>: one app per line with a caption (<code>0.7.0-1</code>, <code>Update ready 0.7.0 → 0.8.0</code>, <code>Install 0.9.0 · prebuilt, no compiling</code>) and one action at the right edge.</li>
+    </ul>
+    <h3>What the panel shows</h3>
+    <ul>
+      <li><strong>Hero.</strong> The rocket logo, then the one-line situation: <code>4 OF 16 INSTALLED · 2 UPDATES</code>, <code>INSTALLING WORDCRAFT…</code>, <code>OFFLINE · CACHED LIST</code>, <code>LAST JOB FAILED</code>. The arrow at the right checks the AUR now.</li>
+      <li><strong>UPDATES · N.</strong> Apps with newer builds, each with an <code>↑ 0.8.0</code> badge next to <em>Update all</em>.</li>
+      <li><strong>INSTALLED · N.</strong> Your apps that are up to date; <kbd>Enter</kbd> launches, or focuses an open window.</li>
+      <li><strong>AVAILABLE · N.</strong> The rest. <kbd>Enter</kbd> opens a one-line confirm; a terminal opens and asks for your password.</li>
+      <li><strong>Group chips</strong>, each with its key: <em>c Creative</em>, <em>o Office</em> (WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), <em>n Notes</em> (Memospot, Vikunja) — counting the apps you don't have.</li>
+      <li><strong>Remove.</strong> Right-click a tile or press <kbd>x</kbd>: one terminal runs Omarchy's package drop; your files stay.</li>
+    </ul>
+    <h3>Keys</h3>
+    <ul class="keys">
+      <li><span class="kcell"><kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd></span><span class="kd">move</span></li>
+      <li><span class="kcell"><kbd>Enter</kbd></span><span class="kd">launch / update / install</span></li>
+      <li><span class="kcell"><kbd>u</kbd></span><span class="kd">update all</span></li>
+      <li><span class="kcell"><kbd>x</kbd></span><span class="kd">remove under cursor</span></li>
+      <li><span class="kcell"><kbd>c</kbd><kbd>o</kbd><kbd>n</kbd></span><span class="kd">install a group</span></li>
+      <li><span class="kcell"><kbd>r</kbd></span><span class="kd">check the AUR</span></li>
+      <li><span class="kcell"><kbd>t</kbd></span><span class="kd">switch layout</span></li>
+      <li><span class="kcell"><kbd>Esc</kbd></span><span class="kd">cancel / close</span></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="updates-h">
+    <h2 id="updates-h"><span class="num">03</span>Updates</h2>
+    <p>Every six hours, and whenever you press <kbd>r</kbd> or right-click the icon, OmarCraft compares your installed <code>-bin</code> packages with the AUR. Newer builds show on the tiles and the icon; the six-hourly check sends one desktop notification per new set. If the AUR cannot be reached the hero says <code>OFFLINE · CACHED LIST</code> and the panel retries every ten minutes. Updates are package-exact and run through the AUR helper Omarchy ships, in a floating terminal that asks for your password. <code>omarchy update</code> updates them too.</p>
+  </section>
+
+  <section aria-labelledby="cli-h">
+    <h2 id="cli-h"><span class="num">04</span>Command line and IPC</h2>
+    <p>Everything the panel does is a subcommand of one script, usable from scripts and keybindings:</p>
+    <pre><code>P=~/.config/omarchy/plugins/omarcraft.productivity/bin/omarcraft
+$P state                      <span class="cmt"># the JSON the panel reads (local files only)</span>
+$P list                       <span class="cmt"># catalog with install state</span>
+$P launch &lt;id&gt;                <span class="cmt"># e.g. photocraft</span>
+$P install &lt;id&gt;...            <span class="cmt"># floating terminal, one run</span>
+$P install-group all|creative|office|notes
+$P remove &lt;id&gt;...             <span class="cmt"># Omarchy's pkg drop; your files stay</span>
+$P update [id...]             <span class="cmt"># named apps, or every app with a newer build</span>
+$P check [--notify]           <span class="cmt"># pending updates; exit 0 if any</span>
+$P refresh [-f]               <span class="cmt"># fetch catalog and AUR versions now</span></code></pre>
+    <pre><code>omarchy-shell omarcraft.productivity open | close | toggle | refresh
+omarchy-shell omarcraft.productivity launch &lt;id&gt;
+omarchy-shell omarcraft.productivity install "&lt;id&gt; &lt;id&gt;"   <span class="cmt"># no confirm: a script is explicit</span>
+omarchy-shell omarcraft.productivity layout tiles|rows</code></pre>
+    <p>An ArtCraft section in the Omarchy menu is opt-in and reversible: <code>$P setup-menu</code> / <code>$P remove-menu</code>. It writes one marked block into <code>omarchy-menu.jsonc</code> and nothing else.</p>
+  </section>
+
+  <section aria-labelledby="install-h">
+    <h2 id="install-h"><span class="num">05</span>Install &amp; remove</h2>
+    <p>Requires Omarchy 4 (Quattro) — no Python or extra packages.</p>
+    <pre><code>omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable</code></pre>
+    <p>The palette icon lands in the right section of the bar. Enabling installs no app and writes no configuration; nothing happens until you pick something in the panel. Update with <code>omarchy plugin update omarcraft.productivity</code>. To remove the plugin:</p>
+    <pre><code>omarchy plugin remove omarcraft.productivity</code></pre>
+    <p>Apps stay installed; remove them from the panel first if you want, or like any package (<code>omarchy pkg drop photocraft-bin</code>).</p>
+  </section>
+
+  <section aria-labelledby="safety-h">
+    <h2 id="safety-h"><span class="num">06</span>Safety</h2>
+    <ul>
+      <li>Only <code>-bin</code> package names, checked against the catalog and a strict pattern, ever reach a package command. The plugin uses no <code>sudo</code> or <code>pkexec</code>; installs, updates and removals all run through Omarchy's own commands in a visible terminal that asks for your password.</li>
+      <li>Network use is the app catalog from <span class="mono">raw.githubusercontent.com</span> and versions from the AUR RPC, every 24 hours, with bounded timeouts; a failed check keeps the old list and says <code>OFFLINE</code>, never "up to date". The panel itself never waits on the network.</li>
+      <li>Files stay under <code>~/.cache/omarchy/omarcraft/</code> and <code>~/.local/state/omarchy/omarcraft/</code>. Nothing under <code>~/.config</code> without the opt-in commands.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="how-h">
+    <h2 id="how-h"><span class="num">07</span>How it works</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Path</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td class="pk">manifest.json</td><td><code>kinds: ["bar-widget"]</code>, entry point <code>Panel.qml</code>, default section right</td></tr>
+          <tr><td class="pk">Panel.qml</td><td>Bar icon, <code>KeyboardPanel</code>, both layouts, cursor, confirm, keys, IPC</td></tr>
+          <tr><td class="pk">Service.qml</td><td>Runs <code>bin/omarcraft state</code>, watches <code>job.json</code>, six-hourly check</td></tr>
+          <tr><td class="pk">Model.js</td><td>Pure helpers: sections, meta line, subtexts, confirm text</td></tr>
+          <tr><td class="pk">bin/omarcraft</td><td>Catalog, installed state, jobs, launch, the opt-in menu section</td></tr>
+          <tr><td class="pk">tests/</td><td><code>bash tests/run.sh</code>: offline, every external command stubbed</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A job is one floating Omarchy terminal running <code>bin/omarcraft job install …</code>: it calls the Omarchy command, records the result and pokes the panel. The panel never claims success from an exit code — it re-reads the package database.</p>
+  </section>
+
+</main>
+
+<section class="suggest" aria-labelledby="suggest-h">
+  <div class="band-inner suggest-inner">
+    <p class="eyebrow">Propose an addition</p>
+    <h2 id="suggest-h">Suggest a tool</h2>
+    <p>Want a tool added to a future round? Open an issue, or email the package name and its upstream — proposals for new additions are welcome. Tools that only exist as a server or a command-line program (Typst's compiler, the Memos server itself) are not tiles: there is nothing to launch.</p>
+    <div class="mailbox">
+      <span class="addr" id="addr">correlate@entangledforge.com</span>
+      <button class="copybtn" id="copybtn" type="button">Copy</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><strong>Credits.</strong> By Entangled Forge, MIT licensed. The Craft apps and the app catalog are by <a href="https://github.com/storytold" target="_blank" rel="noopener">Storyteller</a>, as are the per-app colours. Memos is by <a href="https://github.com/usememos/memos" target="_blank" rel="noopener">usememos</a>; the <code>-bin</code> packages are maintained by their AUR packagers. The panel follows Omarchy's first-party Network and Power panels and Entangled Forge's OmasteelRGB.</p>
+    <div class="unofficial"><strong>Unofficial.</strong> OmarCraft is not made by or affiliated with Storyteller, the makers of ArtCraft, nor with the projects behind the other tools. The names are theirs.</div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    // Theme toggle — remembers the viewer's choice; falls back silently if storage is blocked.
+    var root = document.documentElement, btn = document.getElementById("themebtn");
+    try {
+      var saved = localStorage.getItem("omarcraft-theme");
+      if (saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
+    } catch (e) {}
+    btn.addEventListener("click", function () {
+      var dark = root.getAttribute("data-theme") === "dark" ||
+        (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      var next = dark ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("omarcraft-theme", next); } catch (e) {}
+    });
+
+    // Copy the suggestions address — clipboard with a select-text fallback.
+    var copy = document.getElementById("copybtn"), addr = document.getElementById("addr");
+    copy.addEventListener("click", function () {
+      var text = addr.textContent.trim(), done = function () {
+        copy.textContent = "Copied"; copy.classList.add("done");
+        setTimeout(function () { copy.textContent = "Copy"; copy.classList.remove("done"); }, 1600);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(selectFallback);
+      } else { selectFallback(); }
+      function selectFallback() {
+        var r = document.createRange(); r.selectNodeContents(addr);
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
