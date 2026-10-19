@@ -325,6 +325,21 @@ vikunja_watch_window "$client"
 expect_true "a client whose window never showed is left alone until it exits" "(( SECONDS - start >= 2 ))"
 rm -f "$TMP/bin/hyprctl"
 
+# Removing Vikunja quits the running app first: its main process only, by pid, and nothing else.
+VIKUNJA_APP_DIR="$TMP/vikunja-desktop/"
+bash -c 'sleep 30; :' electron --app "$TMP/vikunja-desktop/app.asar" & app=$!
+bash -c 'sleep 30; :' electron --type=renderer "--app-path=$TMP/vikunja-desktop/app.asar" & helper=$!
+bash -c "sleep 30; : '--app $TMP/vikunja-desktop/app.asar'" & mention=$!
+sleep 0.2
+vikunja_quit_app
+sleep 0.2
+kill -0 "$app" 2>/dev/null && fail "removing Vikunja quits the running app" || ok "removing Vikunja quits the running app"
+expect_true "and leaves its helpers alone" "kill -0 $helper"
+expect_true "and a shell that only mentions it" "kill -0 $mention && kill -0 $$"
+kill "$helper" "$mention" 2>/dev/null; pkill -P "$helper" 2>/dev/null; pkill -P "$mention" 2>/dev/null
+start=${EPOCHREALTIME/./}; vikunja_quit_app
+expect_true "with no app running, it returns at once" "(( ${EPOCHREALTIME/./} - start < 1000000 ))"
+
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
 st=$(state)

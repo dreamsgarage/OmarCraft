@@ -44,6 +44,7 @@ VIKUNJA_ENTRY="$DATA_HOME/applications/vikunja-desktop.desktop"
 VIKUNJA_PORT=3456
 VIKUNJA_URL="http://127.0.0.1:$VIKUNJA_PORT"
 VIKUNJA_CLIENT_MATCH="/usr/lib/vikunja-desktop/"   # in the command line of every running client process
+VIKUNJA_APP_DIR="/usr/lib/vikunja-desktop/"       # the app's main process runs electron --app <here>
 VIKUNJA_TRAY_ID="vikunja-desktop_status_icon_1"     # the app's tray item id, as the bar's Hide list stores it
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
@@ -581,7 +582,7 @@ after_install() {
 
 before_remove() {
   case "$1" in
-    vikunja) vikunja_stop; vikunja_entry_remove ;;
+    vikunja) vikunja_quit_app; vikunja_stop; vikunja_entry_remove ;;
   esac
 }
 
@@ -920,6 +921,36 @@ vikunja_stop() {
     vikunja_server_running && kill -9 "$pid" 2>/dev/null
   fi
   rm -f "$VIKUNJA_PID"
+}
+
+# Quit a running Vikunja before its packages go, as closing its window does (it quits cleanly on
+# SIGTERM); left running, it would go on from deleted files with no server. Signals the main process by
+# pid, then waits up to 5 s.
+vikunja_quit_app() {
+  local pids i
+  pids=$(vikunja_app_pids)
+  [[ -n $pids ]] || return 0
+  # shellcheck disable=SC2086
+  kill -TERM $pids 2>/dev/null || true
+  for (( i = 0; i < 20; i++ )); do
+    [[ -z $(vikunja_app_pids) ]] && return 0
+    sleep 0.25
+  done
+}
+
+# The user's processes whose arguments are `--app <path in VIKUNJA_APP_DIR>`, as separate arguments: a
+# shell or editor that only mentions that text in a longer argument never matches.
+vikunja_app_pids() {
+  local pid args i
+  for pid in $(pgrep -u "$UID" -f -- "$VIKUNJA_APP_DIR"); do
+    mapfile -d '' -t args <"/proc/$pid/cmdline" 2>/dev/null || continue
+    for (( i = 0; i + 1 < ${#args[@]}; i++ )); do
+      if [[ ${args[i]} == --app && ${args[i+1]} == "$VIKUNJA_APP_DIR"* ]]; then
+        echo "$pid"
+        break
+      fi
+    done
+  done
 }
 
 # Start the server, run the app until it quits, stop the server. A second launch hands over to the
