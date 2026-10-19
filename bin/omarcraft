@@ -994,12 +994,16 @@ vikunja_hide_tray_icon() {
 # tray_hidden_set <shell.json> add|remove: Vikunja's id on or off the tray's Hide list, the rest of the
 # file and its mode kept; then the running shell reloads it.
 tray_hidden_set() {
-  local config=$1 updated
+  local config updated tmp
+  config=$(readlink -f "$1")   # a symlinked shell.json (dotfiles) stays a symlink
   updated=$(jq --arg id "$VIKUNJA_TRAY_ID" --arg op "$2" '.bar.layout |= map_values(map(
     if .id? == "omarchy.tray" then .hidden = ((.hidden // []) - [$id] + (if $op == "add" then [$id] else [] end))
     else . end))' "$config") || return 1
-  printf '%s\n' "$updated" >"$config.omarcraft.tmp" && chmod --reference="$config" "$config.omarcraft.tmp" \
-    && mv "$config.omarcraft.tmp" "$config" || return 1
+  tmp=$(mktemp "$config.XXXXXX") || return 1
+  if ! { printf '%s\n' "$updated" >"$tmp" && chmod --reference="$config" "$tmp" && mv "$tmp" "$config"; }; then
+    rm -f "$tmp"
+    return 1
+  fi
   omarchy-shell shell reloadConfig >/dev/null 2>&1 || true
 }
 

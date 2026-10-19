@@ -391,6 +391,12 @@ expect_true "and the file ends as it was" "cmp -s '$shell_json' '$TMP/shell.befo
 jq '.bar.layout.right[0].hidden = ["other"]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
 vikunja_hide_tray_icon
 expect_eq "after Show, the next launch hides it again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
+mv "$shell_json" "$TMP/dotfiles-shell.json" && ln -s "$TMP/dotfiles-shell.json" "$shell_json"
+vikunja_hide_tray_icon
+expect_true "a symlinked shell.json stays a symlink, and its target is updated" \
+  "[[ -L '$shell_json' ]] && jq -e '.bar.layout.right[0].hidden | index(\"vikunja-desktop_status_icon_1\")' '$TMP/dotfiles-shell.json' >/dev/null"
+expect_eq "and no temporary file is left behind" "$(find "$(dirname "$shell_json")" "$TMP" -maxdepth 1 -name '*shell.json.*' | wc -l)" "0"
+rm -f "$shell_json"
 echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}]}}}' >"$shell_json"
 before=$(cat "$shell_json")
 vikunja_hide_tray_icon && fail "with no tray on the bar, nothing is hidden" || ok "with no tray on the bar, nothing is hidden"
