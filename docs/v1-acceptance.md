@@ -115,11 +115,11 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 20 | Fresh `plugin add` places the icon right and installs nothing | 5a9311a | PASS | 2026-10-18, from the public URL after `plugin remove`: cloned, validated, enabled, placed in the right section after the tray by itself; package count unchanged (972); status answered with no error |
 | 21 | Remove from the panel: confirm, one terminal with Omarchy's drop command, tile back under AVAILABLE | 51d29ba | PASS (user) | 2026-10-18 |
 | 22 | Memospot: tile, Notes chip, install, launch, remove through the same paths | 18ef9d3 | PASS (user) | 2026-10-18 |
-| 23 | 0.5 · Install Typesetter from its tile: `omarchy-pkg-add typesetter` in the floating terminal, tile turns installed, it launches | | pending | |
-| 24 | 0.5 · Install KolourPaint the same way; open a screenshot in it | | pending | |
+| 23 | 0.5 · Install Typesetter from its tile: `omarchy-pkg-add typesetter` in the floating terminal, tile turns installed, it launches | f4a2e0a | PASS | 2026-10-19, installed from the tile, launches |
+| 24 | 0.5 · Install KolourPaint the same way; open a screenshot in it | f4a2e0a | PASS | 2026-10-19, installed from the tile, launches |
 | 25 | 0.5 · Repo update badge: a stale system shows `↑ system`; Enter opens the confirm, which runs Omarchy's update | | pending | needs a repo app behind the sync database |
-| 26 | 0.5 · Install Vikunja: one AUR job with `vikunja-desktop-bin` and `vikunja-bin`; user desktop entry appears | | pending | |
-| 27 | 0.5 · First Vikunja launch: server on 127.0.0.1:3456, app opens, notification shows the URL; register, create a task | | pending | |
-| 28 | 0.5 · Vikunja lifecycle: close window → app in tray, server up, tile dot on; *Quit* from tray → server stops within 5 s, port free, dot off | | pending | |
-| 29 | 0.5 · Vikunja from the app launcher starts the server too | | pending | |
+| 26 | 0.5 · Install Vikunja: one AUR job with `vikunja-desktop-bin` and `vikunja-bin`; user desktop entry appears | f4a2e0a | PASS | 2026-10-19, one job, user desktop entry present |
+| 27 | 0.5 · First Vikunja launch: server on 127.0.0.1:3456, app opens, notification shows the URL; register, create a task | f4a2e0a | PASS | 2026-10-19, registered a local account, created a task |
+| 28 | 0.5 · Vikunja lifecycle: close window → app quits, server stops within 5 s, port free, dot off; *Quit* from tray → same | | pending | 2026-10-19: tray *Quit* passed (port free, dot off); closing the window only hid it to the tray, so OmarCraft now quits the app when its window closes; retest |
+| 29 | 0.5 · Vikunja from the app launcher starts the server too | f4a2e0a | PASS | 2026-10-19, from the app launcher: server started, tile dot on |
 | 30 | 0.5 · Remove Vikunja: both packages dropped, desktop entry gone, data kept | | pending | |

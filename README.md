@@ -42,8 +42,8 @@ update, because updating one repo package on its own is a partial upgrade.
 
 **Vikunja's server.** The Vikunja app is a client. OmarCraft installs the server too and runs it under your
 user, listening on `127.0.0.1:3456` only, while the app runs: it starts when you open Vikunja (from the
-panel or the app launcher) and stops when you choose *Quit* in Vikunja's tray menu (closing the window
-keeps it in the tray). The data and the server's config are in `~/.local/share/omarcraft/vikunja` and stay
+panel or the app launcher) and stops when you close Vikunja's window (or choose *Quit* in its tray menu):
+OmarCraft quits the app instead of letting it hide in the tray. The data and the server's config are in `~/.local/share/omarcraft/vikunja` and stay
 when Vikunja is removed. The first time, enter `http://127.0.0.1:3456` when the app asks for a server and
 register a local account. The package's own system service is not used.
 

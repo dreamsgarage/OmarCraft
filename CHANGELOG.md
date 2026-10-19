@@ -12,7 +12,8 @@ Three more tools beyond ArtCraft, chosen by benchmark (`docs/v0.5-plan.md`), sev
   It installs the desktop app and its server; OmarCraft runs the server under the user on
   `127.0.0.1:3456` only while the app runs, keeps its data in `~/.local/share/omarcraft/vikunja`, and
   writes a user desktop entry so the app launcher starts it the same way. A dot on the tile shows the
-  server running.
+  server running. Closing Vikunja's window quits it and stops the server (the app alone would hide in the
+  tray and keep both running).
 - The qualification rule now reads: stable desktop release, prebuilt (Arch repos or AUR `-bin`),
   maintained open-source upstream, about 150 MiB idle in one native process unless the tool adds something
   ArtCraft lacks. Memospot and Vikunja are the documented exceptions.

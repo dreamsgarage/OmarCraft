@@ -903,9 +903,31 @@ vikunja_session() {
     notify "Vikunja is ready" "When the app asks for a server, enter $VIKUNJA_URL and register a local account."
     touch "$VIKUNJA_DIR/.welcomed"
   fi
-  vikunja-desktop "$@" || true
+  # Already open (in its window or the tray): the app shows the window it has and this session ends.
+  if pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null; then
+    exec vikunja-desktop "$@"
+  fi
+  vikunja-desktop "$@" &
+  vikunja_watch_window $!
+  wait
   pgrep -u "$UID" -f "$VIKUNJA_CLIENT_MATCH" >/dev/null || vikunja_stop
   poke_panel
+}
+
+# Vikunja hides to the tray when its window closes; like every other tool, closing the window quits it
+# here (the app quits cleanly on SIGTERM), which stops the server. Without hyprctl the tray Quit remains.
+vikunja_watch_window() {
+  local client=$1 seen=0 missing=0
+  command -v hyprctl >/dev/null || return 0
+  while kill -0 "$client" 2>/dev/null; do
+    sleep 1
+    if hyprctl clients -j 2>/dev/null | jq -e --argjson pid "$client" 'any(.[]; .pid == $pid)' >/dev/null; then
+      seen=1 missing=0
+    elif (( seen )) && (( ++missing >= 2 )); then
+      kill -TERM "$client" 2>/dev/null
+      return 0
+    fi
+  done
 }
 
 # A user desktop entry, so Vikunja started from the app launcher also gets its server. It runs a small

@@ -300,6 +300,26 @@ vikunja_server_running && fail "a pid that is not vikunja does not count" || ok 
 vikunja_stop
 expect_true "stop never kills a process that is not the server, and clears the pid file" "kill -0 $$ && [[ ! -e '$VIKUNJA_PID' ]]"
 
+# Closing Vikunja's window quits it: hyprctl lists the client's window for two polls, then not.
+sleep 30 & client=$!
+cat >"$TMP/bin/hyprctl" <<STUB
+#!/bin/bash
+n=\$(( \$(cat "$TMP/hypr-polls" 2>/dev/null || echo 0) + 1 )); echo \$n >"$TMP/hypr-polls"
+(( n <= 2 )) && echo '[{"pid":$client,"class":"Vikunja Desktop"}]' || echo '[{"pid":1,"class":"other"}]'
+STUB
+chmod +x "$TMP/bin/hyprctl"
+vikunja_watch_window "$client"
+sleep 0.2
+kill -0 "$client" 2>/dev/null && fail "closing the window quits the client" || ok "closing the window quits the client"
+rm -f "$TMP/hypr-polls"
+sleep 30 & client=$!
+printf '#!/bin/bash\necho "[]"\n' >"$TMP/bin/hyprctl"
+( sleep 2.5; kill "$client" ) &
+start=$SECONDS
+vikunja_watch_window "$client"
+expect_true "a client whose window never showed is left alone until it exits" "(( SECONDS - start >= 2 ))"
+rm -f "$TMP/bin/hyprctl"
+
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
 st=$(state)
