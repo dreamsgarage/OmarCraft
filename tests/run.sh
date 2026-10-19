@@ -36,6 +36,28 @@ fi
 exit 0
 STUB
 chmod +x "$TMP/bin/omarchy-shell"
+# busctl: the StatusNotifier bus, faked from $TMP/sni-items (one "service/path<TAB>Id" per line, none by
+# default) so no test ever reads the real tray. $TMP/busctl-fail makes it exit nonzero (bus unreadable).
+: >"$TMP/sni-items"
+cat >"$TMP/bin/busctl" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$*" >>"__LOG__/busctl"
+[[ -f "__TMP__/busctl-fail" ]] && exit 1
+if [[ "$*" == *RegisteredStatusNotifierItems* ]]; then
+  cut -f1 "__TMP__/sni-items" | jq -R . | jq -sc '{type:"as",data:.}'
+  exit 0
+fi
+if [[ "$*" == *"org.kde.StatusNotifierItem Id"* ]]; then
+  svc=""; path=""; prev=""
+  for a in "$@"; do [[ $a == /* ]] && { svc=$prev; path=$a; }; prev=$a; done
+  id=$(awk -F'\t' -v k="$svc$path" '$1==k{print $2; exit}' "__TMP__/sni-items")
+  jq -nc --arg d "$id" '{type:"s",data:$d}'
+  exit 0
+fi
+exit 0
+STUB
+sed -i "s#__LOG__#$TMP/log#g; s#__TMP__#$TMP#g" "$TMP/bin/busctl"
+chmod +x "$TMP/bin/busctl"
 stub omarchy-menu 0
 stub omarchy-notification-send 0
 stub omarchy-pkg-aur-add 0
@@ -71,6 +93,8 @@ VIKUNJA_APP_DIR="$TMP/vikunja-desktop/"
 for var in CACHE_DIR STATE_DIR VIKUNJA_DIR VIKUNJA_ENTRY VIKUNJA_APP_DIR; do
   [[ ${!var} == "$TMP"/* ]] || { echo "refusing to run: $var=${!var} is outside $TMP" >&2; exit 2; }
 done
+# The launch-time hide waits and retries against the live bar; offline, make those waits instant.
+export VIKUNJA_TRAY_SETTLE=0 VIKUNJA_TRAY_RETRY_GAP=0 VIKUNJA_TRAY_HIDE_TRIES=1
 set +e
 
 # Every path the script writes must be inside $TMP, or a test run edits the user's real files.
@@ -425,9 +449,14 @@ expect_eq "the file stays private to the user" "$(stat -c %a "$shell_json")" "60
 expect_true "and the running shell is told to reload it" "calls omarchy-shell | grep -q 'shell reloadConfig'"
 reset_log omarchy-shell; cp "$shell_json" "$TMP/shell.before"
 vikunja_hide_tray_icon
-expect_eq "when it is already hidden, it is taken off and put back with a reload each, so a stale tray catches up" \
+expect_eq "when it is already hidden, a sentinel is added and dropped with a reload each, so a stale tray catches up without the icon flashing" \
   "$(calls omarchy-shell | grep -c reloadConfig)" "2"
 expect_true "and the file ends as it was" "cmp -s '$shell_json' '$TMP/shell.before'"
+# The forcing step keeps the icon on the Hide list (adds a sentinel) so it never flashes; the next step drops the sentinel.
+tray_hidden_set "$shell_json" nudge
+expect_eq "a nudge keeps the icon hidden and adds a sentinel" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1","omarcraft:resync"]'
+tray_hidden_set "$shell_json" add
+expect_eq "and settling back drops the sentinel, icon still hidden" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
 jq '.bar.layout.right[0].hidden = ["other"]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
 vikunja_hide_tray_icon
 expect_eq "after Show, the next launch hides it again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
@@ -445,7 +474,7 @@ exec 7<>"$TMP/fifo"
 ( exec -a "$TMP/bin/electron --app $TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & app=$!
 sleep 0.2; tray_sync; kill "$app" 2>/dev/null; exec 7>&-
 expect_eq "tray-sync with Vikunja running hides the icon again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
-expect_eq "with one reload, since the previous step had left it shown" "$(calls omarchy-shell | grep -c reloadConfig)" "1"
+expect_eq "with two reloads: the sentinel on, then off, so the tray re-filters either way" "$(calls omarchy-shell | grep -c reloadConfig)" "2"
 mv "$shell_json" "$TMP/dotfiles-shell.json" && ln -s "$TMP/dotfiles-shell.json" "$shell_json"
 vikunja_hide_tray_icon
 expect_true "a symlinked shell.json stays a symlink, and its target is updated" \
@@ -456,6 +485,50 @@ echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}]}}}' >"$shell_
 before=$(cat "$shell_json")
 vikunja_hide_tray_icon && fail "with no tray on the bar, nothing is hidden" || ok "with no tray on the bar, nothing is hidden"
 expect_eq "and shell.json is untouched" "$(cat "$shell_json")" "$before"
+rm -f "$shell_json"
+
+# The tray item is published a few seconds after the app starts, so the hide must wait for it: writing
+# the Hide list before the item is on the bus never takes. Match on the item's Id, not its bus name.
+: >"$TMP/sni-items"
+( vikunja_tray_registered ) && fail "with no item on the bus, it is not registered" || ok "with no item on the bus, it is not registered"
+printf 'org.freedesktop.StatusNotifierItem-9-1/StatusNotifierItem\t%s\n' "$VIKUNJA_TRAY_ID" >"$TMP/sni-items"
+( vikunja_tray_registered ) && ok "the item is found by its Id under any bus name" || fail "the item is found by its Id under any bus name"
+printf 'org.freedesktop.StatusNotifierItem-9-1/StatusNotifierItem\tsome-other-icon\n' >"$TMP/sni-items"
+( vikunja_tray_registered ) && fail "a different item's Id does not match" || ok "a different item's Id does not match"
+: >"$TMP/busctl-fail"
+vikunja_tray_registered; expect_eq "an unreadable bus reports can't-tell, not absent" "$?" "2"
+rm -f "$TMP/busctl-fail"
+
+# The waiter hides as soon as the item is on the bus, still hides after its bound if it never appears so
+# the file is correct, and does not wait at all when the bus cannot be read.
+echo '{"version":1,"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' >"$shell_json"
+printf 'org.freedesktop.StatusNotifierItem-9-1/StatusNotifierItem\t%s\n' "$VIKUNJA_TRAY_ID" >"$TMP/sni-items"
+VIKUNJA_TRAY_WAIT_TICKS=150 vikunja_hide_tray_icon_when_registered
+expect_eq "a registered item is hidden" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" "[\"$VIKUNJA_TRAY_ID\"]"
+: >"$TMP/sni-items"; jq '.bar.layout.right[0].hidden=[]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
+start=${EPOCHREALTIME/./}; VIKUNJA_TRAY_WAIT_TICKS=3 vikunja_hide_tray_icon_when_registered
+expect_true "an item that never appears is still hidden after the bound" "jq -e '.bar.layout.right[0].hidden | index(\"$VIKUNJA_TRAY_ID\")' '$shell_json' >/dev/null"
+expect_true "and the wait stayed bounded" "(( ${EPOCHREALTIME/./} - start < 2000000 ))"
+: >"$TMP/busctl-fail"; jq '.bar.layout.right[0].hidden=[]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
+start=${EPOCHREALTIME/./}; VIKUNJA_TRAY_WAIT_TICKS=150 vikunja_hide_tray_icon_when_registered
+expect_true "an unreadable bus does not make it wait" "(( ${EPOCHREALTIME/./} - start < 1000000 ))"
+rm -f "$TMP/busctl-fail" "$shell_json"; : >"$TMP/sni-items"
+
+# Regression: the real script runs under `set -e`, and at launch the item is not on the bus for the first
+# seconds. A 'not yet present' poll must not trip set -e and kill the waiter before the item appears.
+echo '{"version":1,"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' >"$shell_json"
+: >"$TMP/sni-items"   # item absent: every poll returns 'not present'
+( set -e; VIKUNJA_TRAY_WAIT_TICKS=2 vikunja_hide_tray_icon_when_registered ) 2>/dev/null
+expect_true "under set -e a not-yet-present poll does not kill the waiter before it hides" \
+  "jq -e '.bar.layout.right[0].hidden | index(\"$VIKUNJA_TRAY_ID\")' '$shell_json' >/dev/null"
+rm -f "$shell_json"
+
+# A .hidden left as a non-array by another tool (e.g. an external `omarchy bar set`) must not crash the
+# hide: it is read as empty and repaired to a proper array.
+echo '{"version":1,"bar":{"layout":{"right":[{"id":"omarchy.tray","hidden":"vikunja-desktop_status_icon_1"}]}}}' >"$shell_json"
+tray_state_is remove <"$shell_json" && ok "a string .hidden reads as not-hidden, not a crash" || fail "a string .hidden reads as not-hidden, not a crash"
+vikunja_hide_tray_icon
+expect_eq "and the hide rewrites it as an array" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["vikunja-desktop_status_icon_1"]'
 rm -f "$shell_json"
 
 # Launch focuses the app's own window by class; a window that only has the name in its title is not it.

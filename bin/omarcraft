@@ -46,6 +46,7 @@ VIKUNJA_PORT=3456
 VIKUNJA_URL="http://127.0.0.1:$VIKUNJA_PORT"
 VIKUNJA_APP_DIR="/usr/lib/vikunja-desktop/"       # the app's main process runs electron --app <here>
 VIKUNJA_TRAY_ID="vikunja-desktop_status_icon_1"     # the app's tray item id, as the bar's Hide list stores it
+TRAY_SENTINEL="omarcraft:resync"                    # a Hide-list id matching no real item, to force a re-filter
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
@@ -973,7 +974,10 @@ vikunja_session() {
     notify "Vikunja is ready" "When the app asks for a server, enter $VIKUNJA_URL and register a local account."
     touch "$VIKUNJA_DIR/.welcomed"
   fi
-  vikunja_hide_tray_icon >/dev/null 2>&1 &
+  # Electron publishes its tray item a few seconds after it starts, and Omarchy's bar only re-filters an
+  # item when the Hide list changes while the item is on the bus, so hiding now (before the item exists)
+  # does nothing and it shows for good. Wait for the item, then hide.
+  vikunja_hide_tray_icon_when_registered >/dev/null 2>&1 &
   # Already open (in its window or the tray): the app shows the window it has and this session ends.
   if [[ -n $(vikunja_app_pids) ]]; then
     exec vikunja-desktop "$@"
@@ -986,18 +990,62 @@ vikunja_session() {
 }
 
 # Vikunja's tray icon only offers what closing the window and the panel already do, so it stays on the
-# bar's tray Hide list. After any plugin reload Omarchy's bar re-applies the tray's settings from when
-# the bar was built, so an icon hidden since then shows again while the file still hides it, and a
-# reload of an unchanged file does not reach the tray. A sync therefore takes the id off and puts it
-# back, waiting for the shell to apply each step. Fails, leaving the file alone, with no tray.
+# bar's tray Hide list. The bar only re-filters an item when the Hide list changes while the item is on
+# the bus; a re-write of the same list does not reach the tray, and taking the id off to force a change
+# would flash the icon. So add a sentinel id (matching no item) and then settle back to the id alone:
+# two changes that make the tray re-filter while Vikunja stays hidden the whole time. Each step waits for
+# the shell to apply it. Fails, leaving the file alone, when there is no tray on the bar.
 vikunja_hide_tray_icon() {
   local config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json"
   [[ -f $config ]] || return 1
   jq -e '[.bar.layout[]?[]? | select(.id? == "omarchy.tray")] | length > 0' "$config" >/dev/null 2>&1 || return 1
-  if ! tray_state_is remove <"$config"; then
-    tray_hidden_set "$config" remove || return 1
-  fi
+  tray_hidden_set "$config" nudge || return 1
   tray_hidden_set "$config" add
+}
+
+# Whether Vikunja's tray item is published on the StatusNotifier bus: 0 it is, 1 it is not, 2 the bus
+# cannot be read. The bar's Hide list keys on the item's own Id, not its bus name, so match on that.
+vikunja_tray_registered() {
+  command -v busctl >/dev/null 2>&1 || return 2
+  local items item svc path id
+  items=$(busctl --user --json=short get-property \
+    org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
+    org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems 2>/dev/null) || return 2
+  while IFS= read -r item; do
+    [[ -n $item ]] || continue
+    if [[ $item == */* ]]; then svc=${item%%/*}; path=/${item#*/}; else svc=$item; path=/StatusNotifierItem; fi
+    id=$(busctl --user --json=short get-property "$svc" "$path" \
+      org.kde.StatusNotifierItem Id 2>/dev/null | jq -r '.data // empty' 2>/dev/null) || id=""
+    [[ $id == "$VIKUNJA_TRAY_ID" ]] && return 0
+  done < <(printf '%s' "$items" | jq -r '.data[]? // empty' 2>/dev/null)
+  return 1
+}
+
+# Whether the bar has stopped showing Vikunja's icon: 0 confirmed hidden, 1 not confirmed. The whole
+# tray widget reads not-visible when it renders nothing, the common case here since Vikunja is the only
+# tray icon; with other icons present this cannot tell and the caller simply keeps re-applying the hide.
+vikunja_tray_icon_hidden() {
+  omarchy-shell shell debugBarGeometry 2>/dev/null \
+    | jq -e 'any(.[]?; .id == "omarchy.tray" and (.visible == false or .width == 0))' >/dev/null 2>&1
+}
+
+# The icon's item reaches the bus a few seconds after launch, and the bar renders it a moment after that;
+# a hide applied before the render is undone by it. Wait for the item, let the render settle, then hide,
+# re-applying until the bar confirms it is gone. The hide never flashes the icon, so re-applying is safe.
+# If the bus is unreadable we do not wait, and hide anyway so the file is correct.
+vikunja_hide_tray_icon_when_registered() {
+  local i rc
+  for (( i = 0; i < ${VIKUNJA_TRAY_WAIT_TICKS:-150}; i++ )); do
+    rc=0; vikunja_tray_registered || rc=$?   # || so a 'not yet present' result does not trip set -e
+    (( rc != 1 )) && break   # 0 present, 2 unreadable: stop waiting
+    sleep 0.2
+  done
+  sleep "${VIKUNJA_TRAY_SETTLE:-1.5}"
+  for (( i = 0; i < ${VIKUNJA_TRAY_HIDE_TRIES:-6}; i++ )); do
+    vikunja_hide_tray_icon || return 1
+    vikunja_tray_icon_hidden && return 0
+    sleep "${VIKUNJA_TRAY_RETRY_GAP:-0.6}"
+  done
 }
 
 # The panel calls this when the shell (re)loads the plugin, which is when the bar forgets the hidden
@@ -1011,18 +1059,23 @@ tray_sync() {
 # Hide list (add) or on none (remove).
 tray_state_is() {
   jq -e --arg id "$VIKUNJA_TRAY_ID" --arg op "$1" \
-    '[.bar.layout[]?[]? | select(.id? == "omarchy.tray") | ((.hidden // []) | index($id) != null)]
+    '[.bar.layout[]?[]? | select(.id? == "omarchy.tray") | ((if (.hidden | type) == "array" then .hidden else [] end) | index($id) != null)]
      | if $op == "add" then all else map(not) | all end' >/dev/null 2>&1
 }
 
-# tray_hidden_set <shell.json> add|remove: Vikunja's id on or off every tray entry's Hide list, the rest
-# of the file and its mode kept. Then the running shell reloads it, as Omarchy's own omarchy-shell-config
-# does, and this waits (up to 3 s) until the shell reports the change, so the next step lands after it.
+# tray_hidden_set <shell.json> add|remove|nudge: set Vikunja's id on every tray entry's Hide list (add),
+# off it (remove), or the id plus a sentinel (nudge, to force a re-filter) - the rest of the file and its
+# mode kept, a non-array Hide list read as empty. Then the running shell reloads it, as Omarchy's own
+# omarchy-shell-config does, and this waits (up to 3 s) until the shell reports the change, so the next
+# step lands after it.
 tray_hidden_set() {
-  local config updated tmp i
+  local config updated tmp i check
   config=$(readlink -f "$1")   # a symlinked shell.json (dotfiles) stays a symlink
-  updated=$(jq --arg id "$VIKUNJA_TRAY_ID" --arg op "$2" '.bar.layout |= map_values(map(
-    if .id? == "omarchy.tray" then .hidden = ((.hidden // []) - [$id] + (if $op == "add" then [$id] else [] end))
+  updated=$(jq --arg id "$VIKUNJA_TRAY_ID" --arg sentinel "$TRAY_SENTINEL" --arg op "$2" '.bar.layout |= map_values(map(
+    if .id? == "omarchy.tray" then .hidden = (
+      ((if (.hidden | type) == "array" then .hidden else [] end) - [$id] - [$sentinel])
+      + (if $op == "add" or $op == "nudge" then [$id] else [] end)
+      + (if $op == "nudge" then [$sentinel] else [] end))
     else . end))' "$config") || return 1
   tmp=$(mktemp "$config.XXXXXX") || return 1
   if ! { printf '%s\n' "$updated" >"$tmp" && chmod --reference="$config" "$tmp" && mv "$tmp" "$config"; }; then
@@ -1030,8 +1083,9 @@ tray_hidden_set() {
     return 1
   fi
   omarchy-shell shell reloadConfig >/dev/null 2>&1 || return 0   # no shell running: the file is enough
+  check=$2; [[ $2 == nudge ]] && check=add   # a nudge leaves the id on, so the shell reports it like add
   for (( i = 0; i < 30; i++ )); do
-    omarchy-shell shell listShellConfig 2>/dev/null | tray_state_is "$2" && return 0
+    omarchy-shell shell listShellConfig 2>/dev/null | tray_state_is "$check" && return 0
     sleep 0.1
   done
 }
