@@ -12,8 +12,8 @@ package commands, so pacman owns it and nothing is ever compiled.
 
 It carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft, VectorCraft, FilmCraft,
 LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft,
-FigCraft) in the groups Creative and Office, plus four tools that do what ArtCraft does not (see *Beyond
-ArtCraft*), seventeen in all.
+FigCraft) in the groups Creative and Office, plus three tools that do what ArtCraft does not (see *Beyond
+ArtCraft*), sixteen in all.
 
 Plugin id `omarcraft.productivity`. MIT licensed. **Unofficial**: OmarCraft is not made by or affiliated with
 Storyteller, the makers of ArtCraft, nor with the projects behind the other tools. The names are theirs.
@@ -33,9 +33,8 @@ A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so.
 | Tool | Group | Package | What it is | Idle memory (measured) |
 |---|---|---|---|---|
 | [Typesetter](https://codeberg.org/haydn/typesetter) | Office | `typesetter` (Arch repos) | A focused [Typst](https://typst.app) editor with a live preview | 57 MiB, 1 process |
-| [KolourPaint](https://apps.kde.org/kolourpaint/) | Creative | `kolourpaint` (Arch repos) | Quick paint: screenshot edits, diagrams, pixel art | 66 MiB, 1 process |
-| [Memospot](https://memospot.github.io) | Notes & tasks | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
-| [Vikunja](https://vikunja.io) | Notes & tasks | `vikunja-desktop-bin`, `vikunja-bin` | Tasks, kanban, Gantt and lists, with its own local server | ~400 MiB while open, 0 when closed · **exception**: Electron app plus server |
+| [Memospot](https://memospot.github.io) | Notes | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
+| [Vikunja](https://vikunja.io) | Notes | `vikunja-desktop-bin`, `vikunja-bin` | Tasks, kanban, Gantt and lists, with its own local server | ~400 MiB while open, 0 when closed · **exception**: Electron app plus server |
 
 Tools from the Arch repos update with the system: their badge reads `↑ system` and opens Omarchy's
 update, because updating one repo package on its own is a partial upgrade.

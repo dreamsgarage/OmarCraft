@@ -1,7 +1,7 @@
 // Pure helpers for the OmarCraft panel. No QML, no I/O: everything here is a function of the
 // state JSON that bin/omarcraft prints, so it can be read, and tested, without the shell.
 
-var SUITE_SIZE = 17
+var SUITE_SIZE = 16
 var COLUMNS = 3
 
 function urlToPath(url) {

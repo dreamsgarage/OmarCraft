@@ -50,7 +50,6 @@ cat >"$TMP/bin/pacman" <<STUB
 printf '%s\n' "\$*" >>"$TMP/log/pacman"
 if [[ \$1 == -Si ]]; then
   printf 'Repository      : extra\nName            : typesetter\nVersion         : 0.16-1\n\n'
-  printf 'Repository      : extra\nName            : kolourpaint\nVersion         : 26.08.2-1\n\n'
   exit 0
 fi
 printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nvikunja 2.0.0-1\nother 1.0-1\n'
@@ -105,7 +104,7 @@ expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
 ensure_cache
 expect_true "first run writes the built-in catalog without versions" "[[ \$(cut -f5 '$CATALOG' | sort -u) == '' ]]"
 expect_eq "cache has the full column set" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
-expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "17"
+expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "16"
 expect_true "built-in catalog carries the extras" "grep -q '^memospot' \"$CATALOG\""
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
 catalog_fresh && fail "first-run cache is stale so versions are fetched at once" || ok "first-run cache is stale so versions are fetched at once"
@@ -133,6 +132,25 @@ ensure_cache
 expect_true "a missing built-in tool is added to an existing cache" "grep -q '^memospot' \"$CATALOG\""
 catalog_fresh && fail "the cache is made stale so the version is fetched soon" || ok "the cache is made stale so the version is fetched soon"
 
+# A cache that still lists a tool this version dropped (e.g. KolourPaint): it is pruned, keeping other
+# versions, and a prune alone does not make a fresh cache stale.
+printf 'kolourpaint	KolourPaint	Quick paint	extra	26.08.2-1	#ac4b37	#8a3626	#e9806a
+' >>"$CATALOG"
+touch "$CATALOG"
+before_photo=$(awk -F'	' '$1=="photocraft"{print $5}' "$CATALOG")
+ensure_cache
+expect_true "a tool this version no longer knows is pruned from the cache" "! grep -q '^kolourpaint' \"$CATALOG\""
+expect_eq "pruning keeps the other tools' versions" "$(awk -F'\t' '$1=="photocraft"{print $5}' "$CATALOG")" "$before_photo"
+expect_true "a prune alone leaves a fresh cache fresh" "catalog_fresh"
+# An unknown Craft app (upstream group classic/new) must be kept: upstream may list more than the
+# built-in fallback, and only tools beyond ArtCraft (group extra) are ever dropped here.
+printf 'brushcraft	BrushCraft	Future Craft app	new	1.2.3-1	#111111	#222222	#333333
+' >>"$CATALOG"
+touch "$CATALOG"
+ensure_cache
+expect_true "an unknown upstream Craft app is kept, not pruned" "grep -q '^brushcraft' \"$CATALOG\""
+grep -v '^brushcraft' "$CATALOG" >"$CATALOG.t" && mv "$CATALOG.t" "$CATALOG"; touch "$CATALOG"
+
 # Give the cache versions, as a successful refresh would.
 while IFS=$'\t' read -r id name tagline group color inkl inkd; do
   printf '%s\t%s\t%s\t%s\t1.0.0-1\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$color" "$inkl" "$inkd"
@@ -140,10 +158,10 @@ done < <(builtin_rows) >"$CATALOG"
 printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
-expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "17"
+expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "16"
 expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot vikunja "
 expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft typesetter "
-expect_eq "group creative" "$(group_ids creative | wc -l)" "10"
+expect_eq "group creative" "$(group_ids creative | wc -l)" "9"
 
 # --- installed state (pacman stubbed) -----------------------------------------------------------
 
@@ -167,8 +185,8 @@ expect_eq "a repo tool is installed from the repo" "$(install_source typesetter)
 is_installed vikunja && fail "the server's source build is not the Vikunja app" || ok "the server's source build is not the Vikunja app"
 expect_eq "Update all takes only AUR apps" "$(outdated_ids | tr '\n' ' ')" "photocraft "
 expect_eq "repo apps behind the sync database are listed apart" "$(outdated_ids repo | tr '\n' ' ')" "typesetter "
-expect_eq "repo versions come from the sync database, mapped to ids" "$(repo_versions photocraft typesetter kolourpaint vikunja | tr '\t\n' '= ')" \
-  "typesetter=0.16-1 kolourpaint=26.08.2-1 "
+expect_eq "repo versions come from the sync database, mapped to ids" "$(repo_versions photocraft typesetter vikunja | tr '\t\n' '= ')" \
+  "typesetter=0.16-1 "
 cat >"$TMP/bin/curl" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/curl"
@@ -185,7 +203,7 @@ reset_log curl
 reset_log curl
 st=$(state)
 jq -e . <<<"$st" >/dev/null && ok "state is valid JSON" || fail "state is valid JSON"
-expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":13,"updates":2,"unpackaged":1}'
+expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":12,"updates":2,"unpackaged":1}'
 expect_eq "state: a repo tool" "$(jq -c '.apps[] | select(.id=="typesetter") | [.group,.kind,.source,.installedVersion,.updateReady,.desktopId]' <<<"$st")" \
   '["office","repo","repo","0.15.2-1",true,"net.trowell.typesetter"]'
 expect_eq "state: Vikunja, not installed, server down" "$(jq -c '.apps[] | select(.id=="vikunja") | [.group,.kind,.installed,.serverRunning,.desktopId]' <<<"$st")" \
@@ -276,16 +294,16 @@ expect_eq "a refused removal never reaches the command" "$(calls omarchy-pkg-dro
 
 # Repo tools install through omarchy-pkg-add, AUR tools through omarchy-pkg-aur-add, in one job.
 reset_log omarchy-pkg-add; reset_log omarchy-pkg-aur-add
-( job install kolourpaint vikunja memospot ) >/dev/null 2>&1
+( job install typesetter vikunja memospot ) >/dev/null 2>&1
 expect_eq "mixed install exits 0" "$?" "0"
-expect_eq "repo packages go to omarchy-pkg-add" "$(calls omarchy-pkg-add)" "kolourpaint"
+expect_eq "repo packages go to omarchy-pkg-add" "$(calls omarchy-pkg-add)" "typesetter"
 expect_eq "AUR packages, every package of a tool, go to omarchy-pkg-aur-add" "$(calls omarchy-pkg-aur-add)" "vikunja-desktop-bin vikunja-bin memospot-bin"
 expect_true "installing Vikunja writes its user desktop entry" "grep -qx 'X-OmarCraft=true' '$VIKUNJA_ENTRY'"
 expect_true "the entry runs OmarCraft's launcher" "grep -q '^Exec=\"$VIKUNJA_DIR/launch\" %U' '$VIKUNJA_ENTRY'"
 expect_true "the launcher falls back to the plain app" "[[ -x '$VIKUNJA_DIR/launch' ]] && grep -q 'exec vikunja-desktop' '$VIKUNJA_DIR/launch' && grep -q 'vikunja-session' '$VIKUNJA_DIR/launch'"
 stub omarchy-pkg-add 1
 reset_log omarchy-pkg-aur-add
-( job install kolourpaint memospot ) >/dev/null 2>&1
+( job install typesetter memospot ) >/dev/null 2>&1
 expect_eq "a failed repo install fails the job" "$(jq -c '[.verb,.exit]' "$LAST_JOB_FILE")" '["install",1]'
 expect_eq "and stops before the AUR part" "$(calls omarchy-pkg-aur-add | wc -l)" "0"
 stub omarchy-pkg-add 0

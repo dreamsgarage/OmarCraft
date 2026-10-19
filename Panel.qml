@@ -579,7 +579,7 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft, KolourPaint"
+              tooltipText: "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
               onClicked: root.confirmGroup(root.missingCreative)
             }
             Button {
@@ -600,7 +600,7 @@ Panel {
               visible: root.missingNotes.length > 0
               iconText: "n"
               iconSize: Style.font.bodySmall
-              text: Model.chipLabel("Notes & tasks", root.missingNotes.length)
+              text: Model.chipLabel("Notes", root.missingNotes.length)
               bordered: true
               fontSize: Style.font.bodySmall
               foreground: root.foreground

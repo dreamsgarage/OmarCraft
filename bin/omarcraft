@@ -62,11 +62,10 @@ declare -A GROUP_OF=(
 # Where a tool comes from. Not listed: "aur", one package <id>-bin, desktop id ai.storyteller.<id>.
 # "repo" tools come from the Arch repos and update with the system. The first package is the app;
 # the others install and remove with it (Vikunja's local server).
-declare -A KIND_OF=([typesetter]=repo [kolourpaint]=repo)
-declare -A PKGS_OF=([typesetter]=typesetter [kolourpaint]=kolourpaint [vikunja]="vikunja-desktop-bin vikunja-bin")
+declare -A KIND_OF=([typesetter]=repo)
+declare -A PKGS_OF=([typesetter]=typesetter [vikunja]="vikunja-desktop-bin vikunja-bin")
 declare -A DESKTOP_OF=(
-  [memospot]=memospot [typesetter]=net.trowell.typesetter [kolourpaint]=org.kde.kolourpaint
-  [vikunja]=vikunja-desktop
+  [memospot]=memospot [typesetter]=net.trowell.typesetter [vikunja]=vikunja-desktop
 )
 
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
@@ -97,7 +96,6 @@ figcraft	FigCraft	Interface design and prototyping	new	#02da96	#047a56	#4fe8b6"
 # icon is grey, so it takes Typst's teal.
 EXTRA_CATALOG="memospot	Memospot	Notes and journal: Memos on the desktop	extra	#f6b028	#9a6a08	#f6b028
 typesetter	Typesetter	Typst documents with a live preview	extra	#239dad	#16707c	#5cc8d6
-kolourpaint	KolourPaint	Quick paint: screenshots, diagrams, pixel art	extra	#ac4b37	#8a3626	#e9806a
 vikunja	Vikunja	Tasks, kanban and Gantt, with a local server	extra	#196aff	#1250c4	#7fa8ff"
 CATALOG_COLUMNS=8   # id name tagline group version color ink-light ink-dark
 
@@ -107,7 +105,7 @@ declare -A APP_ICON=(
   [designcraft]=$'\U000f03d8' [wordcraft]=$'\U000f0219' [deckcraft]=$'\U000f0429'
   [gridcraft]=$'\U000f04eb' [cadcraft]=$'\U000f0eec' [soundcraft]=$'\U000f075a'
   [figcraft]=$'\U000f0001' [memospot]=$'\U000f11d7' [typesetter]=$'\U000f0284'
-  [kolourpaint]=$'\U000f00e3' [vikunja]=$'\U000f0756'
+  [vikunja]=$'\U000f0756'
 )
 app_icon() {
   printf '%s' "${APP_ICON[$1]:-$ICON_ARTCRAFT}"
@@ -310,18 +308,27 @@ catalog_age_seconds() {
 # an older layout (fewer columns) is rebuilt the same way, keeping the versions it knew.
 ensure_cache() {
   mkdir -p "$CACHE_DIR" "$STATE_DIR"
-  local id name tagline group color inkl inkd version old="" tmp missing=""
+  local id name tagline group color inkl inkd version old="" tmp missing="" extra=""
   if [[ -s $CATALOG ]]; then
     if awk -F'\t' -v n="$CATALOG_COLUMNS" 'NF != n { bad = 1 } END { exit bad }' "$CATALOG"; then
+      # Reconcile the cache to the tools this version knows: a built-in tool it gained (an update) is
+      # added without a version. A dropped tool beyond ArtCraft (upstream group "extra", e.g.
+      # KolourPaint) is removed so it leaves the panel at once, without waiting for a network refresh.
+      # An unknown Craft app (classic/new) is kept — the authoritative upstream catalog may list more
+      # Craft apps than this version's built-in fallback. Known tools keep the versions the cache has.
       missing=$(comm -23 <(builtin_rows | cut -f1 | sort) <(cut -f1 "$CATALOG" | sort))
-      [[ -n $missing ]] || return 0
-      # A tool this version knows and the cache does not (an update added it): add it without a
-      # version and make the cache stale, so the next state read fetches its AUR version at once.
+      extra=$(awk -F'\t' 'NR == FNR { known[$1]; next } $4 == "extra" && !($1 in known) { print $1 }' \
+        <(builtin_rows) "$CATALOG")
+      [[ -n $missing || -n $extra ]] || return 0
+      tmp=$(mktemp)
+      awk -F'\t' 'NR == FNR { known[$1]; next } ($1 in known) || $4 != "extra"' <(builtin_rows) "$CATALOG" >"$tmp"
       while IFS=$'\t' read -r id name tagline group color inkl inkd; do
         grep -qx "$id" <<<"$missing" || continue
-        printf '%s\t%s\t%s\t%s\t\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$color" "$inkl" "$inkd" >>"$CATALOG"
+        printf '%s\t%s\t%s\t%s\t\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$color" "$inkl" "$inkd" >>"$tmp"
       done < <(builtin_rows)
-      touch -d '-2 days' "$CATALOG"
+      mv "$tmp" "$CATALOG"
+      # A new tool has no version yet; make the cache stale so the next state read fetches it.
+      [[ -n $missing ]] && touch -d '-2 days' "$CATALOG"
       return 0
     fi
     old=$(cut -f1,5 "$CATALOG")
@@ -1103,10 +1110,10 @@ menu_block() {
   json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Newer builds of your tools"
   json_entry "omarcraft.install-all" "$ICON_GROUP" "Install all" "$self install-group all" "$self missing all" "Every tool"
   json_entry "omarcraft.install-creative" "$ICON_GROUP" "Install Creative" "$self install-group creative" "$self missing creative" \
-    "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft, KolourPaint"
+    "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
   json_entry "omarcraft.install-office" "$ICON_GROUP" "Install Office" "$self install-group office" "$self missing office" \
     "Word, Deck, Grid, PdfCraft, Typesetter"
-  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes & tasks" "$self install-group notes" "$self missing notes" "Memospot, Vikunja"
+  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes" "$self install-group notes" "$self missing notes" "Memospot, Vikunja"
   json_entry "install.omarcraft" "$ICON_ARTCRAFT" "OmarCraft" "$open" "" "Craft apps and more"
   echo "  // <<< omarcraft"
 }
