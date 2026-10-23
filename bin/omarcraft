@@ -13,9 +13,6 @@
 #   omarcraft job <verb> [id...]    The terminal side of install/update/system-update/remove; writes job.json
 #   omarcraft check [--notify]      List installed apps with a newer build; exit 0 if any
 #   omarcraft refresh [-f]          Fetch the catalog and versions (cached 24h, -f forces)
-#   omarcraft vikunja-session       Start Vikunja's local server, run the app, stop the server when it quits
-#   omarcraft vikunja-stop          Stop Vikunja's local server
-#   omarcraft tray-sync             Hide Vikunja's tray icon again after the shell reloaded a plugin
 #   omarcraft list                  Print the catalog with install status
 #   omarcraft missing [group]       Exit 0 if any app of the group is not installed
 #   omarcraft seen                  Mark every catalog app as seen (clears "new"; the panel runs it on close)
@@ -39,14 +36,10 @@ LAST_JOB_FILE="$STATE_DIR/last-job.json"
 SEEN="$STATE_DIR/seen"
 NOTIFIED="$STATE_DIR/notified-updates"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-VIKUNJA_DIR="$DATA_HOME/omarcraft/vikunja"
-VIKUNJA_PID="$STATE_DIR/vikunja-server.pid"
-VIKUNJA_ENTRY="$DATA_HOME/applications/vikunja-desktop.desktop"
-VIKUNJA_PORT=3456
-VIKUNJA_URL="http://127.0.0.1:$VIKUNJA_PORT"
-VIKUNJA_APP_DIR="/usr/lib/vikunja-desktop/"       # the app's main process runs electron --app <here>
-VIKUNJA_TRAY_ID="vikunja-desktop_status_icon_1"     # the app's tray item id, as the bar's Hide list stores it
-TRAY_SENTINEL="omarcraft:resync"                    # a Hide-list id matching no real item, to force a re-filter
+# What 0.5.0 wrote for Vikunja, which 0.5.1 dropped; see legacy_vikunja_cleanup.
+LEGACY_VIKUNJA_DIR="$DATA_HOME/omarcraft/vikunja"
+LEGACY_VIKUNJA_ENTRY="$DATA_HOME/applications/vikunja-desktop.desktop"
+LEGACY_VIKUNJA_PID="$STATE_DIR/vikunja-server.pid"
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
@@ -57,16 +50,16 @@ GROUPS_RE='^(all|creative|office|notes)$'
 # Panel groups. Craft apps not listed here are Creative.
 declare -A GROUP_OF=(
   [wordcraft]=office [deckcraft]=office [gridcraft]=office [pdfcraft]=office [typesetter]=office
-  [memospot]=notes [vikunja]=notes
+  [memospot]=notes
 )
 
 # Where a tool comes from. Not listed: "aur", one package <id>-bin, desktop id ai.storyteller.<id>.
-# "repo" tools come from the Arch repos and update with the system. The first package is the app;
-# the others install and remove with it (Vikunja's local server).
+# "repo" tools come from the Arch repos and update with the system. A tool may list several packages:
+# the first is the app, the others install and remove with it.
 declare -A KIND_OF=([typesetter]=repo)
-declare -A PKGS_OF=([typesetter]=typesetter [vikunja]="vikunja-desktop-bin vikunja-bin")
+declare -A PKGS_OF=([typesetter]=typesetter)
 declare -A DESKTOP_OF=(
-  [memospot]=memospot [typesetter]=net.trowell.typesetter [vikunja]=vikunja-desktop
+  [memospot]=memospot [typesetter]=net.trowell.typesetter
 )
 
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
@@ -96,8 +89,7 @@ figcraft	FigCraft	Interface design and prototyping	new	#02da96	#047a56	#4fe8b6"
 # something ArtCraft lacks (see README, Beyond ArtCraft). Colours from each tool's icon; Typesetter's
 # icon is grey, so it takes Typst's teal.
 EXTRA_CATALOG="memospot	Memospot	Notes and journal: Memos on the desktop	extra	#f6b028	#9a6a08	#f6b028
-typesetter	Typesetter	Typst documents with a live preview	extra	#239dad	#16707c	#5cc8d6
-vikunja	Vikunja	Tasks, kanban and Gantt, with a local server	extra	#196aff	#1250c4	#7fa8ff"
+typesetter	Typesetter	Typst documents with a live preview	extra	#239dad	#16707c	#5cc8d6"
 CATALOG_COLUMNS=8   # id name tagline group version color ink-light ink-dark
 
 declare -A APP_ICON=(
@@ -106,7 +98,6 @@ declare -A APP_ICON=(
   [designcraft]=$'\U000f03d8' [wordcraft]=$'\U000f0219' [deckcraft]=$'\U000f0429'
   [gridcraft]=$'\U000f04eb' [cadcraft]=$'\U000f0eec' [soundcraft]=$'\U000f075a'
   [figcraft]=$'\U000f0001' [memospot]=$'\U000f11d7' [typesetter]=$'\U000f0284'
-  [vikunja]=$'\U000f0756'
 )
 app_icon() {
   printf '%s' "${APP_ICON[$1]:-$ICON_ARTCRAFT}"
@@ -180,7 +171,7 @@ load_installed() {
 }
 
 # A source build of a Craft app (pkgname <id>) counts as installed too. Not for tools with their own
-# package list: AUR "vikunja" is the server's source build, not the app.
+# package list: a package named like the tool may be a different program.
 installed_pkg() {
   load_installed
   if [[ -n ${INSTALLED[$(pkg_for "$1")]:-} ]]; then
@@ -570,7 +561,6 @@ job() {
       # Explicit returns: the status of a failed install must reach end_job even without set -e.
       if (( ${#repo_pkgs[@]} > 0 )); then omarchy-pkg-add "${repo_pkgs[@]}" || return; fi
       if (( ${#aur_pkgs[@]} > 0 )); then omarchy-pkg-aur-add "${aur_pkgs[@]}" || return; fi
-      for id in "$@"; do after_install "$id"; done
       ;;
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
     # directly here. It is the helper Omarchy ships and uses itself.
@@ -580,21 +570,8 @@ job() {
     # Removal is Omarchy's own command: the package and the dependencies nothing else needs. The
     # app's documents and settings are not touched.
     remove)
-      for id in "$@"; do before_remove "$id"; done
       omarchy-pkg-drop "${pkgs[@]}"
       ;;
-  esac
-}
-
-after_install() {
-  case "$1" in
-    vikunja) vikunja_entry_install ;;
-  esac
-}
-
-before_remove() {
-  case "$1" in
-    vikunja) vikunja_quit_app; vikunja_stop; vikunja_entry_remove ;;
   esac
 }
 
@@ -646,8 +623,8 @@ window_classes_for() {
 }
 
 # Focus the app's open window, or run the launch command. Matches the window class exactly, never the
-# title: omarchy-launch-or-focus also matches titles, so a terminal titled "Vikunja testing" was
-# focused instead of opening Vikunja.
+# title: omarchy-launch-or-focus also matches titles, so a terminal or a browser tab titled with an
+# app's name was focused instead of opening the app.
 launch_or_focus() {
   local id=$1 command=$2 classes address
   classes=$(window_classes_for "$id" | jq -R 'ascii_downcase | select(. != "")' | jq -sc .)
@@ -666,11 +643,6 @@ launch() {
   known_id "$id"
   is_installed "$id" || die "$id is not installed (try: omarcraft install $id)"
   mark_seen "$id"
-  if [[ $id == vikunja ]]; then
-    # Through the session, so the local server starts with the app and stops when it quits.
-    [[ -f $VIKUNJA_ENTRY ]] || vikunja_entry_install
-    launch_or_focus "$id" "uwsm-app -- $(printf '%q' "$SELF") vikunja-session"
-  fi
   launch_or_focus "$id" "uwsm-app -- gtk-launch $(desktop_id_for "$id")"
 }
 
@@ -764,11 +736,11 @@ check() {
 # Local only: cache files and the package database. A stale cache starts a detached refresh.
 
 state() {
-  local id name tagline ugroup version color inkl inkd src current ready new group glyph pkg kind server
-  local rows="" job="null" last="null" office_json="[]" seen_known=0 office_ids=() vikunja_up=0
+  local id name tagline ugroup version color inkl inkd src current ready new group glyph pkg kind
+  local rows="" job="null" last="null" office_json="[]" seen_known=0 office_ids=()
   local -A seen=()
+  legacy_vikunja_cleanup
   load_installed
-  vikunja_server_running && vikunja_up=1
   ensure_cache
   reconcile_job
   if { ! catalog_fresh || [[ -f $REFRESH_FAILED ]]; } && ! refreshing && refresh_due; then
@@ -792,8 +764,6 @@ state() {
     else src=""; current=""; fi
     ready=0
     if [[ ( $src == bin || $src == repo ) && -n $version && $current != "$version" ]] && (( $(vercmp "$current" "$version") < 0 )); then ready=1; fi
-    server=0
-    [[ $id == vikunja ]] && server=$vikunja_up
     new=0
     (( seen_known )) && [[ -z ${seen[$id]:-} ]] && new=1
     group=${GROUP_OF[$id]:-creative}
@@ -801,7 +771,7 @@ state() {
     glyph=${APP_ICON[$id]:-$ICON_ARTCRAFT}
     rows+="$id"$'\t'"$name"$'\t'"$tagline"$'\t'"$group"$'\t'"$ugroup"$'\t'"$glyph"$'\t'
     rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'"$ready"$'\t'"$new"$'\t'"${DESKTOP_OF[$id]:-ai.storyteller.$id}"$'\t'
-    rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\t'"$kind"$'\t'"$server"$'\n'
+    rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\t'"$kind"$'\n'
   done < <(catalog_rows)
   (( ${#office_ids[@]} )) && office_json=$(printf '%s\n' "${office_ids[@]}" | jq -Rn '[inputs]')
 
@@ -820,7 +790,7 @@ state() {
       aurVersion: .[6], installedVersion: .[7],
       installed: (.[8] != ""), source: (if .[8] == "" then null else .[8] end),
       updateReady: (.[9] == "1"), new: (.[10] == "1"), desktopId: .[11],
-      color: .[12], inkLight: .[13], inkDark: .[14], kind: .[15], serverRunning: (.[16] == "1")
+      color: .[12], inkLight: .[13], inkDark: .[14], kind: .[15]
     }] as $apps
     | {
         generatedAt: $generated, catalogAgeSeconds: $age, offline: $offline, refreshing: $refreshing,
@@ -853,295 +823,20 @@ list() {
   done < <(catalog_rows)
 }
 
-# --- Vikunja's local server --------------------------------------------------------------------
-# The Vikunja app is a client; its server (/usr/bin/vikunja from vikunja-bin) runs under the user, on
-# demand: started with the app, stopped when the app quits. The package's system service is never used.
-# Data and config live in VIKUNJA_DIR and stay when Vikunja is removed.
-
-vikunja_server_running() {
-  local pid comm
-  [[ -f $VIKUNJA_PID ]] || return 1
-  pid=$(<"$VIKUNJA_PID")
-  [[ $pid =~ ^[0-9]+$ && -r /proc/$pid/comm ]] || return 1
-  comm=$(<"/proc/$pid/comm")
-  [[ $comm == vikunja ]]
-}
-
-vikunja_port_taken() {
-  (exec 3<>"/dev/tcp/127.0.0.1/$VIKUNJA_PORT") 2>/dev/null
-}
-
-# Written once; the user may edit it afterwards and it is never overwritten.
-vikunja_config() {
-  local config="$VIKUNJA_DIR/config.yml" secret tz
-  [[ -f $config ]] && return 0
-  mkdir -p "$VIKUNJA_DIR/files"
-  secret=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
-  # readlink on a missing or plain file prints nothing; no redirection needed.
-  tz=$(readlink /etc/localtime || true)
-  tz=${tz##*/zoneinfo/}
-  (
-    umask 077
-    cat >"$config" <<EOF
-# Written once by OmarCraft for Vikunja's local server. Edit freely: OmarCraft never overwrites it.
-service:
-  interface: "127.0.0.1:$VIKUNJA_PORT"
-  publicurl: "$VIKUNJA_URL/"
-  secret: "$secret"
-  enableregistration: true
-  timezone: "${tz:-GMT}"
-database:
-  type: "sqlite"
-  path: "$VIKUNJA_DIR/vikunja.db"
-files:
-  basepath: "$VIKUNJA_DIR/files"
-EOF
-  )
-}
-
-vikunja_start() {
-  local i
-  vikunja_server_running && return 0
-  command -v vikunja >/dev/null || die "Vikunja's server is not installed (vikunja-bin); reinstall Vikunja from OmarCraft"
-  if vikunja_port_taken; then
-    notify "Vikunja" "Port $VIKUNJA_PORT is in use by another program, so the local server cannot start."
-    die "port $VIKUNJA_PORT is in use"
+# --- what 0.5.0 left for Vikunja --------------------------------------------------------------
+# 0.5.0 shipped Vikunja and 0.5.1 dropped it: its desktop app signs in only through the browser, and that
+# hand-off kept failing. Where 0.5.0 installed it, it left a desktop entry whose launcher calls a command
+# this version no longer has. Remove what OmarCraft wrote, once, and say where the data is. The packages,
+# the data folder, a running server and anything the user wrote are left alone.
+legacy_vikunja_cleanup() {
+  local pid
+  if [[ -f $LEGACY_VIKUNJA_PID ]]; then
+    pid=$(<"$LEGACY_VIKUNJA_PID")
+    if ! [[ $pid =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then rm -f "$LEGACY_VIKUNJA_PID"; fi
   fi
-  vikunja_config
-  mkdir -p "$STATE_DIR"
-  # The shell writes its own pid and then becomes the server, so the pid file names the server.
-  (
-    setsid bash -c 'printf "%s" "$$" >"$1"; cd "$2" && exec vikunja --config "$2/config.yml" >>"$2/server.log" 2>&1' \
-      _ "$VIKUNJA_PID" "$VIKUNJA_DIR" </dev/null >/dev/null 2>&1 &
-  )
-  for (( i = 0; i < 40; i++ )); do
-    curl -fs --max-time 1 "$VIKUNJA_URL/api/v1/info" >/dev/null 2>&1 && return 0
-    sleep 0.25
-  done
-  die "Vikunja's local server did not start; see $VIKUNJA_DIR/server.log"
-}
-
-vikunja_stop() {
-  local pid i
-  if vikunja_server_running; then
-    pid=$(<"$VIKUNJA_PID")
-    kill "$pid" 2>/dev/null || true
-    for (( i = 0; i < 20; i++ )); do
-      vikunja_server_running || break
-      sleep 0.25
-    done
-    vikunja_server_running && kill -9 "$pid" 2>/dev/null
-  fi
-  rm -f "$VIKUNJA_PID"
-}
-
-# Quit a running Vikunja before its packages go, as closing its window does (it quits cleanly on
-# SIGTERM); left running, it would go on from deleted files with no server. Signals the main process by
-# pid, then waits up to 5 s.
-vikunja_quit_app() {
-  local pids i
-  pids=$(vikunja_app_pids)
-  [[ -n $pids ]] || return 0
-  # shellcheck disable=SC2086
-  kill -TERM $pids 2>/dev/null || true
-  for (( i = 0; i < 20; i++ )); do
-    [[ -z $(vikunja_app_pids) ]] && return 0
-    sleep 0.25
-  done
-}
-
-# The user's Vikunja app processes: an Electron binary whose arguments are `--app <path in
-# VIKUNJA_APP_DIR>`. Chromium rewrites its argv into one space-joined argument, so a single-argument
-# command line is split on spaces; a shell or editor that only mentions that text has several
-# arguments, and is not Electron, so it never matches.
-vikunja_app_pids() {
-  local pid args i
-  for pid in $(pgrep -u "$UID" -f -- "$VIKUNJA_APP_DIR"); do
-    [[ $(readlink "/proc/$pid/exe" 2>/dev/null) == */electron ]] || continue
-    mapfile -d '' -t args <"/proc/$pid/cmdline" 2>/dev/null || continue
-    (( ${#args[@]} == 1 )) && read -ra args <<<"${args[0]}"
-    for (( i = 0; i + 1 < ${#args[@]}; i++ )); do
-      if [[ ${args[i]} == --app && ${args[i+1]} == "$VIKUNJA_APP_DIR"* ]]; then
-        echo "$pid"
-        break
-      fi
-    done
-  done
-}
-
-# Start the server, run the app until it quits, stop the server. A second launch hands over to the
-# running app and returns at once; the server then stays up for that app, whose own session stops it.
-vikunja_session() {
-  vikunja_start
-  poke_panel
-  if [[ ! -f $VIKUNJA_DIR/.welcomed ]]; then
-    notify "Vikunja is ready" "When the app asks for a server, enter $VIKUNJA_URL and register a local account."
-    touch "$VIKUNJA_DIR/.welcomed"
-  fi
-  # Electron publishes its tray item a few seconds after it starts, and Omarchy's bar only re-filters an
-  # item when the Hide list changes while the item is on the bus, so hiding now (before the item exists)
-  # does nothing and it shows for good. Wait for the item, then hide.
-  vikunja_hide_tray_icon_when_registered >/dev/null 2>&1 &
-  # Already open (in its window or the tray): the app shows the window it has and this session ends.
-  if [[ -n $(vikunja_app_pids) ]]; then
-    exec vikunja-desktop "$@"
-  fi
-  vikunja-desktop "$@" &
-  vikunja_watch_window $!
-  wait
-  [[ -n $(vikunja_app_pids) ]] || vikunja_stop
-  poke_panel
-}
-
-# Vikunja's tray icon only offers what closing the window and the panel already do, so it stays on the
-# bar's tray Hide list. The bar only re-filters an item when the Hide list changes while the item is on
-# the bus; a re-write of the same list does not reach the tray, and taking the id off to force a change
-# would flash the icon. So add a sentinel id (matching no item) and then settle back to the id alone:
-# two changes that make the tray re-filter while Vikunja stays hidden the whole time. Each step waits for
-# the shell to apply it. Fails, leaving the file alone, when there is no tray on the bar.
-vikunja_hide_tray_icon() {
-  local config="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json"
-  [[ -f $config ]] || return 1
-  jq -e '[.bar.layout[]?[]? | select(.id? == "omarchy.tray")] | length > 0' "$config" >/dev/null 2>&1 || return 1
-  tray_hidden_set "$config" nudge || return 1
-  tray_hidden_set "$config" add
-}
-
-# Whether Vikunja's tray item is published on the StatusNotifier bus: 0 it is, 1 it is not, 2 the bus
-# cannot be read. The bar's Hide list keys on the item's own Id, not its bus name, so match on that.
-vikunja_tray_registered() {
-  command -v busctl >/dev/null 2>&1 || return 2
-  local items item svc path id
-  items=$(busctl --user --json=short get-property \
-    org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
-    org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems 2>/dev/null) || return 2
-  while IFS= read -r item; do
-    [[ -n $item ]] || continue
-    if [[ $item == */* ]]; then svc=${item%%/*}; path=/${item#*/}; else svc=$item; path=/StatusNotifierItem; fi
-    id=$(busctl --user --json=short get-property "$svc" "$path" \
-      org.kde.StatusNotifierItem Id 2>/dev/null | jq -r '.data // empty' 2>/dev/null) || id=""
-    [[ $id == "$VIKUNJA_TRAY_ID" ]] && return 0
-  done < <(printf '%s' "$items" | jq -r '.data[]? // empty' 2>/dev/null)
-  return 1
-}
-
-# Whether the bar has stopped showing Vikunja's icon: 0 confirmed hidden, 1 not confirmed. The whole
-# tray widget reads not-visible when it renders nothing, the common case here since Vikunja is the only
-# tray icon; with other icons present this cannot tell and the caller simply keeps re-applying the hide.
-vikunja_tray_icon_hidden() {
-  omarchy-shell shell debugBarGeometry 2>/dev/null \
-    | jq -e 'any(.[]?; .id == "omarchy.tray" and (.visible == false or .width == 0))' >/dev/null 2>&1
-}
-
-# The icon's item reaches the bus a few seconds after launch, and the bar renders it a moment after that;
-# a hide applied before the render is undone by it. Wait for the item, let the render settle, then hide,
-# re-applying until the bar confirms it is gone. The hide never flashes the icon, so re-applying is safe.
-# If the bus is unreadable we do not wait, and hide anyway so the file is correct.
-vikunja_hide_tray_icon_when_registered() {
-  local i rc
-  for (( i = 0; i < ${VIKUNJA_TRAY_WAIT_TICKS:-150}; i++ )); do
-    rc=0; vikunja_tray_registered || rc=$?   # || so a 'not yet present' result does not trip set -e
-    (( rc != 1 )) && break   # 0 present, 2 unreadable: stop waiting
-    sleep 0.2
-  done
-  sleep "${VIKUNJA_TRAY_SETTLE:-1.5}"
-  for (( i = 0; i < ${VIKUNJA_TRAY_HIDE_TRIES:-6}; i++ )); do
-    vikunja_hide_tray_icon || return 1
-    vikunja_tray_icon_hidden && return 0
-    sleep "${VIKUNJA_TRAY_RETRY_GAP:-0.6}"
-  done
-}
-
-# The panel calls this when the shell (re)loads the plugin, which is when the bar forgets the hidden
-# icon. Only while Vikunja runs: a launch syncs on its own.
-tray_sync() {
-  [[ -n $(vikunja_app_pids) ]] || return 0
-  vikunja_hide_tray_icon
-}
-
-# tray_state_is add|remove: whether the shell config on stdin has Vikunja's id on every tray entry's
-# Hide list (add) or on none (remove).
-tray_state_is() {
-  jq -e --arg id "$VIKUNJA_TRAY_ID" --arg op "$1" \
-    '[.bar.layout[]?[]? | select(.id? == "omarchy.tray") | ((if (.hidden | type) == "array" then .hidden else [] end) | index($id) != null)]
-     | if $op == "add" then all else map(not) | all end' >/dev/null 2>&1
-}
-
-# tray_hidden_set <shell.json> add|remove|nudge: set Vikunja's id on every tray entry's Hide list (add),
-# off it (remove), or the id plus a sentinel (nudge, to force a re-filter) - the rest of the file and its
-# mode kept, a non-array Hide list read as empty. Then the running shell reloads it, as Omarchy's own
-# omarchy-shell-config does, and this waits (up to 3 s) until the shell reports the change, so the next
-# step lands after it.
-tray_hidden_set() {
-  local config updated tmp i check
-  config=$(readlink -f "$1")   # a symlinked shell.json (dotfiles) stays a symlink
-  updated=$(jq --arg id "$VIKUNJA_TRAY_ID" --arg sentinel "$TRAY_SENTINEL" --arg op "$2" '.bar.layout |= map_values(map(
-    if .id? == "omarchy.tray" then .hidden = (
-      ((if (.hidden | type) == "array" then .hidden else [] end) - [$id] - [$sentinel])
-      + (if $op == "add" or $op == "nudge" then [$id] else [] end)
-      + (if $op == "nudge" then [$sentinel] else [] end))
-    else . end))' "$config") || return 1
-  tmp=$(mktemp "$config.XXXXXX") || return 1
-  if ! { printf '%s\n' "$updated" >"$tmp" && chmod --reference="$config" "$tmp" && mv "$tmp" "$config"; }; then
-    rm -f "$tmp"
-    return 1
-  fi
-  omarchy-shell shell reloadConfig >/dev/null 2>&1 || return 0   # no shell running: the file is enough
-  check=$2; [[ $2 == nudge ]] && check=add   # a nudge leaves the id on, so the shell reports it like add
-  for (( i = 0; i < 30; i++ )); do
-    omarchy-shell shell listShellConfig 2>/dev/null | tray_state_is "$check" && return 0
-    sleep 0.1
-  done
-}
-
-# Vikunja hides to the tray when its window closes; like every other tool, closing the window quits it
-# here (the app quits cleanly on SIGTERM), which stops the server. Without hyprctl the tray Quit remains.
-vikunja_watch_window() {
-  local client=$1 seen=0 missing=0
-  command -v hyprctl >/dev/null || return 0
-  while kill -0 "$client" 2>/dev/null; do
-    sleep 1
-    if hyprctl clients -j 2>/dev/null | jq -e --argjson pid "$client" 'any(.[]; .pid == $pid)' >/dev/null; then
-      seen=1 missing=0
-    elif (( seen )) && (( ++missing >= 2 )); then
-      kill -TERM "$client" 2>/dev/null
-      return 0
-    fi
-  done
-}
-
-# A user desktop entry, so Vikunja started from the app launcher also gets its server. It runs a small
-# launcher that falls back to the plain app when OmarCraft is gone.
-vikunja_entry_install() {
-  local source=/usr/share/applications/vikunja-desktop.desktop launcher="$VIKUNJA_DIR/launch" self
-  mkdir -p "$VIKUNJA_DIR" "$(dirname "$VIKUNJA_ENTRY")"
-  printf -v self '%q' "$SELF"
-  cat >"$launcher" <<EOF
-#!/bin/bash
-# Written by OmarCraft: Vikunja with its local server. Without OmarCraft, the plain app.
-omarcraft=$self
-[[ -x \$omarcraft ]] && exec "\$omarcraft" vikunja-session "\$@"
-exec vikunja-desktop "\$@"
-EOF
-  chmod +x "$launcher"
-  {
-    if [[ -f $source ]]; then
-      awk -v exec_line="Exec=\"$launcher\" %U" '
-        /^Exec=/ { print exec_line; next }
-        /^TryExec=/ { next }
-        { print }
-        /^\[Desktop Entry\]/ { print "X-OmarCraft=true" }
-      ' "$source"
-    else
-      printf '[Desktop Entry]\nX-OmarCraft=true\nType=Application\nName=Vikunja\nExec="%s" %%U\nIcon=vikunja-desktop\nStartupWMClass=Vikunja Desktop\nCategories=Office;ProjectManagement;\n' "$launcher"
-    fi
-  } >"$VIKUNJA_ENTRY"
-}
-
-# Only the entry OmarCraft wrote; one the user made is left alone.
-vikunja_entry_remove() {
-  grep -qx 'X-OmarCraft=true' "$VIKUNJA_ENTRY" 2>/dev/null && rm -f "$VIKUNJA_ENTRY"
-  rm -f "$VIKUNJA_DIR/launch"
+  grep -qx 'X-OmarCraft=true' "$LEGACY_VIKUNJA_ENTRY" 2>/dev/null || return 0
+  rm -f "$LEGACY_VIKUNJA_ENTRY" "$LEGACY_VIKUNJA_DIR/launch"
+  notify "Vikunja left OmarCraft" "OmarCraft no longer runs Vikunja. Your Vikunja data stays in ~/.local/share/omarcraft/vikunja. To remove the app: omarchy pkg drop vikunja-desktop-bin vikunja-bin"
 }
 
 # --- optional Omarchy-menu section -------------------------------------------------------------
@@ -1171,7 +866,7 @@ menu_block() {
     "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
   json_entry "omarcraft.install-office" "$ICON_GROUP" "Install Office" "$self install-group office" "$self missing office" \
     "Word, Deck, Grid, PdfCraft, Typesetter"
-  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes" "$self install-group notes" "$self missing notes" "Memospot, Vikunja"
+  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes" "$self install-group notes" "$self missing notes" "Memospot"
   json_entry "install.omarcraft" "$ICON_ARTCRAFT" "OmarCraft" "$open" "" "Craft apps and more"
   echo "  // <<< omarcraft"
 }
@@ -1234,12 +929,11 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     refresh) refresh "${2:-}" ;;
     poke) poke_panel ;;
     list) list ;;
-    vikunja-session) shift; vikunja_session "$@" ;;
-    vikunja-stop) vikunja_stop; poke_panel ;;
-    tray-sync) tray_sync ;;
+    # 0.5.0's Vikunja commands: its launcher entry or its panel may call one once more after an update.
+    vikunja-session | vikunja-stop | tray-sync) legacy_vikunja_cleanup ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
-    -h | --help | help) sed -n '3,26p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    -h | --help | help) sed -n '3,24p' "$SELF" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command: $1 (see omarcraft --help)" ;;
   esac
 fi

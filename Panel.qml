@@ -323,7 +323,6 @@ Panel {
         tint: root.tintFor(modelData)
         installed: modelData.installed
         badge: Model.badgeFor(modelData)
-        serverDot: !!modelData.serverRunning
         busy: Model.jobCovers(craft.job, modelData.id)
         failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
         actionsEnabled: modelData.installed || !root.jobRunning
@@ -607,7 +606,7 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Memospot, Vikunja"
+              tooltipText: "Memospot"
               onClicked: root.confirmGroup(root.missingNotes)
             }
           }

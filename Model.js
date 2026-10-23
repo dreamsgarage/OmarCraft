@@ -181,10 +181,9 @@ function subtext(app, craft) {
     if (app.source === "source") return "Source build · updates via omarchy update"
     if (app.updateReady && app.source === "repo") return "Update with the system " + app.installedVersion + " → " + app.aurVersion
     if (app.updateReady) return "Update ready " + app.installedVersion + " → " + app.aurVersion
-    if (app.serverRunning) return app.installedVersion + " · server on 127.0.0.1:3456"
     return app.installedVersion
   }
-  var where = app.kind === "repo" ? " · from the Arch repos" : app.id === "vikunja" ? " · app and local server" : " · prebuilt, no compiling"
+  var where = app.kind === "repo" ? " · from the Arch repos" : " · prebuilt, no compiling"
   if (app.new) return "New · install " + app.aurVersion + where
   return "Install " + app.aurVersion + where
 }

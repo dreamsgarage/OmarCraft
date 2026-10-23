@@ -36,28 +36,6 @@ fi
 exit 0
 STUB
 chmod +x "$TMP/bin/omarchy-shell"
-# busctl: the StatusNotifier bus, faked from $TMP/sni-items (one "service/path<TAB>Id" per line, none by
-# default) so no test ever reads the real tray. $TMP/busctl-fail makes it exit nonzero (bus unreadable).
-: >"$TMP/sni-items"
-cat >"$TMP/bin/busctl" <<'STUB'
-#!/bin/bash
-printf '%s\n' "$*" >>"__LOG__/busctl"
-[[ -f "__TMP__/busctl-fail" ]] && exit 1
-if [[ "$*" == *RegisteredStatusNotifierItems* ]]; then
-  cut -f1 "__TMP__/sni-items" | jq -R . | jq -sc '{type:"as",data:.}'
-  exit 0
-fi
-if [[ "$*" == *"org.kde.StatusNotifierItem Id"* ]]; then
-  svc=""; path=""; prev=""
-  for a in "$@"; do [[ $a == /* ]] && { svc=$prev; path=$a; }; prev=$a; done
-  id=$(awk -F'\t' -v k="$svc$path" '$1==k{print $2; exit}' "__TMP__/sni-items")
-  jq -nc --arg d "$id" '{type:"s",data:$d}'
-  exit 0
-fi
-exit 0
-STUB
-sed -i "s#__LOG__#$TMP/log#g; s#__TMP__#$TMP#g" "$TMP/bin/busctl"
-chmod +x "$TMP/bin/busctl"
 stub omarchy-menu 0
 stub omarchy-notification-send 0
 stub omarchy-pkg-aur-add 0
@@ -66,7 +44,7 @@ stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
 stub setsid 0                                 # detached refreshes are recorded, never run
 # pacman: -Si answers from a fake sync database, anything else lists the installed packages. Typesetter
-# is a repo tool behind the sync database; "vikunja" is the server's source build, not the Vikunja app.
+# is a repo tool behind the sync database.
 cat >"$TMP/bin/pacman" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/pacman"
@@ -74,7 +52,7 @@ if [[ \$1 == -Si ]]; then
   printf 'Repository      : extra\nName            : typesetter\nVersion         : 0.16-1\n\n'
   exit 0
 fi
-printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nvikunja 2.0.0-1\nother 1.0-1\n'
+printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nother 1.0-1\n'
 STUB
 chmod +x "$TMP/bin/pacman"
 stub omarchy-pkg-add 0
@@ -87,20 +65,12 @@ reset_log() { rm -f "$TMP/log/$1"; }
 # shellcheck source=../bin/omarcraft
 source "$ROOT/bin/omarcraft"
 
-# Nothing the script touches or signals may be real: every directory it writes and the app directory it
-# matches processes with must point into the test folder, or the suite stops before any test.
-VIKUNJA_APP_DIR="$TMP/vikunja-desktop/"
-for var in CACHE_DIR STATE_DIR VIKUNJA_DIR VIKUNJA_ENTRY VIKUNJA_APP_DIR; do
+# Nothing the script touches may be real: every path it writes or deletes must point into the test
+# folder, or the suite stops before any test.
+for var in CACHE_DIR STATE_DIR DATA_HOME MENU_FILE LEGACY_VIKUNJA_DIR LEGACY_VIKUNJA_ENTRY LEGACY_VIKUNJA_PID; do
   [[ ${!var} == "$TMP"/* ]] || { echo "refusing to run: $var=${!var} is outside $TMP" >&2; exit 2; }
 done
-# The launch-time hide waits and retries against the live bar; offline, make those waits instant.
-export VIKUNJA_TRAY_SETTLE=0 VIKUNJA_TRAY_RETRY_GAP=0 VIKUNJA_TRAY_HIDE_TRIES=1
 set +e
-
-# Every path the script writes must be inside $TMP, or a test run edits the user's real files.
-for dir in "$CACHE_DIR" "$STATE_DIR" "$DATA_HOME" "$VIKUNJA_DIR" "$VIKUNJA_ENTRY"; do
-  [[ $dir == "$TMP"/* ]] || { echo "refusing to run: $dir is outside the test folder" >&2; exit 1; }
-done
 
 passed=0
 failed=0
@@ -128,7 +98,7 @@ expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
 ensure_cache
 expect_true "first run writes the built-in catalog without versions" "[[ \$(cut -f5 '$CATALOG' | sort -u) == '' ]]"
 expect_eq "cache has the full column set" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
-expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "16"
+expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "15"
 expect_true "built-in catalog carries the extras" "grep -q '^memospot' \"$CATALOG\""
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
 catalog_fresh && fail "first-run cache is stale so versions are fetched at once" || ok "first-run cache is stale so versions are fetched at once"
@@ -182,8 +152,8 @@ done < <(builtin_rows) >"$CATALOG"
 printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
-expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "16"
-expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot vikunja "
+expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "15"
+expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot "
 expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft typesetter "
 expect_eq "group creative" "$(group_ids creative | wc -l)" "9"
 
@@ -197,28 +167,27 @@ expect_eq "install source bin / source / none" "$(install_source photocraft)/$(i
 expect_eq "installed version through a subshell" "$(installed_version photocraft)" "0.8.0-1"
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
 expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
-expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot vikunja "
+expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot "
 expect_eq "one package-database read per run" "$(calls pacman | wc -l)" "1"
 
 # --- package kinds ------------------------------------------------------------------------------
 
-expect_eq "kinds: Craft app, repo tool, multi-package tool" "$(kind_for photocraft)/$(kind_for typesetter)/$(kind_for vikunja)" "aur/repo/aur"
-expect_eq "packages of a tool, the app's own first" "$(pkgs_for vikunja)|$(pkg_for vikunja)|$(pkg_for typesetter)|$(pkg_for memospot)" \
-  "vikunja-desktop-bin vikunja-bin|vikunja-desktop-bin|typesetter|memospot-bin"
+expect_eq "kinds: Craft app, repo tool" "$(kind_for photocraft)/$(kind_for typesetter)" "aur/repo"
+expect_eq "packages of a tool" "$(pkgs_for typesetter)|$(pkg_for typesetter)|$(pkg_for memospot)|$(pkg_for photocraft)" \
+  "typesetter|typesetter|memospot-bin|photocraft-bin"
 expect_eq "a repo tool is installed from the repo" "$(install_source typesetter)" "repo"
-is_installed vikunja && fail "the server's source build is not the Vikunja app" || ok "the server's source build is not the Vikunja app"
 expect_eq "Update all takes only AUR apps" "$(outdated_ids | tr '\n' ' ')" "photocraft "
 expect_eq "repo apps behind the sync database are listed apart" "$(outdated_ids repo | tr '\n' ' ')" "typesetter "
-expect_eq "repo versions come from the sync database, mapped to ids" "$(repo_versions photocraft typesetter vikunja | tr '\t\n' '= ')" \
+expect_eq "repo versions come from the sync database, mapped to ids" "$(repo_versions photocraft typesetter | tr '\t\n' '= ')" \
   "typesetter=0.16-1 "
 cat >"$TMP/bin/curl" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/curl"
-echo '{"results":[{"Name":"vikunja-desktop-bin","Version":"2.7.0-1"},{"Name":"memospot-bin","Version":"1.0.5-1"}]}'
+echo '{"results":[{"Name":"photocraft-bin","Version":"1.1.0-1"},{"Name":"memospot-bin","Version":"1.0.5-1"},{"Name":"unrelated-bin","Version":"9"}]}'
 STUB
-expect_eq "AUR names map back to ids; repo tools are not asked" "$(aur_versions vikunja memospot typesetter | tr '\t\n' '= ')" \
-  "vikunja=2.7.0-1 memospot=1.0.5-1 "
-expect_true "the AUR query names the app package of a multi-package tool" "calls curl | grep -q 'arg\[\]=vikunja-desktop-bin' && ! calls curl | grep -q typesetter"
+expect_eq "AUR names map back to ids; repo tools are not asked" "$(aur_versions photocraft memospot typesetter | tr '\t\n' '= ')" \
+  "photocraft=1.1.0-1 memospot=1.0.5-1 "
+expect_true "the AUR query names -bin packages only" "calls curl | grep -q 'arg\[\]=memospot-bin' && ! calls curl | grep -q typesetter"
 stub curl 7
 reset_log curl
 
@@ -227,11 +196,10 @@ reset_log curl
 reset_log curl
 st=$(state)
 jq -e . <<<"$st" >/dev/null && ok "state is valid JSON" || fail "state is valid JSON"
-expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":12,"updates":2,"unpackaged":1}'
+expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":11,"updates":2,"unpackaged":1}'
 expect_eq "state: a repo tool" "$(jq -c '.apps[] | select(.id=="typesetter") | [.group,.kind,.source,.installedVersion,.updateReady,.desktopId]' <<<"$st")" \
   '["office","repo","repo","0.15.2-1",true,"net.trowell.typesetter"]'
-expect_eq "state: Vikunja, not installed, server down" "$(jq -c '.apps[] | select(.id=="vikunja") | [.group,.kind,.installed,.serverRunning,.desktopId]' <<<"$st")" \
-  '["notes","aur",false,false,"vikunja-desktop"]'
+jq -e '.apps[] | select(.id=="vikunja")' <<<"$st" >/dev/null && fail "no app is Vikunja any more" || ok "no app is Vikunja any more"
 expect_eq "state app shape" "$(jq -c '.apps[] | select(.id=="photocraft") | [.group,.upstreamGroup,.installed,.source,.installedVersion,.aurVersion,.updateReady,.new,.desktopId]' <<<"$st")" \
   '["creative","classic",true,"bin","0.8.0-1","1.0.0-1",true,false,"ai.storyteller.photocraft"]'
 expect_eq "state carries the extra tool with its own group, glyph and desktop id" "$(jq -c '.apps[] | select(.id=="memospot") | [.group,.upstreamGroup,.installed,.aurVersion,.desktopId,.color]' <<<"$st")" '["notes","extra",false,"1.0.0-1","memospot","#f6b028"]'
@@ -318,13 +286,10 @@ expect_eq "a refused removal never reaches the command" "$(calls omarchy-pkg-dro
 
 # Repo tools install through omarchy-pkg-add, AUR tools through omarchy-pkg-aur-add, in one job.
 reset_log omarchy-pkg-add; reset_log omarchy-pkg-aur-add
-( job install typesetter vikunja memospot ) >/dev/null 2>&1
+( job install typesetter memospot ) >/dev/null 2>&1
 expect_eq "mixed install exits 0" "$?" "0"
 expect_eq "repo packages go to omarchy-pkg-add" "$(calls omarchy-pkg-add)" "typesetter"
-expect_eq "AUR packages, every package of a tool, go to omarchy-pkg-aur-add" "$(calls omarchy-pkg-aur-add)" "vikunja-desktop-bin vikunja-bin memospot-bin"
-expect_true "installing Vikunja writes its user desktop entry" "grep -qx 'X-OmarCraft=true' '$VIKUNJA_ENTRY'"
-expect_true "the entry runs OmarCraft's launcher" "grep -q '^Exec=\"$VIKUNJA_DIR/launch\" %U' '$VIKUNJA_ENTRY'"
-expect_true "the launcher falls back to the plain app" "[[ -x '$VIKUNJA_DIR/launch' ]] && grep -q 'exec vikunja-desktop' '$VIKUNJA_DIR/launch' && grep -q 'vikunja-session' '$VIKUNJA_DIR/launch'"
+expect_eq "AUR packages go to omarchy-pkg-aur-add" "$(calls omarchy-pkg-aur-add)" "memospot-bin"
 stub omarchy-pkg-add 1
 reset_log omarchy-pkg-aur-add
 ( job install typesetter memospot ) >/dev/null 2>&1
@@ -333,13 +298,8 @@ expect_eq "and stops before the AUR part" "$(calls omarchy-pkg-aur-add | wc -l)"
 stub omarchy-pkg-add 0
 
 reset_log omarchy-pkg-drop
-( job remove vikunja typesetter ) >/dev/null 2>&1
-expect_eq "remove drops every package of a tool, repo tools too" "$(calls omarchy-pkg-drop)" "vikunja-desktop-bin vikunja-bin typesetter"
-expect_true "removing Vikunja removes the entry OmarCraft wrote" "[[ ! -e '$VIKUNJA_ENTRY' && ! -e '$VIKUNJA_DIR/launch' ]]"
-printf '[Desktop Entry]\nName=My Vikunja\n' >"$VIKUNJA_ENTRY"
-( job remove vikunja ) >/dev/null 2>&1
-expect_true "an entry the user wrote is left alone" "grep -q 'My Vikunja' '$VIKUNJA_ENTRY'"
-rm -f "$VIKUNJA_ENTRY"
+( job remove memospot typesetter ) >/dev/null 2>&1
+expect_eq "remove drops the packages, repo tools too" "$(calls omarchy-pkg-drop)" "memospot-bin typesetter"
 
 reset_log yay
 ( job update typesetter ) >/dev/null 2>&1 && fail "a repo tool is never updated alone" || ok "a repo tool is never updated alone"
@@ -349,63 +309,8 @@ reset_log omarchy-update
 expect_eq "system-update runs Omarchy's update" "$(calls omarchy-update | wc -l)" "1"
 expect_eq "and is recorded like any job" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["system-update",["typesetter"],0]'
 
-# --- Vikunja's local server (no server is started here) --------------------------------------
-
-vikunja_config
-cfg="$VIKUNJA_DIR/config.yml"
-expect_true "config listens on loopback only" "grep -q 'interface: \"127.0.0.1:3456\"' '$cfg' && grep -q 'publicurl: \"http://127.0.0.1:3456/\"' '$cfg'"
-expect_true "config keeps the data under the user's data dir" "grep -q \"path: \\\"$VIKUNJA_DIR/vikunja.db\\\"\" '$cfg'"
-expect_eq "config is private (it holds the secret)" "$(stat -c %a "$cfg")" "600"
-expect_true "config has a generated 64-hex secret" "grep -qE 'secret: \"[0-9a-f]{64}\"' '$cfg'"
-echo '# edited' >>"$cfg"
-vikunja_config
-expect_true "config is never overwritten" "grep -q '# edited' '$cfg'"
-vikunja_server_running && fail "no pid file: server not running" || ok "no pid file: server not running"
-mkdir -p "$STATE_DIR" && echo "$$" >"$VIKUNJA_PID"
-vikunja_server_running && fail "a pid that is not vikunja does not count" || ok "a pid that is not vikunja does not count"
-vikunja_stop
-expect_true "stop never kills a process that is not the server, and clears the pid file" "kill -0 $$ && [[ ! -e '$VIKUNJA_PID' ]]"
-
-# Closing Vikunja's window quits it: hyprctl lists the client's window for two polls, then not.
-sleep 30 & client=$!
-cat >"$TMP/bin/hyprctl" <<STUB
-#!/bin/bash
-n=\$(( \$(cat "$TMP/hypr-polls" 2>/dev/null || echo 0) + 1 )); echo \$n >"$TMP/hypr-polls"
-(( n <= 2 )) && echo '[{"pid":$client,"class":"Vikunja Desktop"}]' || echo '[{"pid":1,"class":"other"}]'
-STUB
-chmod +x "$TMP/bin/hyprctl"
-vikunja_watch_window "$client"
-sleep 0.2
-kill -0 "$client" 2>/dev/null && fail "closing the window quits the client" || ok "closing the window quits the client"
-rm -f "$TMP/hypr-polls"
-sleep 30 & client=$!
-printf '#!/bin/bash\necho "[]"\n' >"$TMP/bin/hyprctl"
-( sleep 2.5; kill "$client" ) &
-start=$SECONDS
-vikunja_watch_window "$client"
-expect_true "a client whose window never showed is left alone until it exits" "(( SECONDS - start >= 2 ))"
-rm -f "$TMP/bin/hyprctl"
-
-# Removing Vikunja quits the running app first: its main process only, by pid, and nothing else. The
-# fakes have the real shape: an executable named electron (a copy of cat, blocked on a pipe) whose
-# whole command line is one space-joined argument, as Chromium rewrites it.
-cp /usr/bin/cat "$TMP/bin/electron"; mkfifo "$TMP/fifo"; exec 7<>"$TMP/fifo"
-( exec -a "$TMP/bin/electron --app $TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & app=$!
-( exec -a "$TMP/bin/electron --type=renderer --app-path=$TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & helper=$!
-bash -c "sleep 30; : '--app $TMP/vikunja-desktop/app.asar'" & mention=$!
-sleep 0.2
-expect_eq "the app's main process is found by its one-argument command line" "$(vikunja_app_pids)" "$app"
-vikunja_quit_app
-sleep 0.2
-kill -0 "$app" 2>/dev/null && fail "removing Vikunja quits the running app" || ok "removing Vikunja quits the running app"
-expect_true "and leaves its helpers alone" "kill -0 $helper"
-expect_true "and a shell that only mentions it" "kill -0 $mention && kill -0 $$"
-kill "$helper" "$mention" 2>/dev/null; pkill -P "$mention" 2>/dev/null; exec 7>&-
-start=${EPOCHREALTIME/./}; vikunja_quit_app
-expect_true "with no app running, it returns at once" "(( ${EPOCHREALTIME/./} - start < 1000000 ))"
-
 # Closing a job's terminal mid-job (a hangup) records it as interrupted, not with the status of the last
-# step that had finished: here the package command is cut off after Vikunja's app was already quit.
+# step that had finished: here the package command is cut off by the hangup.
 cat >"$TMP/bin/omarchy-pkg-drop" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/omarchy-pkg-drop"
@@ -450,110 +355,15 @@ reset_log setsid
 ( install_apps photocraft ) >/dev/null 2>&1
 expect_true "installing an installed app launches it instead" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"
 
-# Vikunja's tray icon goes on the bar's Hide list; the rest of shell.json is left as it was.
-shell_json="$XDG_CONFIG_HOME/omarchy/shell.json"
-mkdir -p "$(dirname "$shell_json")"
-echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}],"right":[{"id":"omarchy.tray","pinned":["a"],"hidden":["other"]},{"id":"omarcraft.productivity"}]}}}' >"$shell_json"
-chmod 600 "$shell_json"
-vikunja_hide_tray_icon; vikunja_hide_tray_icon
-expect_eq "the tray icon joins the Hide list once, next to what the user hid" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
-expect_eq "and nothing else in shell.json changes" "$(jq -c 'del(.bar.layout.right[0].hidden)' "$shell_json")" \
-  '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}],"right":[{"id":"omarchy.tray","pinned":["a"]},{"id":"omarcraft.productivity"}]}}}'
-expect_eq "the file stays private to the user" "$(stat -c %a "$shell_json")" "600"
-expect_true "and the running shell is told to reload it" "calls omarchy-shell | grep -q 'shell reloadConfig'"
-reset_log omarchy-shell; cp "$shell_json" "$TMP/shell.before"
-vikunja_hide_tray_icon
-expect_eq "when it is already hidden, a sentinel is added and dropped with a reload each, so a stale tray catches up without the icon flashing" \
-  "$(calls omarchy-shell | grep -c reloadConfig)" "2"
-expect_true "and the file ends as it was" "cmp -s '$shell_json' '$TMP/shell.before'"
-# The forcing step keeps the icon on the Hide list (adds a sentinel) so it never flashes; the next step drops the sentinel.
-tray_hidden_set "$shell_json" nudge
-expect_eq "a nudge keeps the icon hidden and adds a sentinel" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1","omarcraft:resync"]'
-tray_hidden_set "$shell_json" add
-expect_eq "and settling back drops the sentinel, icon still hidden" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
-jq '.bar.layout.right[0].hidden = ["other"]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
-vikunja_hide_tray_icon
-expect_eq "after Show, the next launch hides it again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
-# The shell applies a reload a moment later; each step waits for it instead of racing the next write.
-cp "$shell_json" "$TMP/shell-previous"; echo 3 >"$TMP/shell-lag"; reset_log omarchy-shell
-start=${EPOCHREALTIME/./}
-tray_hidden_set "$shell_json" remove
-expect_true "a step waits until the shell reports the change" "(( $(calls omarchy-shell | grep -c listShellConfig) >= 4 )) && (( ${EPOCHREALTIME/./} - start >= 300000 ))"
-rm -f "$TMP/shell-lag" "$TMP/shell-previous"
-# tray-sync, run by the panel when the shell reloads the plugin: only while Vikunja runs.
-reset_log omarchy-shell
-tray_sync
-expect_eq "tray-sync with no Vikunja running touches nothing" "$(calls omarchy-shell | wc -l)" "0"
-exec 7<>"$TMP/fifo"
-( exec -a "$TMP/bin/electron --app $TMP/vikunja-desktop/app.asar" "$TMP/bin/electron" ) <&7 & app=$!
-sleep 0.2; tray_sync; kill "$app" 2>/dev/null; exec 7>&-
-expect_eq "tray-sync with Vikunja running hides the icon again" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["other","vikunja-desktop_status_icon_1"]'
-expect_eq "with two reloads: the sentinel on, then off, so the tray re-filters either way" "$(calls omarchy-shell | grep -c reloadConfig)" "2"
-mv "$shell_json" "$TMP/dotfiles-shell.json" && ln -s "$TMP/dotfiles-shell.json" "$shell_json"
-vikunja_hide_tray_icon
-expect_true "a symlinked shell.json stays a symlink, and its target is updated" \
-  "[[ -L '$shell_json' ]] && jq -e '.bar.layout.right[0].hidden | index(\"vikunja-desktop_status_icon_1\")' '$TMP/dotfiles-shell.json' >/dev/null"
-expect_eq "and no temporary file is left behind" "$(find "$(dirname "$shell_json")" "$TMP" -maxdepth 1 -name '*shell.json.*' | wc -l)" "0"
-rm -f "$shell_json"
-echo '{"version":1,"bar":{"layout":{"left":[{"id":"omarchy.menu"}]}}}' >"$shell_json"
-before=$(cat "$shell_json")
-vikunja_hide_tray_icon && fail "with no tray on the bar, nothing is hidden" || ok "with no tray on the bar, nothing is hidden"
-expect_eq "and shell.json is untouched" "$(cat "$shell_json")" "$before"
-rm -f "$shell_json"
-
-# The tray item is published a few seconds after the app starts, so the hide must wait for it: writing
-# the Hide list before the item is on the bus never takes. Match on the item's Id, not its bus name.
-: >"$TMP/sni-items"
-( vikunja_tray_registered ) && fail "with no item on the bus, it is not registered" || ok "with no item on the bus, it is not registered"
-printf 'org.freedesktop.StatusNotifierItem-9-1/StatusNotifierItem\t%s\n' "$VIKUNJA_TRAY_ID" >"$TMP/sni-items"
-( vikunja_tray_registered ) && ok "the item is found by its Id under any bus name" || fail "the item is found by its Id under any bus name"
-printf 'org.freedesktop.StatusNotifierItem-9-1/StatusNotifierItem\tsome-other-icon\n' >"$TMP/sni-items"
-( vikunja_tray_registered ) && fail "a different item's Id does not match" || ok "a different item's Id does not match"
-: >"$TMP/busctl-fail"
-vikunja_tray_registered; expect_eq "an unreadable bus reports can't-tell, not absent" "$?" "2"
-rm -f "$TMP/busctl-fail"
-
-# The waiter hides as soon as the item is on the bus, still hides after its bound if it never appears so
-# the file is correct, and does not wait at all when the bus cannot be read.
-echo '{"version":1,"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' >"$shell_json"
-printf 'org.freedesktop.StatusNotifierItem-9-1/StatusNotifierItem\t%s\n' "$VIKUNJA_TRAY_ID" >"$TMP/sni-items"
-VIKUNJA_TRAY_WAIT_TICKS=150 vikunja_hide_tray_icon_when_registered
-expect_eq "a registered item is hidden" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" "[\"$VIKUNJA_TRAY_ID\"]"
-: >"$TMP/sni-items"; jq '.bar.layout.right[0].hidden=[]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
-start=${EPOCHREALTIME/./}; VIKUNJA_TRAY_WAIT_TICKS=3 vikunja_hide_tray_icon_when_registered
-expect_true "an item that never appears is still hidden after the bound" "jq -e '.bar.layout.right[0].hidden | index(\"$VIKUNJA_TRAY_ID\")' '$shell_json' >/dev/null"
-expect_true "and the wait stayed bounded" "(( ${EPOCHREALTIME/./} - start < 2000000 ))"
-: >"$TMP/busctl-fail"; jq '.bar.layout.right[0].hidden=[]' "$shell_json" >"$shell_json.t" && mv "$shell_json.t" "$shell_json"
-start=${EPOCHREALTIME/./}; VIKUNJA_TRAY_WAIT_TICKS=150 vikunja_hide_tray_icon_when_registered
-expect_true "an unreadable bus does not make it wait" "(( ${EPOCHREALTIME/./} - start < 1000000 ))"
-rm -f "$TMP/busctl-fail" "$shell_json"; : >"$TMP/sni-items"
-
-# Regression: the real script runs under `set -e`, and at launch the item is not on the bus for the first
-# seconds. A 'not yet present' poll must not trip set -e and kill the waiter before the item appears.
-echo '{"version":1,"bar":{"layout":{"right":[{"id":"omarchy.tray"}]}}}' >"$shell_json"
-: >"$TMP/sni-items"   # item absent: every poll returns 'not present'
-( set -e; VIKUNJA_TRAY_WAIT_TICKS=2 vikunja_hide_tray_icon_when_registered ) 2>/dev/null
-expect_true "under set -e a not-yet-present poll does not kill the waiter before it hides" \
-  "jq -e '.bar.layout.right[0].hidden | index(\"$VIKUNJA_TRAY_ID\")' '$shell_json' >/dev/null"
-rm -f "$shell_json"
-
-# A .hidden left as a non-array by another tool (e.g. an external `omarchy bar set`) must not crash the
-# hide: it is read as empty and repaired to a proper array.
-echo '{"version":1,"bar":{"layout":{"right":[{"id":"omarchy.tray","hidden":"vikunja-desktop_status_icon_1"}]}}}' >"$shell_json"
-tray_state_is remove <"$shell_json" && ok "a string .hidden reads as not-hidden, not a crash" || fail "a string .hidden reads as not-hidden, not a crash"
-vikunja_hide_tray_icon
-expect_eq "and the hide rewrites it as an array" "$(jq -c '.bar.layout.right[0].hidden' "$shell_json")" '["vikunja-desktop_status_icon_1"]'
-rm -f "$shell_json"
-
 # Launch focuses the app's own window by class; a window that only has the name in its title is not it.
 fake_clients() {
   printf '#!/bin/bash\nprintf "%%s\\n" "$*" >>"%s/log/hyprctl"\n[[ $1 == clients ]] && echo %q\nexit 0\n' "$TMP" "$1" >"$TMP/bin/hyprctl"
   chmod +x "$TMP/bin/hyprctl"
 }
-fake_clients '[{"class":"org.omarchy.agent","title":"Vikunja testing session recovery","address":"0xa"},{"class":"firefox","title":"PhotoCraft docs","address":"0xb"}]'
+fake_clients '[{"class":"org.omarchy.agent","title":"SoundCraft testing session","address":"0xa"},{"class":"firefox","title":"PhotoCraft docs","address":"0xb"}]'
 reset_log setsid; reset_log hyprctl
-( launch_or_focus vikunja "uwsm-app -- omarcraft vikunja-session" ) >/dev/null 2>&1
-expect_true "a terminal titled Vikunja does not stop Vikunja from launching" "calls setsid | grep -q 'vikunja-session'"
+( launch_or_focus soundcraft "uwsm-app -- gtk-launch ai.storyteller.soundcraft" ) >/dev/null 2>&1
+expect_true "a terminal titled SoundCraft does not stop SoundCraft from launching" "calls setsid | grep -q 'gtk-launch ai.storyteller.soundcraft'"
 ( launch photocraft ) >/dev/null 2>&1
 expect_true "nor does a browser tab titled PhotoCraft" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"
 expect_true "and neither window is focused" "! calls hyprctl | grep -q address"
@@ -579,6 +389,32 @@ expect_true "Update all leaves repo tools to the system" "calls omarchy-launch-f
 ( remove_apps figcraft ) >/dev/null 2>&1 && fail "remove refuses an app that is not installed" || ok "remove refuses an app that is not installed"
 ( remove_apps filmcraft ) >/dev/null 2>&1 && fail "remove refuses a source build" || ok "remove refuses a source build"
 expect_eq "refused removals open no terminal" "$(calls omarchy-launch-floating-terminal-with-presentation | wc -l)" "1"
+
+# --- what 0.5.0 left for Vikunja ---------------------------------------------------------------
+# 0.5.1 removes the desktop entry and launcher OmarCraft wrote, once, and leaves the data, the packages, a
+# running server and the user's own files alone.
+mkdir -p "$LEGACY_VIKUNJA_DIR" "$(dirname "$LEGACY_VIKUNJA_ENTRY")" "$STATE_DIR"
+printf '[Desktop Entry]\nX-OmarCraft=true\nName=Vikunja Desktop\nExec="%s/launch" %%U\n' "$LEGACY_VIKUNJA_DIR" >"$LEGACY_VIKUNJA_ENTRY"
+printf '#!/bin/bash\n' >"$LEGACY_VIKUNJA_DIR/launch"; echo data >"$LEGACY_VIKUNJA_DIR/vikunja.db"
+echo 2147483000 >"$LEGACY_VIKUNJA_PID"
+reset_log omarchy-notification-send
+state >/dev/null
+expect_true "0.5.0's Vikunja entry and launcher are removed" "[[ ! -e '$LEGACY_VIKUNJA_ENTRY' && ! -e '$LEGACY_VIKUNJA_DIR/launch' ]]"
+expect_true "its data is kept" "[[ -f '$LEGACY_VIKUNJA_DIR/vikunja.db' ]]"
+expect_true "a stale server pid file is cleared" "[[ ! -e '$LEGACY_VIKUNJA_PID' ]]"
+expect_eq "the user is told where the data is" "$(calls omarchy-notification-send | grep -c 'omarcraft/vikunja')" "1"
+state >/dev/null
+expect_eq "once" "$(calls omarchy-notification-send | grep -c 'omarcraft/vikunja')" "1"
+echo "$$" >"$LEGACY_VIKUNJA_PID"; state >/dev/null
+expect_true "the pid file of a live process is left alone" "[[ -f '$LEGACY_VIKUNJA_PID' ]] && kill -0 $$"
+rm -f "$LEGACY_VIKUNJA_PID"
+printf '[Desktop Entry]\nName=My Vikunja\n' >"$LEGACY_VIKUNJA_ENTRY"; state >/dev/null
+expect_true "an entry the user wrote is left alone" "grep -q 'My Vikunja' '$LEGACY_VIKUNJA_ENTRY'"
+rm -f "$LEGACY_VIKUNJA_ENTRY"
+# 0.5.0's launcher entry and panel may call its old commands once more after the update.
+for old in vikunja-session vikunja-stop tray-sync; do
+  "$ROOT/bin/omarcraft" "$old" >/dev/null 2>&1; expect_eq "the old command $old exits cleanly" "$?" "0"
+done
 
 # --- hygiene -----------------------------------------------------------------------------------
 
