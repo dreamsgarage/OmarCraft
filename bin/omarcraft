@@ -50,7 +50,7 @@ GROUPS_RE='^(all|creative|office|notes)$'
 # Panel groups. Craft apps not listed here are Creative.
 declare -A GROUP_OF=(
   [wordcraft]=office [deckcraft]=office [gridcraft]=office [pdfcraft]=office [typesetter]=office
-  [memospot]=notes
+  [memospot]=notes [kanri]=notes
 )
 
 # Where a tool comes from. Not listed: "aur", one package <id>-bin, desktop id ai.storyteller.<id>.
@@ -59,7 +59,7 @@ declare -A GROUP_OF=(
 declare -A KIND_OF=([typesetter]=repo)
 declare -A PKGS_OF=([typesetter]=typesetter)
 declare -A DESKTOP_OF=(
-  [memospot]=memospot [typesetter]=net.trowell.typesetter
+  [memospot]=memospot [typesetter]=net.trowell.typesetter [kanri]=kanri
 )
 
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
@@ -89,7 +89,8 @@ figcraft	FigCraft	Interface design and prototyping	new	#02da96	#047a56	#4fe8b6"
 # something ArtCraft lacks (see README, Beyond ArtCraft). Colours from each tool's icon; Typesetter's
 # icon is grey, so it takes Typst's teal.
 EXTRA_CATALOG="memospot	Memospot	Notes and journal: Memos on the desktop	extra	#f6b028	#9a6a08	#f6b028
-typesetter	Typesetter	Typst documents with a live preview	extra	#239dad	#16707c	#5cc8d6"
+typesetter	Typesetter	Typst documents with a live preview	extra	#239dad	#16707c	#5cc8d6
+kanri	Kanri	Kanban boards, offline on your computer	extra	#4983f4	#2967e0	#7aa7ff"
 CATALOG_COLUMNS=8   # id name tagline group version color ink-light ink-dark
 
 declare -A APP_ICON=(
@@ -98,6 +99,7 @@ declare -A APP_ICON=(
   [designcraft]=$'\U000f03d8' [wordcraft]=$'\U000f0219' [deckcraft]=$'\U000f0429'
   [gridcraft]=$'\U000f04eb' [cadcraft]=$'\U000f0eec' [soundcraft]=$'\U000f075a'
   [figcraft]=$'\U000f0001' [memospot]=$'\U000f11d7' [typesetter]=$'\U000f0284'
+  [kanri]=$'\U000f0576'
 )
 app_icon() {
   printf '%s' "${APP_ICON[$1]:-$ICON_ARTCRAFT}"
@@ -866,7 +868,7 @@ menu_block() {
     "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
   json_entry "omarcraft.install-office" "$ICON_GROUP" "Install Office" "$self install-group office" "$self missing office" \
     "Word, Deck, Grid, PdfCraft, Typesetter"
-  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes" "$self install-group notes" "$self missing notes" "Memospot"
+  json_entry "omarcraft.install-notes" "$ICON_GROUP" "Install Notes" "$self install-group notes" "$self missing notes" "Memospot, Kanri"
   json_entry "install.omarcraft" "$ICON_ARTCRAFT" "OmarCraft" "$open" "" "Craft apps and more"
   echo "  // <<< omarcraft"
 }

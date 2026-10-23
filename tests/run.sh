@@ -98,7 +98,7 @@ expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
 ensure_cache
 expect_true "first run writes the built-in catalog without versions" "[[ \$(cut -f5 '$CATALOG' | sort -u) == '' ]]"
 expect_eq "cache has the full column set" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
-expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "15"
+expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "16"
 expect_true "built-in catalog carries the extras" "grep -q '^memospot' \"$CATALOG\""
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
 catalog_fresh && fail "first-run cache is stale so versions are fetched at once" || ok "first-run cache is stale so versions are fetched at once"
@@ -152,8 +152,8 @@ done < <(builtin_rows) >"$CATALOG"
 printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
-expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "15"
-expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot "
+expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "16"
+expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot kanri "
 expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft typesetter "
 expect_eq "group creative" "$(group_ids creative | wc -l)" "9"
 
@@ -167,7 +167,7 @@ expect_eq "install source bin / source / none" "$(install_source photocraft)/$(i
 expect_eq "installed version through a subshell" "$(installed_version photocraft)" "0.8.0-1"
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
 expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
-expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot "
+expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot kanri "
 expect_eq "one package-database read per run" "$(calls pacman | wc -l)" "1"
 
 # --- package kinds ------------------------------------------------------------------------------
@@ -196,10 +196,13 @@ reset_log curl
 reset_log curl
 st=$(state)
 jq -e . <<<"$st" >/dev/null && ok "state is valid JSON" || fail "state is valid JSON"
-expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":11,"updates":2,"unpackaged":1}'
+expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":12,"updates":2,"unpackaged":1}'
 expect_eq "state: a repo tool" "$(jq -c '.apps[] | select(.id=="typesetter") | [.group,.kind,.source,.installedVersion,.updateReady,.desktopId]' <<<"$st")" \
   '["office","repo","repo","0.15.2-1",true,"net.trowell.typesetter"]'
 jq -e '.apps[] | select(.id=="vikunja")' <<<"$st" >/dev/null && fail "no app is Vikunja any more" || ok "no app is Vikunja any more"
+expect_eq "state: Kanri is a Notes tool from the AUR, with its own desktop id and colours" "$(jq -c '.apps[] | select(.id=="kanri") | [.group,.upstreamGroup,.kind,.installed,.desktopId,.color,.inkLight,.inkDark]' <<<"$st")" \
+  '["notes","extra","aur",false,"kanri","#4983f4","#2967e0","#7aa7ff"]'
+expect_eq "Kanri installs as kanri-bin" "$(pkgs_for kanri)" "kanri-bin"
 expect_eq "state app shape" "$(jq -c '.apps[] | select(.id=="photocraft") | [.group,.upstreamGroup,.installed,.source,.installedVersion,.aurVersion,.updateReady,.new,.desktopId]' <<<"$st")" \
   '["creative","classic",true,"bin","0.8.0-1","1.0.0-1",true,false,"ai.storyteller.photocraft"]'
 expect_eq "state carries the extra tool with its own group, glyph and desktop id" "$(jq -c '.apps[] | select(.id=="memospot") | [.group,.upstreamGroup,.installed,.aurVersion,.desktopId,.color]' <<<"$st")" '["notes","extra",false,"1.0.0-1","memospot","#f6b028"]'
@@ -350,7 +353,7 @@ expect_true "group install lists only the missing apps" "[[ '$term' == *'job ins
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( install_group notes ) >/dev/null 2>&1
 term=$(calls omarchy-launch-floating-terminal-with-presentation)
-expect_true "notes group installs memospot through the same job" "[[ '$term' == *'job install memospot'* ]]"
+expect_true "notes group installs memospot and kanri through the same job" "[[ '$term' == *'job install memospot kanri'* ]]"
 reset_log setsid
 ( install_apps photocraft ) >/dev/null 2>&1
 expect_true "installing an installed app launches it instead" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"
