@@ -18,7 +18,7 @@ omarchy plugin remove omarcraft.productivity        # if present
 omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable
 ```
 
-Expect: the palette icon in the **right** section of the bar, among tray, agents, bluetooth, network,
+Expect: the rocket icon in the **right** section of the bar, among tray, agents, bluetooth, network,
 audio, monitor, power. Nothing installed, nothing written under `~/.config`. If the add printed
 "omarchy-shell is not responding", `omarchy plugin enable omarcraft.productivity` places it.
 
@@ -149,6 +149,16 @@ git -C $P fetch ~/Work/OmarCraft v0.5 && git -C $P checkout --detach FETCH_HEAD 
 git -C $P checkout main && omarchy restart shell
 ```
 
-Rows 23–30 of `v1-acceptance.md`. For Vikunja, watch the server with `ss -ltnp 'sport = :3456'` and
-`cat ~/.local/state/omarchy/omarcraft/vikunja-server.pid`; its log is
-`~/.local/share/omarcraft/vikunja/server.log`. `omarcraft vikunja-stop` stops a server left behind.
+Rows 23–31 of `v1-acceptance.md` (Vikunja's rows are history: 0.5.1 dropped it).
+
+## 0.5.1 on the author's machine (before any push)
+
+The same way, with the `v0.5.1` branch:
+
+```bash
+git -C $P fetch ~/Work/OmarCraft v0.5.1 && git -C $P checkout --detach FETCH_HEAD && omarchy restart shell
+```
+
+Rows 32–34 of `v1-acceptance.md`. With 0.5.0's Vikunja installed, the first panel read after the switch
+deletes `~/.local/share/applications/vikunja-desktop.desktop` and the `launch` script in
+`~/.local/share/omarcraft/vikunja`, keeps everything else there, and posts one notification.

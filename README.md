@@ -12,8 +12,8 @@ package commands, so pacman owns it and nothing is ever compiled.
 
 It carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft, VectorCraft, FilmCraft,
 LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft,
-FigCraft) in the groups Creative and Office, plus three tools that do what ArtCraft does not (see *Beyond
-ArtCraft*), sixteen in all.
+FigCraft) in the groups Creative and Office, plus two tools that do what ArtCraft does not (see *Beyond
+ArtCraft*), fifteen in all.
 
 Plugin id `omarcraft.productivity`. MIT licensed. **Unofficial**: OmarCraft is not made by or affiliated with
 Storyteller, the makers of ArtCraft, nor with the projects behind the other tools. The names are theirs.
@@ -34,20 +34,16 @@ A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so.
 |---|---|---|---|---|
 | [Typesetter](https://codeberg.org/haydn/typesetter) | Office | `typesetter` (Arch repos) | A focused [Typst](https://typst.app) editor with a live preview | 57 MiB, 1 process |
 | [Memospot](https://memospot.github.io) | Notes | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
-| [Vikunja](https://vikunja.io) | Notes | `vikunja-desktop-bin`, `vikunja-bin` | Tasks, kanban, Gantt and lists, with its own local server | ~400 MiB while open, 0 when closed · **exception**: Electron app plus server |
 
 Tools from the Arch repos update with the system: their badge reads `↑ system` and opens Omarchy's
 update, because updating one repo package on its own is a partial upgrade.
 
-**Vikunja's server.** The Vikunja app is a client. OmarCraft installs the server too and runs it under your
-user, listening on `127.0.0.1:3456` only, while the app runs: it starts when you open Vikunja (from the
-panel or the app launcher) and stops when you close Vikunja's window (or choose *Quit* in its tray menu):
-OmarCraft quits the app instead of letting it hide in the tray. OmarCraft also keeps Vikunja's
-tray icon on the bar's tray Hide list (`~/.config/omarchy/shell.json`) at every launch, and again whenever the
-shell reloads a plugin (the bar then forgets hidden icons): the panel and the app launcher open Vikunja,
-and closing the window quits it, so the icon has nothing left to do. The data and the server's config are in `~/.local/share/omarcraft/vikunja` and stay
-when Vikunja is removed. The first time, enter `http://127.0.0.1:3456` when the app asks for a server and
-register a local account. The package's own system service is not used.
+**Vikunja (0.5.0 only).** OmarCraft 0.5.0 carried Vikunja and 0.5.1 dropped it: its desktop app signs in
+only through the browser, and on a stock Omarchy that hand-off kept failing. If you installed it with
+0.5.0, OmarCraft deletes the desktop entry it wrote for it and tells you once. Your Vikunja data stays in
+`~/.local/share/omarcraft/vikunja`; the app is removed like any package:
+`omarchy pkg drop vikunja-desktop-bin vikunja-bin`. Its tray icon stays on the bar's tray Hide list,
+where 0.5.0 put it; the tray's own settings show it again.
 
 To propose a tool, or suggest any new addition, open an issue or email **correlate@entangledforge.com**
 with the package name and the upstream — proposals are welcome. Tools that only exist as a server or a
@@ -64,7 +60,7 @@ command-line program (Typst's compiler, the Memos server itself) are not tiles: 
 omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable
 ```
 
-The palette icon lands in the right section of the bar, with the other panels. Enabling installs no app
+The rocket icon lands in the right section of the bar, with the other panels. Enabling installs no app
 and writes no configuration; nothing happens until you pick something in the panel. If the add prints
 "omarchy-shell is not responding", the shell was still reloading; `omarchy plugin enable
 omarcraft.productivity` finishes the placement. Updates: `omarchy plugin update omarcraft.productivity`.
@@ -82,7 +78,7 @@ Left-click the icon (or `Tab` from a neighbouring panel). Two layouts, switched 
 
 In both:
 
-- **Hero.** The rocket logo, then the one-line situation: `4 OF 16 INSTALLED · 2 UPDATES` (the
+- **Hero.** The rocket logo, then the one-line situation: `4 OF 15 INSTALLED · 2 UPDATES` (the
   updates part in the urgent colour), `INSTALLING WORDCRAFT…`, `NOTHING INSTALLED YET`, `OFFLINE · CACHED
   LIST`, `LAST JOB FAILED`. The circular arrow at the right checks the AUR now; its tooltip says how old
   the list is. A line under the hero appears only while something needs saying (a job, an error, offline).
@@ -95,7 +91,7 @@ In both:
   PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
   cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
 - **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
-  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot, Vikunja),
+  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot),
   counting the apps you don't have. Same confirm, naming every app; one terminal, one run. A chip
   disappears when its group is complete.
 - **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft 0.9.0 ·
@@ -197,16 +193,22 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 
 ## Safety
 
-- Only `<id>-bin` package names, checked against the catalog and a strict pattern, ever reach a package
-  command. The plugin does not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add`;
-  updates call the AUR helper Omarchy ships for exactly the named packages; removals go through Omarchy's
+- Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to its
+  AUR `<id>-bin` or, for a tool from the Arch repos, a fixed package name (`typesetter`). The plugin does
+  not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add` (AUR) or `omarchy-pkg-add`
+  (Arch repos); updates call the AUR helper Omarchy ships for exactly the named AUR packages, and tools
+  from the Arch repos update with the system through Omarchy's update; removals go through Omarchy's
   `omarchy-pkg-drop`, which takes the package and the dependencies nothing else needs, never your
-  documents or settings. All three run in a visible Omarchy terminal that asks for your password itself.
+  documents or settings. Each runs in a visible Omarchy terminal that asks for your password itself; a
+  job cut short (terminal closed, `Ctrl+C`) is reported as interrupted.
 - Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
-  from the AUR RPC, every 24 hours, with bounded timeouts; a failed check keeps the old list and says
-  `OFFLINE`, never "up to date". The panel itself never waits on the network.
+  from the AUR RPC, every 24 hours, with bounded timeouts; versions of Arch repo tools come from the local
+  sync database. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel
+  itself never waits on the network.
 - Files: `~/.cache/omarchy/omarcraft/` (catalog) and `~/.local/state/omarchy/omarcraft/` (job records,
-  seen apps, notification state). Nothing under `~/.config` without the opt-in commands.
+  seen apps, notification state). Nothing under `~/.config` without the opt-in commands. Where 0.5.0
+  installed Vikunja, 0.5.1 deletes, once, the two files 0.5.0 wrote for it: its desktop entry in
+  `~/.local/share/applications` and that entry's launcher.
 
 ## How it works
 

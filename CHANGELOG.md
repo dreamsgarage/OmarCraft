@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.1 — unreleased
+
+Vikunja leaves OmarCraft; fifteen tools. The decision and the evidence are in `docs/v0.5.1-plan.md`.
+
+- **Vikunja is dropped.** Its desktop app signs in only through the browser: the approval page hands a
+  one-time code back through a `vikunja-desktop://` link, which Chromium opens only after its *Open
+  xdg-open?* prompt, and the app must stay open the whole time because closing it stops the local
+  server the browser is talking to. After a clean install on the author's machine the app never signed
+  in, and each lapsed session (three days by default) would mean the same hand-off again. *Notes* is
+  Memospot again.
+- Where 0.5.0 installed Vikunja, OmarCraft deletes once the desktop entry and launcher it wrote, and says
+  so in one notification. The packages, the data in `~/.local/share/omarcraft/vikunja`, a running server
+  and anything you wrote stay; remove the app with `omarchy pkg drop vikunja-desktop-bin vikunja-bin`.
+  0.5.0's commands `vikunja-session`, `vikunja-stop` and `tray-sync` only run that clean-up now.
+- With Vikunja go its local server, its tray handling (OmarCraft no longer writes the bar's tray Hide list
+  in `~/.config/omarchy/shell.json`) and the tile's server dot.
+- Fix: a job whose terminal was closed mid-job, or stopped with `Ctrl+C`, was recorded as a success with
+  the status of the last step that had finished; it is now recorded as interrupted.
+- README *Safety* matches the code again: Typesetter's Arch repo path, and no write under `~/.config`
+  without the opt-in commands. `omarcraft --help` prints its last line.
+
 ## 0.5.0 — 2026-10-23
 
 Two more tools beyond ArtCraft, chosen by benchmark (`docs/v0.5-plan.md`), sixteen in all.

@@ -292,7 +292,7 @@
     </div>
     <p class="lede">Productivity tools from the Omarchy bar: the <b>ArtCraft</b> Craft apps and more — behind one bar icon, in a native panel that shows what is installed, what is not, what has a newer build, and one action per tool to launch, install, update or remove.</p>
     <div class="badges">
-      <span class="badge key"><span class="dot"></span>v0.5 · 16 tools</span>
+      <span class="badge key"><span class="dot"></span>v0.5.1 · 15 tools</span>
       <span class="badge"><span class="mono">omarcraft.productivity</span></span>
       <span class="badge">MIT licensed</span>
       <span class="badge">Nothing is ever compiled</span>
@@ -303,8 +303,8 @@
 <section class="roster" aria-labelledby="tools-h">
   <div class="band-inner roster-inner">
     <p class="eyebrow">The suite</p>
-    <h2 id="tools-h">Sixteen tools, three groups</h2>
-    <p class="sub">Thirteen ArtCraft Craft apps across Creative and Office, plus three tools that do what ArtCraft does not. Each tile carries the app's own glyph in its own colour.</p>
+    <h2 id="tools-h">Fifteen tools, three groups</h2>
+    <p class="sub">Thirteen ArtCraft Craft apps across Creative and Office, plus two tools that do what ArtCraft does not. Each tile carries the app's own glyph in its own colour.</p>
     <div class="groups">
       <div class="group">
         <div class="group-head"><span class="name">Creative</span><span class="key">c</span></div>
@@ -329,7 +329,6 @@
       <div class="group">
         <div class="group-head"><span class="name">Notes</span><span class="key">n</span></div>
         <div class="tool"><span class="d" style="color:#f6b028"></span><span class="tn">Memospot</span><span class="tag">memos, journal</span></div>
-        <div class="tool new"><span class="d" style="color:#196aff"></span><span class="tn">Vikunja</span><span class="tag">tasks, kanban</span></div>
       </div>
     </div>
   </div>
@@ -366,21 +365,14 @@
             <td><a href="https://usememos.com" target="_blank" rel="noopener">Memos</a>, the notes and journal service, as a desktop app</td>
             <td>371 MiB · 4 processes<span class="exc">exception: web-based</span></td>
           </tr>
-          <tr>
-            <td><a href="https://vikunja.io" target="_blank" rel="noopener">Vikunja</a></td>
-            <td>Notes</td>
-            <td><span class="pk">vikunja-desktop-bin</span><br><span class="pk">vikunja-bin</span></td>
-            <td>Tasks, kanban, Gantt and lists, with its own local server</td>
-            <td>~400 MiB open, 0 closed<span class="exc">exception: Electron + server</span></td>
-          </tr>
         </tbody>
       </table>
     </div>
     <p>Tools from the Arch repos update with the system: their badge reads <code>↑ system</code> and opens Omarchy's update, because updating one repo package on its own is a partial upgrade.</p>
 
     <div class="callout">
-      <h3>Vikunja's local server</h3>
-      <p>The Vikunja app is a client. OmarCraft installs the server too and runs it under your user, listening on <code>127.0.0.1:3456</code> only while the app runs: it starts when you open Vikunja and stops when you close the window. OmarCraft also keeps Vikunja's tray icon on the bar's Hide list at every launch — the panel and the app launcher open Vikunja, and closing the window quits it, so the icon has nothing left to do. Data and config live in <code>~/.local/share/omarcraft/vikunja</code> and stay when Vikunja is removed. The package's own system service is never used.</p>
+      <h3>Vikunja (0.5.0 only)</h3>
+      <p>OmarCraft 0.5.0 carried Vikunja and 0.5.1 dropped it: its desktop app signs in only through the browser, and on a stock Omarchy that hand-off kept failing. If you installed it with 0.5.0, OmarCraft deletes the desktop entry it wrote for it and tells you once. Your Vikunja data stays in <code>~/.local/share/omarcraft/vikunja</code>; the app is removed like any package, with <code>omarchy pkg drop vikunja-desktop-bin vikunja-bin</code>.</p>
     </div>
   </section>
 
@@ -393,11 +385,11 @@
     </ul>
     <h3>What the panel shows</h3>
     <ul>
-      <li><strong>Hero.</strong> The rocket logo, then the one-line situation: <code>4 OF 16 INSTALLED · 2 UPDATES</code>, <code>INSTALLING WORDCRAFT…</code>, <code>OFFLINE · CACHED LIST</code>, <code>LAST JOB FAILED</code>. The arrow at the right checks the AUR now.</li>
+      <li><strong>Hero.</strong> The rocket logo, then the one-line situation: <code>4 OF 15 INSTALLED · 2 UPDATES</code>, <code>INSTALLING WORDCRAFT…</code>, <code>OFFLINE · CACHED LIST</code>, <code>LAST JOB FAILED</code>. The arrow at the right checks the AUR now.</li>
       <li><strong>UPDATES · N.</strong> Apps with newer builds, each with an <code>↑ 0.8.0</code> badge next to <em>Update all</em>.</li>
       <li><strong>INSTALLED · N.</strong> Your apps that are up to date; <kbd>Enter</kbd> launches, or focuses an open window.</li>
       <li><strong>AVAILABLE · N.</strong> The rest. <kbd>Enter</kbd> opens a one-line confirm; a terminal opens and asks for your password.</li>
-      <li><strong>Group chips</strong>, each with its key: <em>c Creative</em>, <em>o Office</em> (WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), <em>n Notes</em> (Memospot, Vikunja) — counting the apps you don't have.</li>
+      <li><strong>Group chips</strong>, each with its key: <em>c Creative</em>, <em>o Office</em> (WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), <em>n Notes</em> (Memospot) — counting the apps you don't have.</li>
       <li><strong>Remove.</strong> Right-click a tile or press <kbd>x</kbd>: one terminal runs Omarchy's package drop; your files stay.</li>
     </ul>
     <h3>Keys</h3>
@@ -450,9 +442,9 @@ omarchy-shell omarcraft.productivity layout tiles|rows</code></pre>
   <section aria-labelledby="safety-h">
     <h2 id="safety-h"><span class="num">06</span>Safety</h2>
     <ul>
-      <li>Only <code>-bin</code> package names, checked against the catalog and a strict pattern, ever reach a package command. The plugin uses no <code>sudo</code> or <code>pkexec</code>; installs, updates and removals all run through Omarchy's own commands in a visible terminal that asks for your password.</li>
-      <li>Network use is the app catalog from <span class="mono">raw.githubusercontent.com</span> and versions from the AUR RPC, every 24 hours, with bounded timeouts; a failed check keeps the old list and says <code>OFFLINE</code>, never "up to date". The panel itself never waits on the network.</li>
-      <li>Files stay under <code>~/.cache/omarchy/omarcraft/</code> and <code>~/.local/state/omarchy/omarcraft/</code>. Nothing under <code>~/.config</code> without the opt-in commands.</li>
+      <li>Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to its AUR <code>&lt;id&gt;-bin</code> or, for a tool from the Arch repos, a fixed package name (<code>typesetter</code>). The plugin does not use <code>sudo</code> or <code>pkexec</code>; installs, updates and removals all run through Omarchy's own commands in a visible terminal that asks for your password, and a job cut short is reported as interrupted.</li>
+      <li>Network use is the app catalog from <span class="mono">raw.githubusercontent.com</span> and versions from the AUR RPC, every 24 hours, with bounded timeouts (Arch repo versions come from the local sync database); a failed check keeps the old list and says <code>OFFLINE</code>, never "up to date". The panel itself never waits on the network.</li>
+      <li>Files stay under <code>~/.cache/omarchy/omarcraft/</code> and <code>~/.local/state/omarchy/omarcraft/</code>. Nothing under <code>~/.config</code> without the opt-in commands. Where 0.5.0 installed Vikunja, 0.5.1 deletes, once, the desktop entry and launcher 0.5.0 wrote for it.</li>
     </ul>
   </section>
 
