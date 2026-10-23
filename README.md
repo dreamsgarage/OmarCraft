@@ -194,8 +194,8 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 ## Safety
 
 - Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to its
-  AUR `<id>-bin` or, for a tool from the Arch repos, a fixed package name (`typesetter`). The plugin does
-  not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add` (AUR) or `omarchy-pkg-add`
+  AUR `<id>-bin` or, for a tool from the Arch repos, a fixed package name (`typesetter`).
+  The plugin does not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add` (AUR) or `omarchy-pkg-add`
   (Arch repos); updates call the AUR helper Omarchy ships for exactly the named AUR packages, and tools
   from the Arch repos update with the system through Omarchy's update; removals go through Omarchy's
   `omarchy-pkg-drop`, which takes the package and the dependencies nothing else needs, never your
