@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2 — unreleased
+
+A kanban board joins *Notes*, without a server; sixteen tools. The evaluation is in `docs/v0.5.2-plan.md`.
+
+- **Kanri** (offline kanban boards) joins Memospot in *Notes* (chip `n`), from the AUR as `kanri-bin`. No
+  server and no sign-in: its boards stay on your computer, in `~/.local/share/tech.trobonox.kanri`. About
+  308 MiB idle in three processes, a documented exception like Memospot (web-based). Tile colour from its
+  icon.
+- README: how to upgrade from an earlier version (update, restart the shell, check the version).
+- The HTML README says rocket, not palette, and counts its tools beyond ArtCraft correctly.
+
 ## 0.5.1 — 2026-10-23
 
 Vikunja leaves OmarCraft; fifteen tools. The decision and the evidence are in `docs/v0.5.1-plan.md`.

@@ -162,3 +162,18 @@ git -C $P fetch ~/Work/OmarCraft v0.5.1 && git -C $P checkout --detach FETCH_HEA
 Rows 32–34 of `v1-acceptance.md`. With 0.5.0's Vikunja installed, the first panel read after the switch
 deletes `~/.local/share/applications/vikunja-desktop.desktop` and the `launch` script in
 `~/.local/share/omarcraft/vikunja`, keeps everything else there, and posts one notification.
+
+## 0.5.2 on the author's machine (before any push)
+
+While a marketplace request is open, `main` stays at the commit under review. Test the `v0.5.2-dev` branch
+the same way, and go back to the released version afterwards:
+
+```bash
+git -C $P fetch ~/Work/OmarCraft v0.5.2-dev && git -C $P checkout --detach FETCH_HEAD && omarchy restart shell
+# back to the released version
+git -C $P checkout main && omarchy restart shell
+```
+
+Rows 35–39 of `v1-acceptance.md`. Kanri's boards live in `~/.local/share/tech.trobonox.kanri`; check them
+after a remove. Until the `kanri-bin` package drops its stale `libsoup` dependency, installing it compiles
+libsoup 2 from the AUR (see `v0.5.2-plan.md`).

@@ -292,7 +292,7 @@
     </div>
     <p class="lede">Productivity tools from the Omarchy bar: the <b>ArtCraft</b> Craft apps and more — behind one bar icon, in a native panel that shows what is installed, what is not, what has a newer build, and one action per tool to launch, install, update or remove.</p>
     <div class="badges">
-      <span class="badge key"><span class="dot"></span>v0.5.1 · 15 tools</span>
+      <span class="badge key"><span class="dot"></span>v0.5.2 · 16 tools</span>
       <span class="badge"><span class="mono">omarcraft.productivity</span></span>
       <span class="badge">MIT licensed</span>
       <span class="badge">Nothing is ever compiled</span>
@@ -303,8 +303,8 @@
 <section class="roster" aria-labelledby="tools-h">
   <div class="band-inner roster-inner">
     <p class="eyebrow">The suite</p>
-    <h2 id="tools-h">Fifteen tools, three groups</h2>
-    <p class="sub">Thirteen ArtCraft Craft apps across Creative and Office, plus two tools that do what ArtCraft does not. Each tile carries the app's own glyph in its own colour.</p>
+    <h2 id="tools-h">Sixteen tools, three groups</h2>
+    <p class="sub">Thirteen ArtCraft Craft apps across Creative and Office, plus three tools that do what ArtCraft does not. Each tile carries the app's own glyph in its own colour.</p>
     <div class="groups">
       <div class="group">
         <div class="group-head"><span class="name">Creative</span><span class="key">c</span></div>
@@ -329,6 +329,7 @@
       <div class="group">
         <div class="group-head"><span class="name">Notes</span><span class="key">n</span></div>
         <div class="tool"><span class="d" style="color:#f6b028"></span><span class="tn">Memospot</span><span class="tag">memos, journal</span></div>
+        <div class="tool new"><span class="d" style="color:#4983f4"></span><span class="tn">Kanri</span><span class="tag">kanban boards</span></div>
       </div>
     </div>
   </div>
@@ -365,6 +366,13 @@
             <td><a href="https://usememos.com" target="_blank" rel="noopener">Memos</a>, the notes and journal service, as a desktop app</td>
             <td>371 MiB · 4 processes<span class="exc">exception: web-based</span></td>
           </tr>
+          <tr>
+            <td><a href="https://kanriapp.com" target="_blank" rel="noopener">Kanri</a></td>
+            <td>Notes</td>
+            <td><span class="pk">kanri-bin</span></td>
+            <td>Offline kanban boards: boards, columns and cards kept on your computer</td>
+            <td>308 MiB · 3 processes<span class="exc">exception: web-based</span></td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -385,11 +393,11 @@
     </ul>
     <h3>What the panel shows</h3>
     <ul>
-      <li><strong>Hero.</strong> The rocket logo, then the one-line situation: <code>4 OF 15 INSTALLED · 2 UPDATES</code>, <code>INSTALLING WORDCRAFT…</code>, <code>OFFLINE · CACHED LIST</code>, <code>LAST JOB FAILED</code>. The arrow at the right checks the AUR now.</li>
+      <li><strong>Hero.</strong> The rocket logo, then the one-line situation: <code>4 OF 16 INSTALLED · 2 UPDATES</code>, <code>INSTALLING WORDCRAFT…</code>, <code>OFFLINE · CACHED LIST</code>, <code>LAST JOB FAILED</code>. The arrow at the right checks the AUR now.</li>
       <li><strong>UPDATES · N.</strong> Apps with newer builds, each with an <code>↑ 0.8.0</code> badge next to <em>Update all</em>.</li>
       <li><strong>INSTALLED · N.</strong> Your apps that are up to date; <kbd>Enter</kbd> launches, or focuses an open window.</li>
       <li><strong>AVAILABLE · N.</strong> The rest. <kbd>Enter</kbd> opens a one-line confirm; a terminal opens and asks for your password.</li>
-      <li><strong>Group chips</strong>, each with its key: <em>c Creative</em>, <em>o Office</em> (WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), <em>n Notes</em> (Memospot) — counting the apps you don't have.</li>
+      <li><strong>Group chips</strong>, each with its key: <em>c Creative</em>, <em>o Office</em> (WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), <em>n Notes</em> (Memospot, Kanri) — counting the apps you don't have.</li>
       <li><strong>Remove.</strong> Right-click a tile or press <kbd>x</kbd>: one terminal runs Omarchy's package drop; your files stay.</li>
     </ul>
     <h3>Keys</h3>
@@ -431,10 +439,19 @@ omarchy-shell omarcraft.productivity layout tiles|rows</code></pre>
   </section>
 
   <section aria-labelledby="install-h">
-    <h2 id="install-h"><span class="num">05</span>Install &amp; remove</h2>
+    <h2 id="install-h"><span class="num">05</span>Install, upgrade &amp; remove</h2>
     <p>Requires Omarchy 4 (Quattro) — no Python or extra packages.</p>
     <pre><code>omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable</code></pre>
-    <p>The palette icon lands in the right section of the bar. Enabling installs no app and writes no configuration; nothing happens until you pick something in the panel. Update with <code>omarchy plugin update omarcraft.productivity</code>. To remove the plugin:</p>
+    <p>The rocket icon lands in the right section of the bar. Enabling installs no app and writes no configuration; nothing happens until you pick something in the panel.</p>
+    <h3 id="upgrade-h">Upgrade from an earlier version</h3>
+    <p>From any earlier version, update the plugin and answer yes when it asks, then restart the shell so the panel loads the new code. Your installed apps are not touched and nothing new is installed.</p>
+    <pre><code>omarchy plugin update omarcraft.productivity
+omarchy restart shell</code></pre>
+    <p>The panel header then reads <code>N OF 16 INSTALLED</code>, and this prints <code>0.5.2</code>:</p>
+    <pre><code>jq -r .version ~/.config/omarchy/plugins/omarcraft.productivity/manifest.json</code></pre>
+    <p>If the update says <em>cannot fast-forward</em> or <em>not a git checkout</em>, reinstall instead: <code>omarchy plugin remove omarcraft.productivity</code>, then the <code>omarchy plugin add</code> line above. Your apps stay installed.</p>
+    <h3>Remove</h3>
+    <p>To remove the plugin:</p>
     <pre><code>omarchy plugin remove omarcraft.productivity</code></pre>
     <p>Apps stay installed; remove them from the panel first if you want, or like any package (<code>omarchy pkg drop photocraft-bin</code>).</p>
   </section>
@@ -482,7 +499,7 @@ omarchy-shell omarcraft.productivity layout tiles|rows</code></pre>
 
 <footer>
   <div class="wrap">
-    <p><strong>Credits.</strong> By Entangled Forge, MIT licensed. The Craft apps and the app catalog are by <a href="https://github.com/storytold" target="_blank" rel="noopener">Storyteller</a>, as are the per-app colours. Memos is by <a href="https://github.com/usememos/memos" target="_blank" rel="noopener">usememos</a>; the <code>-bin</code> packages are maintained by their AUR packagers. The panel follows Omarchy's first-party Network and Power panels and Entangled Forge's OmasteelRGB.</p>
+    <p><strong>Credits.</strong> By Entangled Forge, MIT licensed. The Craft apps and the app catalog are by <a href="https://github.com/storytold" target="_blank" rel="noopener">Storyteller</a>, as are the per-app colours. Memos is by <a href="https://github.com/usememos/memos" target="_blank" rel="noopener">usememos</a>, and Kanri by <a href="https://github.com/kanriapp/kanri" target="_blank" rel="noopener">kanriapp</a>; the <code>-bin</code> packages are maintained by their AUR packagers. The panel follows Omarchy's first-party Network and Power panels and Entangled Forge's OmasteelRGB.</p>
     <div class="unofficial"><strong>Unofficial.</strong> OmarCraft is not made by or affiliated with Storyteller, the makers of ArtCraft, nor with the projects behind the other tools. The names are theirs.</div>
   </div>
 </footer>

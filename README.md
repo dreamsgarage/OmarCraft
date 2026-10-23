@@ -12,8 +12,8 @@ package commands, so pacman owns it and nothing is ever compiled.
 
 It carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft, VectorCraft, FilmCraft,
 LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft,
-FigCraft) in the groups Creative and Office, plus two tools that do what ArtCraft does not (see *Beyond
-ArtCraft*), fifteen in all.
+FigCraft) in the groups Creative and Office, plus three tools that do what ArtCraft does not (see *Beyond
+ArtCraft*), sixteen in all.
 
 Plugin id `omarcraft.productivity`. MIT licensed. **Unofficial**: OmarCraft is not made by or affiliated with
 Storyteller, the makers of ArtCraft, nor with the projects behind the other tools. The names are theirs.
@@ -34,6 +34,7 @@ A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so.
 |---|---|---|---|---|
 | [Typesetter](https://codeberg.org/haydn/typesetter) | Office | `typesetter` (Arch repos) | A focused [Typst](https://typst.app) editor with a live preview | 57 MiB, 1 process |
 | [Memospot](https://memospot.github.io) | Notes | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
+| [Kanri](https://kanriapp.com) | Notes | `kanri-bin` | Offline kanban boards: boards, columns and cards kept on your computer | 308 MiB, 3 processes · **exception**: web-based |
 
 Tools from the Arch repos update with the system: their badge reads `↑ system` and opens Omarchy's
 update, because updating one repo package on its own is a partial upgrade.
@@ -63,7 +64,18 @@ omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable
 The rocket icon lands in the right section of the bar, with the other panels. Enabling installs no app
 and writes no configuration; nothing happens until you pick something in the panel. If the add prints
 "omarchy-shell is not responding", the shell was still reloading; `omarchy plugin enable
-omarcraft.productivity` finishes the placement. Updates: `omarchy plugin update omarcraft.productivity`.
+omarcraft.productivity` finishes the placement.
+
+To upgrade from an earlier version, update the plugin and answer yes when it asks, then restart the shell
+so the panel loads the new code. Your apps are not touched and nothing new is installed:
+
+```bash
+omarchy plugin update omarcraft.productivity
+omarchy restart shell
+```
+
+If the update says *cannot fast-forward* or *not a git checkout*, remove the plugin and add it again as
+above; your apps stay installed.
 
 ## The panel
 
@@ -78,7 +90,7 @@ Left-click the icon (or `Tab` from a neighbouring panel). Two layouts, switched 
 
 In both:
 
-- **Hero.** The rocket logo, then the one-line situation: `4 OF 15 INSTALLED · 2 UPDATES` (the
+- **Hero.** The rocket logo, then the one-line situation: `4 OF 16 INSTALLED · 2 UPDATES` (the
   updates part in the urgent colour), `INSTALLING WORDCRAFT…`, `NOTHING INSTALLED YET`, `OFFLINE · CACHED
   LIST`, `LAST JOB FAILED`. The circular arrow at the right checks the AUR now; its tooltip says how old
   the list is. A line under the hero appears only while something needs saying (a job, an error, offline).
@@ -91,7 +103,7 @@ In both:
   PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
   cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
 - **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
-  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot),
+  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot, Kanri),
   counting the apps you don't have. Same confirm, naming every app; one terminal, one run. A chip
   disappears when its group is complete.
 - **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft 0.9.0 ·
@@ -246,6 +258,7 @@ Release and marketplace steps: [docs/Publish-Guide.md](docs/Publish-Guide.md). C
 MIT, see [LICENSE](LICENSE). By Entangled Forge. The Craft apps and the app catalog are by
 [Storyteller](https://github.com/storytold), as are the per-app colours, taken from their launcher's catalog;
 Memos is by [usememos](https://github.com/usememos/memos) and Memospot by
-[memospot](https://github.com/memospot/memospot) (colours from its icon); the `-bin` packages are maintained
+[memospot](https://github.com/memospot/memospot) (colours from its icon), and Kanri by
+[kanriapp](https://github.com/kanriapp/kanri) (colours from its icon); the `-bin` packages are maintained
 by their AUR packagers. The panel follows Omarchy's first-party Network
 and Power panels and Entangled Forge's OmasteelRGB.
