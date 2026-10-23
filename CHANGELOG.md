@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.1 — unreleased
+## 0.5.1 — 2026-10-23
 
 Vikunja leaves OmarCraft; fifteen tools. The decision and the evidence are in `docs/v0.5.1-plan.md`.
 
