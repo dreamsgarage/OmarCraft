@@ -499,7 +499,8 @@ write_job() {
 end_job() {
   local rc="$1"
   if [[ -f $JOB_FILE ]]; then
-    jq -c --argjson exit "$rc" --arg ended "$(now_iso)" '{verb, ids, exit: $exit, endedAt: $ended}' \
+    jq -c --argjson exit "$rc" --arg ended "$(now_iso)" '{verb, ids, exit: $exit, endedAt: $ended}
+      + (if $exit == 130 then {interrupted: true} else {} end)' \
       "$JOB_FILE" >"$LAST_JOB_FILE" 2>/dev/null || true
     rm -f "$JOB_FILE"
   fi
@@ -561,6 +562,9 @@ job() {
 
   write_job "$verb" "$@"
   trap 'rc=$?; trap - EXIT; end_job $rc; exit $rc' EXIT
+  # Closing the terminal (a hangup), Ctrl+C or a kill ends the job early. Untrapped, bash would run the EXIT
+  # trap with the status of the last step that had finished, and a cut-off job would read as a success.
+  trap 'exit 130' HUP INT TERM
   case "$verb" in
     install)
       # Explicit returns: the status of a failed install must reach end_job even without set -e.

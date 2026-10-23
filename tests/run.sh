@@ -404,6 +404,20 @@ kill "$helper" "$mention" 2>/dev/null; pkill -P "$mention" 2>/dev/null; exec 7>&
 start=${EPOCHREALTIME/./}; vikunja_quit_app
 expect_true "with no app running, it returns at once" "(( ${EPOCHREALTIME/./} - start < 1000000 ))"
 
+# Closing a job's terminal mid-job (a hangup) records it as interrupted, not with the status of the last
+# step that had finished: here the package command is cut off after Vikunja's app was already quit.
+cat >"$TMP/bin/omarchy-pkg-drop" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/omarchy-pkg-drop"
+kill -HUP "\$PPID"
+exit 1
+STUB
+chmod +x "$TMP/bin/omarchy-pkg-drop"
+( job remove memospot ) >/dev/null 2>&1
+expect_eq "a job whose terminal closes is recorded as interrupted" "$(jq -c '[.verb,.exit,.interrupted]' "$LAST_JOB_FILE")" '["remove",130,true]'
+expect_true "and leaves no job file" "[[ ! -f '$JOB_FILE' ]]"
+stub omarchy-pkg-drop 0
+
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
 st=$(state)
