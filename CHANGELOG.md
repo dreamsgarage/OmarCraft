@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 — unreleased
+## 0.5.0 — 2026-10-23
 
 Two more tools beyond ArtCraft, chosen by benchmark (`docs/v0.5-plan.md`), sixteen in all.
 

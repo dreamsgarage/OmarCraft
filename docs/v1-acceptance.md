@@ -117,7 +117,7 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 22 | Memospot: tile, Notes chip, install, launch, remove through the same paths | 18ef9d3 | PASS (user) | 2026-10-18 |
 | 23 | 0.5 · Install Typesetter from its tile: `omarchy-pkg-add typesetter` in the floating terminal, tile turns installed, it launches | f4a2e0a | PASS | 2026-10-19, installed from the tile, launches |
 | 24 | ~~0.5 · Install KolourPaint~~ | | dropped | KolourPaint removed from 0.5 scope 2026-10-19 (the user); it had passed. Suite is now 16 tools |
-| 25 | 0.5 · Repo update badge: a stale system shows `↑ system`; Enter opens the confirm, which runs Omarchy's update | | pending | needs a repo app behind the sync database |
+| 25 | 0.5 · Repo update badge: a stale system shows `↑ system`; Enter opens the confirm, which runs Omarchy's update | | PASS (user) | 2026-10-23, user-confirmed on the v0.5 branch: Typesetter showed the repo update badge, and the confirm ran Omarchy's update |
 | 26 | 0.5 · Install Vikunja: one AUR job with `vikunja-desktop-bin` and `vikunja-bin`; user desktop entry appears | f4a2e0a | PASS | 2026-10-19, one job, user desktop entry present |
 | 27 | 0.5 · First Vikunja launch: server on 127.0.0.1:3456, app opens, notification shows the URL; register, create a task | f4a2e0a | PASS | 2026-10-19, registered a local account, created a task |
 | 28 | 0.5 · Vikunja lifecycle: close window → app quits, server stops within 5 s, port free, dot off; *Quit* from tray → same | c948963 | PASS | 2026-10-19: closing the window stopped the server, dot off; tray *Quit* passed earlier |
