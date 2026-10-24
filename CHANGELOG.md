@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.2 — unreleased
+## 0.5.2 — 2026-10-24
 
 Tasks and kanban boards join *Notes*, without a server; sixteen tools. The evaluation is in
 `docs/v0.5.2-plan.md`.
