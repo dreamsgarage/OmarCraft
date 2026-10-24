@@ -212,7 +212,9 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   from the Arch repos update with the system through Omarchy's update; removals go through Omarchy's
   `omarchy-pkg-drop`, which takes the package and the dependencies nothing else needs, never your
   documents or settings. Each runs in a visible Omarchy terminal that asks for your password itself; a
-  job cut short (terminal closed, `Ctrl+C`) is reported as interrupted.
+  job cut short (terminal closed, `Ctrl+C`) is reported as interrupted. Before an AUR install or update,
+  OmarCraft checks the package's declared dependencies: if one is neither installed nor in the Arch repos,
+  the AUR helper would compile it, so the job stops before anything is installed and says which one.
 - Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
   from the AUR RPC, every 24 hours, with bounded timeouts; versions of Arch repo tools come from the local
   sync database. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel

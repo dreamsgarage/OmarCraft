@@ -8,6 +8,10 @@ A kanban board joins *Notes*, without a server; sixteen tools. The evaluation is
   server and no sign-in: its boards stay on your computer, in `~/.local/share/tech.trobonox.kanri`. About
   308 MiB idle in three processes, a documented exception like Memospot (web-based). Tile colour from its
   icon.
+- **Nothing is compiled, now checked.** Before an AUR install or update, OmarCraft asks the AUR for the
+  package's declared dependencies; if one is neither installed nor in the Arch repos, the AUR helper would
+  build it from source, so the job stops before anything is installed, names the dependency in the terminal
+  and in a notification, and is recorded as failed. Found when Kanri's package started compiling libsoup 2.
 - README: how to upgrade from an earlier version (update, restart the shell, check the version).
 - The HTML README says rocket, not palette, and counts its tools beyond ArtCraft correctly.
 

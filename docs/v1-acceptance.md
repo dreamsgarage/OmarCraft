@@ -128,7 +128,8 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 33 | 0.5.1 · Update over 0.5.0 with Vikunja installed: its desktop entry and launcher deleted once, one notification, data folder and packages kept | 9b284a6 | PASS | 2026-10-23 16:44, installed plugin switched from 0.5.0 (acdb8d4) with Vikunja installed and running: entry and `launch` deleted, data folder kept, the live server's pid file kept, one *Vikunja left OmarCraft* notification in the history, the app launcher now uses the package's own entry |
 | 34 | 0.5.1 · Closing a job's terminal at the password prompt: the panel says *Last job was interrupted*, nothing installed | | pending | |
 | 35 | 0.5.2 · Kanri tile in Notes: the chip names Memospot and Kanri, the hero counts sixteen, an existing install shows Kanri as *New* | | pending | |
-| 36 | 0.5.2 · Install Kanri from its tile: one AUR job, `kanri-bin` only, nothing compiled | | blocked | `kanri-bin` 0.8.2-1 depends on `libsoup`, which only the AUR source package provides; waits for the package fix |
+| 36 | 0.5.2 · Install Kanri from its tile: one AUR job, `kanri-bin` only, nothing compiled | | blocked | `kanri-bin` 0.8.2-1 depends on `libsoup`, which only the AUR source package provides; waits for the package fix. Until then the tile's install stops with *needs libsoup* (row 40) |
+| 40 | 0.5.2 · Source-build guard: Install on Kanri stops before the AUR helper runs, names libsoup in the terminal and a notification, the panel shows the job failed, nothing installed | | pending | |
 | 37 | 0.5.2 · Launch Kanri from the tile; a second launch focuses its window (class `kanri`) | | pending | |
 | 38 | 0.5.2 · Remove Kanri from the panel: package dropped, tile back under Available, boards kept in `~/.local/share/tech.trobonox.kanri` | | pending | |
 | 39 | 0.5.2 · Update over 0.5.1 with `omarchy plugin update`: Kanri appears as *New*, nothing is installed | | pending | |
