@@ -2,16 +2,19 @@
 
 ## 0.5.2 — unreleased
 
-A kanban board joins *Notes*, without a server; sixteen tools. The evaluation is in `docs/v0.5.2-plan.md`.
+Tasks and kanban boards join *Notes*, without a server; sixteen tools. The evaluation is in
+`docs/v0.5.2-plan.md`.
 
-- **Kanri** (offline kanban boards) joins Memospot in *Notes* (chip `n`), from the AUR as `kanri-bin`. No
-  server and no sign-in: its boards stay on your computer, in `~/.local/share/tech.trobonox.kanri`. About
-  308 MiB idle in three processes, a documented exception like Memospot (web-based). Tile colour from its
-  icon.
+- **Planify** joins Memospot in *Notes* (chip `n`): tasks and projects, each shown as a list or a kanban
+  board. From the Arch repos like Typesetter, so it installs with Omarchy's repo command and updates with
+  the system; nothing is compiled and no AUR packager is involved. No server and no sign-in (Todoist,
+  Nextcloud or CalDAV sync is optional); data in `~/.local/share/io.github.alainm23.planify`. 153 MiB idle
+  in one native process. Tile colour from its icon.
 - **Nothing is compiled, now checked.** Before an AUR install or update, OmarCraft asks the AUR for the
   package's declared dependencies; if one is neither installed nor in the Arch repos, the AUR helper would
   build it from source, so the job stops before anything is installed, names the dependency in the terminal
-  and in a notification, and is recorded as failed. Found when Kanri's package started compiling libsoup 2.
+  and in a notification, and is recorded as failed. Found when Kanri's AUR package, first evaluated for this slot, started
+  compiling libsoup 2.
 - A failed job stays flagged (bar icon, header, red tile) only until you close the panel that showed it;
   before, it stayed until another job succeeded. The next failure is flagged again.
 - README: how to upgrade from an earlier version (update, restart the shell, check the version).

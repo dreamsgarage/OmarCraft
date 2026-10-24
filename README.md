@@ -34,7 +34,7 @@ A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so.
 |---|---|---|---|---|
 | [Typesetter](https://codeberg.org/haydn/typesetter) | Office | `typesetter` (Arch repos) | A focused [Typst](https://typst.app) editor with a live preview | 57 MiB, 1 process |
 | [Memospot](https://memospot.github.io) | Notes | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
-| [Kanri](https://kanriapp.com) | Notes | `kanri-bin` | Offline kanban boards: boards, columns and cards kept on your computer | 308 MiB, 3 processes · **exception**: web-based |
+| [Planify](https://useplanify.com) | Notes | `planify` (Arch repos) | Tasks and projects, each one a list or a kanban board, kept on your computer (Todoist, Nextcloud or CalDAV sync optional) | 153 MiB, 1 process |
 
 Tools from the Arch repos update with the system: their badge reads `↑ system` and opens Omarchy's
 update, because updating one repo package on its own is a partial upgrade.
@@ -103,7 +103,7 @@ In both:
   PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
   cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
 - **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
-  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot, Kanri),
+  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot, Planify),
   counting the apps you don't have. Same confirm, naming every app; one terminal, one run. A chip
   disappears when its group is complete.
 - **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft 0.9.0 ·
@@ -260,7 +260,7 @@ Release and marketplace steps: [docs/Publish-Guide.md](docs/Publish-Guide.md). C
 MIT, see [LICENSE](LICENSE). By Entangled Forge. The Craft apps and the app catalog are by
 [Storyteller](https://github.com/storytold), as are the per-app colours, taken from their launcher's catalog;
 Memos is by [usememos](https://github.com/usememos/memos) and Memospot by
-[memospot](https://github.com/memospot/memospot) (colours from its icon), and Kanri by
-[kanriapp](https://github.com/kanriapp/kanri) (colours from its icon); the `-bin` packages are maintained
+[memospot](https://github.com/memospot/memospot) (colours from its icon), and Planify by
+[Alain M.](https://github.com/alainm23/planify) (colours from its icon); the `-bin` packages are maintained
 by their AUR packagers. The panel follows Omarchy's first-party Network
 and Power panels and Entangled Forge's OmasteelRGB.

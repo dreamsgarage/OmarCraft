@@ -174,6 +174,6 @@ git -C $P fetch ~/Work/OmarCraft v0.5.2-dev && git -C $P checkout --detach FETCH
 git -C $P checkout main && omarchy restart shell
 ```
 
-Rows 35–39 of `v1-acceptance.md`. Kanri's boards live in `~/.local/share/tech.trobonox.kanri`; check them
-after a remove. Until the `kanri-bin` package drops its stale `libsoup` dependency, installing it compiles
-libsoup 2 from the AUR (see `v0.5.2-plan.md`).
+Rows 35–41 of `v1-acceptance.md`. Planify's data lives in `~/.local/share/io.github.alainm23.planify`;
+check it after a remove. Measure its memory once installed: with Evolution's data services available it
+may start a few background processes the unpacked benchmark could not.

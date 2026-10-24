@@ -153,7 +153,7 @@ printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
 expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "16"
-expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot kanri "
+expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot planify "
 expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft typesetter "
 expect_eq "group creative" "$(group_ids creative | wc -l)" "9"
 
@@ -167,7 +167,7 @@ expect_eq "install source bin / source / none" "$(install_source photocraft)/$(i
 expect_eq "installed version through a subshell" "$(installed_version photocraft)" "0.8.0-1"
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
 expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
-expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot kanri "
+expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot planify "
 expect_eq "one package-database read per run" "$(calls pacman | wc -l)" "1"
 
 # --- package kinds ------------------------------------------------------------------------------
@@ -200,9 +200,9 @@ expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available"
 expect_eq "state: a repo tool" "$(jq -c '.apps[] | select(.id=="typesetter") | [.group,.kind,.source,.installedVersion,.updateReady,.desktopId]' <<<"$st")" \
   '["office","repo","repo","0.15.2-1",true,"net.trowell.typesetter"]'
 jq -e '.apps[] | select(.id=="vikunja")' <<<"$st" >/dev/null && fail "no app is Vikunja any more" || ok "no app is Vikunja any more"
-expect_eq "state: Kanri is a Notes tool from the AUR, with its own desktop id and colours" "$(jq -c '.apps[] | select(.id=="kanri") | [.group,.upstreamGroup,.kind,.installed,.desktopId,.color,.inkLight,.inkDark]' <<<"$st")" \
-  '["notes","extra","aur",false,"kanri","#4983f4","#2967e0","#7aa7ff"]'
-expect_eq "Kanri installs as kanri-bin" "$(pkgs_for kanri)" "kanri-bin"
+expect_eq "state: Planify is a Notes tool from the Arch repos, with its own desktop id and colours" "$(jq -c '.apps[] | select(.id=="planify") | [.group,.upstreamGroup,.kind,.installed,.desktopId,.color,.inkLight,.inkDark]' <<<"$st")" \
+  '["notes","extra","repo",false,"io.github.alainm23.planify","#3571e4","#2968e0","#7aa8ff"]'
+expect_eq "Planify installs as the repo package planify" "$(pkgs_for planify)" "planify"
 expect_eq "state app shape" "$(jq -c '.apps[] | select(.id=="photocraft") | [.group,.upstreamGroup,.installed,.source,.installedVersion,.aurVersion,.updateReady,.new,.desktopId]' <<<"$st")" \
   '["creative","classic",true,"bin","0.8.0-1","1.0.0-1",true,false,"ai.storyteller.photocraft"]'
 expect_eq "state carries the extra tool with its own group, glyph and desktop id" "$(jq -c '.apps[] | select(.id=="memospot") | [.group,.upstreamGroup,.installed,.aurVersion,.desktopId,.color]' <<<"$st")" '["notes","extra",false,"1.0.0-1","memospot","#f6b028"]'
@@ -313,11 +313,12 @@ expect_eq "system-update runs Omarchy's update" "$(calls omarchy-update | wc -l)
 expect_eq "and is recorded like any job" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["system-update",["typesetter"],0]'
 
 # An AUR package whose declared dependency is neither installed nor in the Arch repos would make the AUR
-# helper compile it: the job refuses before anything is installed. Here kanri-bin declares libsoup.
+# helper compile it: the job refuses before anything is installed. Here the package declares libsoup 2,
+# as kanri-bin did in 2026-10.
 cat >"$TMP/bin/curl" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/curl"
-echo '{"results":[{"Name":"kanri-bin","Version":"0.8.2-1","Depends":["gtk3","libsoup","webkit2gtk-4.1>=2.40"]}]}'
+echo '{"results":[{"Name":"memospot-bin","Version":"1.0.6-1","Depends":["gtk3","libsoup","webkit2gtk-4.1>=2.40"]}]}'
 STUB
 chmod +x "$TMP/bin/curl"
 cp "$TMP/bin/pacman" "$TMP/pacman.real"
@@ -331,8 +332,8 @@ exec "$TMP/pacman.real" "\$@"
 STUB
 chmod +x "$TMP/bin/pacman"
 reset_log omarchy-pkg-aur-add; reset_log omarchy-notification-send
-out=$( ( job install kanri ) 2>&1 )
-expect_eq "a package that would compile a dependency is refused" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["install",["kanri"],3]'
+out=$( ( job install memospot ) 2>&1 )
+expect_eq "a package that would compile a dependency is refused" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["install",["memospot"],3]'
 expect_eq "before the AUR helper runs" "$(calls omarchy-pkg-aur-add | wc -l)" "0"
 expect_true "the terminal names the dependency" "grep -q 'needs libsoup' <<<'$out'"
 expect_true "and so does a notification" "calls omarchy-notification-send | grep -q libsoup"
@@ -340,10 +341,10 @@ expect_true "and so does a notification" "calls omarchy-notification-send | grep
 expect_eq "an update is checked the same way" "$(jq -c '[.verb,.exit]' "$LAST_JOB_FILE")" '["update",3]'
 cat >"$TMP/bin/curl" <<STUB
 #!/bin/bash
-echo '{"results":[{"Name":"kanri-bin","Version":"0.8.3-1","Depends":["gtk3","libsoup3","webkit2gtk-4.1"]}]}'
+echo '{"results":[{"Name":"memospot-bin","Version":"1.0.6-1","Depends":["gtk3","libsoup3","webkit2gtk-4.1"]}]}'
 STUB
-( job install kanri ) >/dev/null 2>&1
-expect_eq "with every dependency installed or in the repos, it installs" "$(calls omarchy-pkg-aur-add)" "kanri-bin"
+( job install memospot ) >/dev/null 2>&1
+expect_eq "with every dependency installed or in the repos, it installs" "$(calls omarchy-pkg-aur-add)" "memospot-bin"
 stub curl 7
 reset_log omarchy-pkg-aur-add
 ( job install memospot ) >/dev/null 2>&1
@@ -404,7 +405,7 @@ expect_true "group install lists only the missing apps" "[[ '$term' == *'job ins
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( install_group notes ) >/dev/null 2>&1
 term=$(calls omarchy-launch-floating-terminal-with-presentation)
-expect_true "notes group installs memospot and kanri through the same job" "[[ '$term' == *'job install memospot kanri'* ]]"
+expect_true "notes group installs memospot and planify through the same job" "[[ '$term' == *'job install memospot planify'* ]]"
 reset_log setsid
 ( install_apps photocraft ) >/dev/null 2>&1
 expect_true "installing an installed app launches it instead" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"

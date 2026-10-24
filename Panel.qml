@@ -607,7 +607,7 @@ Panel {
               fontFamily: root.fontFamily
               enabled: !root.jobRunning
               opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Memospot, Kanri"
+              tooltipText: "Memospot, Planify"
               onClicked: root.confirmGroup(root.missingNotes)
             }
           }
