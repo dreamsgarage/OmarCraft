@@ -258,8 +258,9 @@ Panel {
       cursor = 0
       craft.refresh()
       if (panelFlick) panelFlick.contentY = 0
-    } else if (root.newApps > 0) {
-      // Closing the panel counts as having seen the new apps: the bar stops asking for attention.
+    } else if (root.newApps > 0 || root.jobFailed) {
+      // Closing the panel counts as having seen the new apps and a failed job: the bar stops asking for
+      // attention.
       craft.markSeen()
     }
   }
