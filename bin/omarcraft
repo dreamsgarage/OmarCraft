@@ -85,8 +85,9 @@ soundcraft	SoundCraft	Recording, editing and mixing audio	new	#1fa5c9	#0e7290	#5
 figcraft	FigCraft	Interface design and prototyping	new	#02da96	#047a56	#4fe8b6"
 # Tools beyond ArtCraft, same columns, upstream group "extra". A tool qualifies when it has a stable
 # desktop release, ships prebuilt (Arch repos or an AUR -bin) with a desktop entry, comes from a
-# maintained open-source upstream, and stays near ~150 MiB idle in one native process unless it adds
-# something ArtCraft lacks (see README, Beyond ArtCraft). Colours from each tool's icon; Typesetter's
+# maintained open-source upstream, stays near ~150 MiB idle in one native process unless it adds
+# something ArtCraft lacks, and works with others: its work can be shared and exported through an open
+# format or a sync or sharing service the user chooses (see README, Beyond ArtCraft). Colours from each tool's icon; Typesetter's
 # icon is grey, so it takes Typst's teal.
 EXTRA_CATALOG="memospot	Memospot	Notes and journal: Memos on the desktop	extra	#f6b028	#9a6a08	#f6b028
 typesetter	Typesetter	Typst documents with a live preview	extra	#239dad	#16707c	#5cc8d6

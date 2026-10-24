@@ -26,9 +26,12 @@ A tool gets a tile when it:
 2. ships prebuilt, in the Arch repos or as an AUR `<id>-bin`, with a desktop entry,
 3. comes from a maintained upstream under an open-source licence,
 4. stays near **150 MiB idle in one native process**, like the Craft apps (70–90 MiB measured),
-5. does something an office, design or creative user wants on the desktop.
+5. does something an office, design or creative user wants on the desktop,
+6. **works with others**: its work can be shared and taken elsewhere, through an open file format or a
+   sync or sharing service the user chooses, with a way to export it.
 
-A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so. Today:
+Item 6 is a foundation of every tool beyond ArtCraft: a tile never locks your work into one computer or
+one app. A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so. Today:
 
 | Tool | Group | Package | What it is | Idle memory (measured) |
 |---|---|---|---|---|
@@ -38,6 +41,17 @@ A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so.
 
 Tools from the Arch repos update with the system: their badge reads `↑ system` and opens Omarchy's
 update, because updating one repo package on its own is a partial upgrade.
+
+### Working with others
+
+Each tool works alone, offline, on your computer. Working with others goes through what the tool already
+speaks; OmarCraft installs the desktop apps and changes nothing on any server.
+
+| Tool | Share and collaborate | Take your work elsewhere |
+|---|---|---|
+| Typesetter | Documents are plain-text [Typst](https://typst.app) files: share them through Git or any file sync, or open them in typst.app, Typst's web editor, to write together in real time. Comments in the source mark review notes | Typst source files and the PDFs they render |
+| Memospot | Point it at a shared [Memos](https://usememos.com) server you run (client mode): accounts with roles, each memo private, visible to the server's members, or public, with comments and reactions. Its built-in server serves only your own computer | Personal export and import in Settings; notes move between a local Memospot and a hosted Memos server; an API, webhooks and an MCP server for your own tools |
+| Planify | Sync a project with Nextcloud Deck to share kanban boards, with Todoist to share projects and assign tasks, or with any CalDAV server (Nextcloud and others) to share task lists | CalDAV tasks are the standard calendar and to-do format, readable by Thunderbird, phone task apps and others; full JSON backups |
 
 **Vikunja (0.5.0 only).** OmarCraft 0.5.0 carried Vikunja and 0.5.1 dropped it: its desktop app signs in
 only through the browser, and on a stock Omarchy that hand-off kept failing. If you installed it with

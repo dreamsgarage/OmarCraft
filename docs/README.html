@@ -345,9 +345,10 @@
       <li>ships prebuilt, in the Arch repos or as an AUR <code>&lt;id&gt;-bin</code>, with a desktop entry,</li>
       <li>comes from a maintained upstream under an open-source licence,</li>
       <li>stays near <strong>150 MiB idle in one native process</strong>, like the Craft apps (70–90 MiB measured),</li>
-      <li>does something an office, design or creative user wants on the desktop.</li>
+      <li>does something an office, design or creative user wants on the desktop,</li>
+      <li><strong>works with others</strong>: its work can be shared and taken elsewhere, through an open file format or a sync or sharing service you choose, with a way to export it.</li>
     </ol>
-    <p>A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so. Today's three:</p>
+    <p>Item 6 is a foundation of every tool beyond ArtCraft: a tile never locks your work into one computer or one app. A tool that adds a capability ArtCraft lacks may exceed item 4; its row says so. Today's three:</p>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Tool</th><th>Group</th><th>Package</th><th>What it is</th><th>Idle memory</th></tr></thead>
@@ -377,6 +378,31 @@
       </table>
     </div>
     <p>Tools from the Arch repos update with the system: their badge reads <code>↑ system</code> and opens Omarchy's update, because updating one repo package on its own is a partial upgrade.</p>
+
+    <h3 id="others-h">Working with others</h3>
+    <p>Each tool works alone, offline, on your computer. Working with others goes through what the tool already speaks; OmarCraft installs the desktop apps and changes nothing on any server.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Tool</th><th>Share and collaborate</th><th>Take your work elsewhere</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Typesetter</td>
+            <td>Documents are plain-text <a href="https://typst.app" target="_blank" rel="noopener">Typst</a> files: share them through Git or any file sync, or open them in typst.app, Typst's web editor, to write together in real time. Comments in the source mark review notes.</td>
+            <td>Typst source files and the PDFs they render</td>
+          </tr>
+          <tr>
+            <td>Memospot</td>
+            <td>Point it at a shared <a href="https://usememos.com" target="_blank" rel="noopener">Memos</a> server you run (client mode): accounts with roles, each memo private, visible to the server's members, or public, with comments and reactions. Its built-in server serves only your own computer.</td>
+            <td>Personal export and import in Settings; notes move between a local Memospot and a hosted Memos server; an API, webhooks and an MCP server for your own tools</td>
+          </tr>
+          <tr>
+            <td>Planify</td>
+            <td>Sync a project with Nextcloud Deck to share kanban boards, with Todoist to share projects and assign tasks, or with any CalDAV server (Nextcloud and others) to share task lists.</td>
+            <td>CalDAV tasks use the standard calendar and to-do format, readable by Thunderbird, phone task apps and others; full JSON backups</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <div class="callout">
       <h3>Vikunja (0.5.0 only)</h3>

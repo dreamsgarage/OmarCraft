@@ -10,6 +10,10 @@ Tasks and kanban boards join *Notes*, without a server; sixteen tools. The evalu
   the system; nothing is compiled and no AUR packager is involved. No server and no sign-in (Todoist,
   Nextcloud or CalDAV sync is optional); data in `~/.local/share/io.github.alainm23.planify`. 153 MiB idle
   in one native process. Tile colour from its icon.
+- **Working with others is part of the rule.** A tool beyond ArtCraft must let its work be shared and
+  exported, through an open format or a sync or sharing service the user chooses. The README's new
+  *Working with others* section shows each tool's route: Typesetter's plain-text Typst files, Memospot with
+  a shared Memos server, Planify with Nextcloud Deck, Todoist or CalDAV.
 - **Nothing is compiled, now checked.** Before an AUR install or update, OmarCraft asks the AUR for the
   package's declared dependencies; if one is neither installed nor in the Arch repos, the AUR helper would
   build it from source, so the job stops before anything is installed, names the dependency in the terminal
