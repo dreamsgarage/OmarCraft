@@ -257,6 +257,35 @@ parse_upstream_catalog() {
 
 # The AUR -bin version is what actually installs, so it (not the GitHub tag) defines "latest".
 # Prints id<TAB>version for the AUR tools among the ids.
+# Dependencies the named AUR packages declare that are neither installed nor in the Arch repos: the AUR
+# helper would build those from source, which OmarCraft never does. One per line; nothing when the AUR
+# cannot be asked (the install itself then fails on the network, as before).
+aur_source_deps() {
+  local args=() pkg json dep
+  for pkg in "$@"; do args+=(--data-urlencode "arg[]=$pkg"); done
+  json=$(curl -fsSL --max-time 15 -G "$AUR_RPC" "${args[@]}") || return 0
+  jq -e .results <<<"$json" >/dev/null || return 0
+  while read -r dep; do
+    dep=${dep%%[<>=]*}
+    [[ -n $dep ]] || continue
+    pacman -T -- "$dep" >/dev/null && continue
+    pacman -Si -- "$dep" >/dev/null 2>&1 && continue
+    printf '%s\n' "$dep"
+  done < <(jq -r '.results[] | (.Depends // [])[]' <<<"$json" | sort -u)
+}
+
+# Stop a job before the AUR helper runs when it would compile a dependency.
+refuse_source_builds() {
+  local deps
+  deps=$(aur_source_deps "$@")
+  [[ -z $deps ]] && return 0
+  deps=$(paste -sd ' ' <<<"$deps")
+  printf '\nNothing was installed. %s needs %s, which the Arch repos do not ship: the AUR helper would\n' "$*" "$deps"
+  printf 'build it from source, and OmarCraft only installs prebuilt packages. This waits for the package to be fixed.\n'
+  notify "Not installed" "$* needs $deps, which would have to be compiled. OmarCraft only installs prebuilt packages."
+  return 3
+}
+
 aur_versions() {
   local args=() id name version
   local -A id_of=()
@@ -562,11 +591,12 @@ job() {
     install)
       # Explicit returns: the status of a failed install must reach end_job even without set -e.
       if (( ${#repo_pkgs[@]} > 0 )); then omarchy-pkg-add "${repo_pkgs[@]}" || return; fi
+      if (( ${#aur_pkgs[@]} > 0 )); then refuse_source_builds "${aur_pkgs[@]}" || return; fi
       if (( ${#aur_pkgs[@]} > 0 )); then omarchy-pkg-aur-add "${aur_pkgs[@]}" || return; fi
       ;;
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
     # directly here. It is the helper Omarchy ships and uses itself.
-    update) yay -S --noconfirm "${pkgs[@]}" ;;
+    update) refuse_source_builds "${pkgs[@]}" || return; yay -S --noconfirm "${pkgs[@]}" ;;
     # Arch repo packages are never updated one by one (a partial upgrade); Omarchy updates them all.
     system-update) omarchy-update ;;
     # Removal is Omarchy's own command: the package and the dependencies nothing else needs. The

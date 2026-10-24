@@ -312,6 +312,44 @@ reset_log omarchy-update
 expect_eq "system-update runs Omarchy's update" "$(calls omarchy-update | wc -l)" "1"
 expect_eq "and is recorded like any job" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["system-update",["typesetter"],0]'
 
+# An AUR package whose declared dependency is neither installed nor in the Arch repos would make the AUR
+# helper compile it: the job refuses before anything is installed. Here kanri-bin declares libsoup.
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/curl"
+echo '{"results":[{"Name":"kanri-bin","Version":"0.8.2-1","Depends":["gtk3","libsoup","webkit2gtk-4.1>=2.40"]}]}'
+STUB
+chmod +x "$TMP/bin/curl"
+cp "$TMP/bin/pacman" "$TMP/pacman.real"
+cat >"$TMP/bin/pacman" <<STUB
+#!/bin/bash
+case "\$1" in
+  -T) [[ \$3 == libsoup ]] && { echo libsoup; exit 127; }; exit 0 ;;
+  -Si) [[ \$3 == libsoup ]] && exit 1; exec "$TMP/pacman.real" "\$@" ;;
+esac
+exec "$TMP/pacman.real" "\$@"
+STUB
+chmod +x "$TMP/bin/pacman"
+reset_log omarchy-pkg-aur-add; reset_log omarchy-notification-send
+out=$( ( job install kanri ) 2>&1 )
+expect_eq "a package that would compile a dependency is refused" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["install",["kanri"],3]'
+expect_eq "before the AUR helper runs" "$(calls omarchy-pkg-aur-add | wc -l)" "0"
+expect_true "the terminal names the dependency" "grep -q 'needs libsoup' <<<'$out'"
+expect_true "and so does a notification" "calls omarchy-notification-send | grep -q libsoup"
+( job update photocraft ) >/dev/null 2>&1
+expect_eq "an update is checked the same way" "$(jq -c '[.verb,.exit]' "$LAST_JOB_FILE")" '["update",3]'
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+echo '{"results":[{"Name":"kanri-bin","Version":"0.8.3-1","Depends":["gtk3","libsoup3","webkit2gtk-4.1"]}]}'
+STUB
+( job install kanri ) >/dev/null 2>&1
+expect_eq "with every dependency installed or in the repos, it installs" "$(calls omarchy-pkg-aur-add)" "kanri-bin"
+stub curl 7
+reset_log omarchy-pkg-aur-add
+( job install memospot ) >/dev/null 2>&1
+expect_eq "when the AUR cannot be asked, the install goes ahead as before" "$(calls omarchy-pkg-aur-add)" "memospot-bin"
+mv "$TMP/pacman.real" "$TMP/bin/pacman"
+
 # Closing a job's terminal mid-job (a hangup) records it as interrupted, not with the status of the last
 # step that had finished: here the package command is cut off by the hangup.
 cat >"$TMP/bin/omarchy-pkg-drop" <<STUB
