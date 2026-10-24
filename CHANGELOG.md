@@ -12,6 +12,8 @@ A kanban board joins *Notes*, without a server; sixteen tools. The evaluation is
   package's declared dependencies; if one is neither installed nor in the Arch repos, the AUR helper would
   build it from source, so the job stops before anything is installed, names the dependency in the terminal
   and in a notification, and is recorded as failed. Found when Kanri's package started compiling libsoup 2.
+- A failed job stays flagged (bar icon, header, red tile) only until you close the panel that showed it;
+  before, it stayed until another job succeeded. The next failure is flagged again.
 - README: how to upgrade from an earlier version (update, restart the shell, check the version).
 - The HTML README says rocket, not palette, and counts its tools beyond ArtCraft correctly.
 

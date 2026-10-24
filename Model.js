@@ -104,7 +104,7 @@ function jobCovers(job, id) {
 }
 
 function jobFailed(craft) {
-  return !craft.job && !!craft.lastJob && Number(craft.lastJob.exit) !== 0
+  return !craft.job && !!craft.lastJob && Number(craft.lastJob.exit) !== 0 && !craft.lastJob.seen
 }
 
 // The app's own ArtCraft colour, picked for the panel background it sits on; "" when the catalog

@@ -470,11 +470,17 @@ mark_seen() {
 
 # Every catalog id at once: the panel was open, so nothing in it is new any more.
 mark_all_seen() {
-  local id
+  local id tmp
   ensure_cache
   while read -r id; do
     [[ -n $id ]] && mark_seen "$id"
   done < <(cut -f1 "$CATALOG")
+  # A failed job, shown in the panel that is now closing, is acknowledged: the panel and the bar icon stop
+  # flagging it. The next failure is flagged again (end_job writes a fresh record).
+  if [[ -f $LAST_JOB_FILE ]] && jq -e '.exit != 0 and (.seen | not)' "$LAST_JOB_FILE" >/dev/null 2>&1; then
+    tmp=$(mktemp "$LAST_JOB_FILE.XXXXXX")
+    jq -c '.seen = true' "$LAST_JOB_FILE" >"$tmp" && mv -f "$tmp" "$LAST_JOB_FILE" || rm -f "$tmp"
+  fi
 }
 
 # Ids of a group that have an AUR build: all, creative or office.

@@ -364,6 +364,19 @@ expect_eq "a job whose terminal closes is recorded as interrupted" "$(jq -c '[.v
 expect_true "and leaves no job file" "[[ ! -f '$JOB_FILE' ]]"
 stub omarchy-pkg-drop 0
 
+# Closing the panel acknowledges a failed job it showed; a new failure is flagged again.
+stub omarchy-pkg-aur-add 1
+( job install gridcraft ) >/dev/null 2>&1
+expect_eq "a failed job is not yet acknowledged" "$(state | jq -c '[.lastJob.exit, (.lastJob.seen // false)]')" '[1,false]'
+mark_all_seen
+expect_eq "closing the panel acknowledges it" "$(state | jq -c '[.lastJob.exit, .lastJob.seen]')" '[1,true]'
+( job install gridcraft ) >/dev/null 2>&1
+expect_eq "the next failure is flagged again" "$(state | jq -c '(.lastJob.seen // false)')" 'false'
+stub omarchy-pkg-aur-add 0
+( job install gridcraft ) >/dev/null 2>&1
+mark_all_seen
+expect_eq "a successful job is never marked" "$(jq -c 'has("seen")' "$LAST_JOB_FILE")" 'false'
+
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
 st=$(state)
