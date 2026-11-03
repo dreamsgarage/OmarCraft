@@ -271,11 +271,11 @@ expect_eq "refused jobs never reach the package command" "$(calls omarchy-pkg-au
 
 reset_log yay
 ( job update ) >/dev/null 2>&1
-expect_eq "job update with no ids takes every outdated app, through the helper" "$(calls yay)" "-S --noconfirm photocraft-bin"
+expect_eq "job update with no ids takes every outdated app, through the helper" "$(calls yay)" "-S --noconfirm aur/photocraft-bin"
 expect_eq "job update records the outdated ids" "$(jq -c '[.verb,.ids]' "$LAST_JOB_FILE")" '["update",["photocraft"]]'
 reset_log yay
 ( job update wordcraft ) >/dev/null 2>&1
-expect_eq "job update <id> is package-exact" "$(calls yay)" "-S --noconfirm wordcraft-bin"
+expect_eq "job update <id> is package-exact" "$(calls yay)" "-S --noconfirm aur/wordcraft-bin"
 ( job update 'x;rm' ) >/dev/null 2>&1 && fail "job update refuses an unsafe id" || ok "job update refuses an unsafe id"
 expect_eq "the single-app update was the only helper call since the reset" "$(calls yay | wc -l)" "1"
 
