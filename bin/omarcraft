@@ -602,8 +602,10 @@ job() {
       if (( ${#aur_pkgs[@]} > 0 )); then omarchy-pkg-aur-add "${aur_pkgs[@]}" || return; fi
       ;;
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
-    # directly here. It is the helper Omarchy ships and uses itself.
-    update) refuse_source_builds "${pkgs[@]}" || return; yay -S --noconfirm "${pkgs[@]}" ;;
+    # directly here. It is the helper Omarchy ships and uses itself. The aur/ prefix is needed: a package
+    # also in a sync repo (the omarchy repo carries some -bin apps) would otherwise resolve to that repo's
+    # older build and reinstall it, exiting 0, while the AUR version the badge compares with is never installed.
+    update) refuse_source_builds "${pkgs[@]}" || return; yay -S --noconfirm "${pkgs[@]/#/aur/}" ;;
     # Arch repo packages are never updated one by one (a partial upgrade); Omarchy updates them all.
     system-update) omarchy-update ;;
     # Removal is Omarchy's own command: the package and the dependencies nothing else needs. The
