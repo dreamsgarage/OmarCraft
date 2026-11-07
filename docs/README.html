@@ -339,10 +339,10 @@
 
   <section aria-labelledby="beyond-h">
     <h2 id="beyond-h"><span class="num">01</span>Beyond ArtCraft</h2>
-    <p>Every tool is a prebuilt package — a <code>-bin</code> from the AUR or a package from the Arch repos, installed through Omarchy's own package commands — so pacman owns it and nothing is ever compiled. A tool earns a tile when it:</p>
+    <p>Every tool is a prebuilt package — from a package repo (Omarchy's own or the Arch repos) or a <code>-bin</code> from the AUR, installed through Omarchy's own package commands — so pacman owns it and nothing is ever compiled. A tool earns a tile when it:</p>
     <ol class="rule-list">
       <li>has a stable desktop release (tagged, not a release candidate or source-only build),</li>
-      <li>ships prebuilt, in the Arch repos or as an AUR <code>&lt;id&gt;-bin</code>, with a desktop entry,</li>
+      <li>ships prebuilt, in a package repo (the Arch repos or Omarchy's own) or as an AUR <code>&lt;id&gt;-bin</code>, with a desktop entry,</li>
       <li>comes from a maintained upstream under an open-source licence,</li>
       <li>stays near <strong>150 MiB idle in one native process</strong>, like the Craft apps (70–90 MiB measured),</li>
       <li>does something an office, design or creative user wants on the desktop,</li>
@@ -377,7 +377,7 @@
         </tbody>
       </table>
     </div>
-    <p>Tools whose installed package comes from a package repo — the Arch repos or Omarchy's own — update with the system: their badge reads <code>↑ system</code> and opens Omarchy's update, because updating one repo package on its own is a partial upgrade.</p>
+    <p>Typesetter and Planify come from the Arch repos: they install with Omarchy's repo command and update with the system (see <em>Updates</em>).</p>
 
     <h3 id="others-h">Working with others</h3>
     <p>Each tool works alone, offline, on your computer. Working with others goes through what the tool already speaks; OmarCraft installs the desktop apps and changes nothing on any server.</p>
@@ -441,7 +441,8 @@
 
   <section aria-labelledby="updates-h">
     <h2 id="updates-h"><span class="num">03</span>Updates</h2>
-    <p>Every six hours, and whenever you press <kbd>r</kbd> or right-click the icon, OmarCraft compares your installed <code>-bin</code> packages with the AUR. Newer builds show on the tiles and the icon; the six-hourly check sends one desktop notification per new set. If the AUR cannot be reached the hero says <code>OFFLINE · CACHED LIST</code> and the panel retries every ten minutes. Updates are package-exact and run through the AUR helper Omarchy ships, in a floating terminal that asks for your password. <code>omarchy update</code> updates them too.</p>
+    <p>Every six hours, and whenever you press <kbd>r</kbd> or right-click the icon, OmarCraft compares your installed AUR <code>-bin</code> packages with the AUR. Newer builds show on the tiles and the icon; the six-hourly check sends one desktop notification per new set. If the AUR cannot be reached the hero says <code>OFFLINE · CACHED LIST</code> and the panel retries every ten minutes. Updates are package-exact and run through the AUR helper Omarchy ships, in a floating terminal that asks for your password. <code>omarchy update</code> updates them too.</p>
+    <p><strong>Tools a package repo ships.</strong> When a configured repo ships a tool's package (the Arch repos for Typesetter and Planify; Omarchy's own repo for WordCraft and GridCraft, under their AUR names), the tool comes from that repo, installed or not and whatever installed it first: pacman and the AUR helper both take a package from a repo when one ships it. Its tile shows the repo's version, installs with Omarchy's <code>omarchy-pkg-add</code> and updates with the system. The badge reads <code>↑ system</code> only when the repo has a newer build than the one installed, and opens Omarchy's update, because updating one repo package on its own is a partial upgrade; <em>Update all</em> leaves these to the system. A repo's build can trail the AUR's by a day or so. When a repo starts or stops shipping a tool, the panel follows after the next system update.</p>
   </section>
 
   <section aria-labelledby="cli-h">
@@ -485,7 +486,7 @@ omarchy restart shell</code></pre>
   <section aria-labelledby="safety-h">
     <h2 id="safety-h"><span class="num">06</span>Safety</h2>
     <ul>
-      <li>Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to a package: <code>&lt;id&gt;-bin</code> by default, or a fixed name for a tool whose package differs (<code>typesetter</code>). An installed package that is not foreign (not in <code>pacman -Qm</code>) comes from a package repo — the Arch repos or Omarchy's own — so it installs through <code>omarchy-pkg-add</code> and updates with the system; a foreign package is an AUR one. The plugin does not use <code>sudo</code> or <code>pkexec</code>; installs, updates and removals all run through Omarchy's own commands in a visible terminal that asks for your password, and a job cut short is reported as interrupted.</li>
+      <li>Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to a package: <code>&lt;id&gt;-bin</code> by default, or a fixed name for a tool whose package differs (<code>typesetter</code>). A package a configured repo ships (the Arch repos or Omarchy's own, read from the local sync databases) is a repo package, installed or not: it installs through <code>omarchy-pkg-add</code> and updates with the system; any other is an AUR package. The plugin does not use <code>sudo</code> or <code>pkexec</code>; installs, updates and removals all run through Omarchy's own commands in a visible terminal that asks for your password, and a job cut short is reported as interrupted.</li>
       <li>Network use is the app catalog from <span class="mono">raw.githubusercontent.com</span> and versions from the AUR RPC, every 24 hours, with bounded timeouts (repo package versions come from the local sync database); a failed check keeps the old list and says <code>OFFLINE</code>, never "up to date". The panel itself never waits on the network.</li>
       <li>Files stay under <code>~/.cache/omarchy/omarcraft/</code> and <code>~/.local/state/omarchy/omarcraft/</code>. Nothing under <code>~/.config</code> without the opt-in commands. Where 0.5.0 installed Vikunja, 0.5.1 deletes, once, the desktop entry and launcher 0.5.0 wrote for it.</li>
     </ul>

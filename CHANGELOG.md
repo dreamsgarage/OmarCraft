@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.4 — unreleased
+
+Apps that Omarchy's own repo ships, done right, and 0.5.3's regression fixed. The decision is in
+`docs/v0.5.4-plan.md`.
+
+- **Fixed: 0.5.3 took every installed app for a repo app.** It read pacman's list of AUR packages
+  (`name version` lines) as names, so no package ever counted as an AUR one. With every tool installed the
+  panel said `OFFLINE · Could not reach the AUR` while online and found no more updates; otherwise a check
+  erased the AUR version of every installed app. Every badge read `↑ system` and opened Omarchy's update,
+  which cannot bring an AUR build, so a badge could stay forever.
+- **A tool a package repo ships follows that repo, whatever installed it.** Omarchy's own repo now ships
+  WordCraft and GridCraft under their AUR names (`wordcraft-bin`, `gridcraft-bin`), and pacman and the AUR
+  helper both take a package from a repo when one ships it: 0.5.2's Update reinstalled Omarchy's build
+  (once downgrading WordCraft) and the badge stayed. OmarCraft now reads from the local sync databases
+  which tools a repo ships, installed or not. Those show the repo's version, install with
+  `omarchy-pkg-add` and update with the system; `↑ system` appears only when the repo has a newer build
+  than the one installed, so the update always clears it. Every other tool keeps the AUR's version and
+  package-exact AUR updates. When a repo starts or stops shipping a tool, the tool follows after the next
+  system update. The tile of a tool not yet installed names the repo it comes from.
+- **A check fails only when the AUR does not answer**, never because nothing is newer or every tool comes
+  from a repo. An error reply from the AUR now counts as a failure, not as an empty answer.
+- **Fast again.** What the repos ship is kept until a sync database, `pacman.conf` or the catalog changes:
+  a panel read is back to one package query (0.1 s; 0.4 s once after a sync), `check` and `list` to under
+  half a second (8 s in 0.5.3).
+- Repo versions are read with pacman's field names untranslated, so a system set to another language reads
+  them too. A source build of a Craft app stays a source build when a repo ships its `-bin` package.
+- The first read after the update checks the list once, at once.
+- Tests: the fake `pacman` answers in pacman's real formats (0.5.3's printed `-Qm` without versions, which
+  hid the bug), and cover each way an app can be installed; 216 offline tests.
+
 ## 0.5.3 — 2026-11-07
 
 - **Fixed: Craft apps installed from Omarchy's repo could not update.** `gridcraft-bin`, `wordcraft-bin`

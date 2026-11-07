@@ -7,8 +7,8 @@ Productivity tools from the Omarchy bar: the ArtCraft Craft apps and more.
 OmarCraft is for people who come to Omarchy for office, design and creative work, not only for code: simple,
 powerful desktop tools behind one bar icon, with a native Omarchy panel that shows what is installed, what
 is not, what has a newer build, and one action per tool to launch, install, update or remove. Every tool is
-a prebuilt package, a `-bin` from the AUR or a package from the Arch repos, installed through Omarchy's own
-package commands, so pacman owns it and nothing is ever compiled.
+a prebuilt package, from a package repo (Omarchy's own or the Arch repos) or a `-bin` from the AUR,
+installed through Omarchy's own package commands, so pacman owns it and nothing is ever compiled.
 
 It carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft, VectorCraft, FilmCraft,
 LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft,
@@ -23,7 +23,8 @@ Storyteller, the makers of ArtCraft, nor with the projects behind the other tool
 A tool gets a tile when it:
 
 1. has a stable desktop release (tagged, not a release candidate or a source-only build),
-2. ships prebuilt, in the Arch repos or as an AUR `<id>-bin`, with a desktop entry,
+2. ships prebuilt, in a package repo (the Arch repos or Omarchy's own) or as an AUR `<id>-bin`, with a
+   desktop entry,
 3. comes from a maintained upstream under an open-source licence,
 4. stays near **150 MiB idle in one native process**, like the Craft apps (70–90 MiB measured),
 5. does something an office, design or creative user wants on the desktop,
@@ -39,9 +40,8 @@ one app. A tool that adds a capability ArtCraft lacks may exceed item 4; its row
 | [Memospot](https://memospot.github.io) | Notes | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
 | [Planify](https://useplanify.com) | Notes | `planify` (Arch repos) | Tasks and projects, each one a list or a kanban board, kept on your computer (Todoist, Nextcloud or CalDAV sync optional) | 153 MiB, 1 process |
 
-Tools whose installed package comes from a package repo — the Arch repos or Omarchy's own — update with
-the system: their badge reads `↑ system` and opens Omarchy's update, because updating one repo package on
-its own is a partial upgrade.
+Typesetter and Planify come from the Arch repos: they install with Omarchy's repo command and update with
+the system (see *Updates*).
 
 ### Working with others
 
@@ -141,12 +141,21 @@ the catalog since you last opened the panel, and after a job that failed.
 ## Updates
 
 Every six hours, and whenever you press `r` or right-click the icon, OmarCraft compares your installed
-`-bin` packages with the AUR. Newer builds show on the tiles or rows and on the icon; the six-hourly check
+AUR `-bin` packages with the AUR. Newer builds show on the tiles or rows and on the icon; the six-hourly check
 also sends one desktop notification per new set, which opens the panel. If the AUR cannot be reached the
 hero says `OFFLINE · CACHED LIST` and the panel retries on its own every ten minutes. Updates are package-exact: `Enter` on the app updates that
 one, *Update all* (`u`) every app with a newer build, each through the AUR helper Omarchy ships, in a
 floating terminal that asks for your password. `omarchy update` updates them too. "Newer" means a newer
 AUR build exists, which can trail an ArtCraft release by a day or so.
+
+**Tools a package repo ships.** When a configured repo ships a tool's package (the Arch repos for
+Typesetter and Planify; Omarchy's own repo for WordCraft and GridCraft, under their AUR names), the tool
+comes from that repo, installed or not and whatever installed it first: pacman and the AUR helper both take
+a package from a repo when one ships it. Its tile shows the repo's version, installs with Omarchy's
+`omarchy-pkg-add` and updates with the system. The badge reads `↑ system` only when the repo has a newer
+build than the one installed, and opens Omarchy's update, because updating one repo package on its own is
+a partial upgrade; *Update all* leaves these to the system. A repo's build can trail the AUR's by a day or
+so. When a repo starts or stops shipping a tool, the panel follows after the next system update.
 
 ## Apps installed some other way
 
@@ -154,7 +163,8 @@ OmarCraft recognises apps it did not install and never removes or replaces anyth
 
 | How the app got there | In the panel |
 |---|---|
-| `<app>-bin` from the AUR by any means | Installed; launches; counted for updates |
+| `<app>-bin` from the AUR by any means | Installed; launches; counted for updates. If a package repo ships the same name, the app follows that repo: the system update brings the repo's build once it is newer |
+| `<app>-bin` from a package repo (Omarchy's own ships `wordcraft-bin` and `gridcraft-bin`) | Installed; launches; shows the repo's version; updates with the system |
 | Source build (`<app>`, e.g. via `storytold-office` or `storytold-suite`) | Installed; launches; reads `Source build · updates via omarchy update`; never in OmarCraft's update checks (updating it would compile again) |
 | AppImage or Flatpak from the official ArtCraft Launcher | Not detected; the panel offers the `-bin` package. Remove the other copy first if you want one |
 
@@ -221,10 +231,10 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 ## Safety
 
 - Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to a
-  package: `<id>-bin` by default, or a fixed name for a tool whose package differs (`typesetter`). An
-  installed package that is not foreign (not in `pacman -Qm`) comes from a package repo — the Arch repos
-  or Omarchy's own — so it is treated as a repo package: it installs through `omarchy-pkg-add` and updates
-  with the system. A foreign package is an AUR one.
+  package: `<id>-bin` by default, or a fixed name for a tool whose package differs (`typesetter`). A
+  package a configured repo ships (the Arch repos or Omarchy's own, read from the local sync databases) is
+  a repo package, installed or not: it installs through `omarchy-pkg-add` and updates with the system. Any
+  other is an AUR package.
   The plugin does not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add` (AUR) or `omarchy-pkg-add`
   (repo packages); updates call the AUR helper Omarchy ships for exactly the named AUR packages, and repo
   packages update with the system through Omarchy's update; removals go through Omarchy's
@@ -237,7 +247,8 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   from the AUR RPC, every 24 hours, with bounded timeouts; versions of repo packages come from the local
   sync database. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel
   itself never waits on the network.
-- Files: `~/.cache/omarchy/omarcraft/` (catalog) and `~/.local/state/omarchy/omarcraft/` (job records,
+- Files: `~/.cache/omarchy/omarcraft/` (catalog, and what the configured repos ship of it, read again after
+  each sync) and `~/.local/state/omarchy/omarcraft/` (job records,
   seen apps, notification state). Nothing under `~/.config` without the opt-in commands. Where 0.5.0
   installed Vikunja, 0.5.1 deletes, once, the two files 0.5.0 wrote for it: its desktop entry in
   `~/.local/share/applications` and that entry's launcher.

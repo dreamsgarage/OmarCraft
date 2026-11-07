@@ -177,3 +177,33 @@ git -C $P checkout main && omarchy restart shell
 Rows 35–41 of `v1-acceptance.md`. Planify's data lives in `~/.local/share/io.github.alainm23.planify`;
 check it after a remove. Measure its memory once installed: with Evolution's data services available it
 may start a few background processes the unpacked benchmark could not.
+
+## 0.5.4: apps a package repo ships
+
+Omarchy's own repo ships `wordcraft-bin` and `gridcraft-bin`; check where each tool comes from before you
+start, on each machine:
+
+```bash
+pacman -Si wordcraft-bin gridcraft-bin | grep -E '^(Repository|Name|Version)'   # Repository: omarchy
+pacman -Qm | grep -E 'wordcraft|gridcraft'      # nothing: a name a repo ships is never foreign
+```
+
+Then update the plugin and restart the shell (`main` once 0.5.4 is released; before that, the branch the
+same way as 0.5.2 above):
+
+```bash
+omarchy plugin update omarcraft.productivity && omarchy restart shell
+jq -r .version $P/manifest.json                  # 0.5.4
+$P/bin/omarcraft list | grep -E 'wordcraft|gridcraft|typesetter'
+#   wordcraft ... installed 0.15.2-1 (omarchy repo)   — the version pacman -Si printed above
+```
+
+| Do | Expect |
+|---|---|
+| Open the panel | Within a few seconds the hero is no longer `OFFLINE` (the first read after the update checks the list once); no line in red |
+| Hover WordCraft and GridCraft | Their installed version, the same as `pacman -Si` above; no `↑ system` badge |
+| `r` | The list is checked again; the hero says when, no `OFFLINE` |
+| `$P/bin/omarcraft check` | Lists only real updates: an AUR app as `Name installed → AUR version`, a repo app only if its repo has a newer build |
+
+Rows 42–47 of `v1-acceptance.md`. Row 46 removes and reinstalls GridCraft from its tile: the install line
+must say *from Omarchy's repo* and the terminal must run `omarchy-pkg-add gridcraft-bin`, not the AUR helper.
