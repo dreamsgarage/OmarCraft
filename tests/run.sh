@@ -43,37 +43,68 @@ stub omarchy-pkg-drop 0
 stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
 stub setsid 0                                 # detached refreshes are recorded, never run
-# pacman: -Si answers from a fake sync database, -Qm lists the foreign (AUR) packages, anything else lists
-# the installed packages. Typesetter and wordcraft-bin are repo packages behind the sync database; the
-# Craft -bin packages are AUR ones.
+# pacman, answering the way the real one does (a fake that answers differently once hid a bug: 0.5.3), from
+# two files the tests edit: $TMP/installed, what -Q prints ("name version"), and $TMP/sync-db, the
+# configured repos' packages in repo order ("repo name version"). -Si takes any number of names and
+# prints an entry for each repo that ships one, Repository first; for a name no repo ships it prints
+# "error: package 'x' was not found" on stderr and exits 1. Field names are translated unless LC_ALL=C,
+# as pacman's are. -Qm prints the installed packages no repo ships, with their versions. Anything else
+# lists the installed packages. Typesetter and Planify come from the Arch repos, wordcraft-bin from
+# Omarchy's repo; the other Craft apps are AUR packages.
 cat >"$TMP/bin/pacman" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/pacman"
 case "\$1" in
   -Si)
-    case "\${@: -1}" in
-      typesetter) printf 'Repository      : extra\nName            : typesetter\nVersion         : 0.16-1\n\n'; exit 0 ;;
-      wordcraft-bin) printf 'Repository      : omarchy\nName            : wordcraft-bin\nVersion         : 1.0.0-1\n\n'; exit 0 ;;
-    esac
-    exit 1 ;;
-  -Qm) printf 'photocraft-bin\nfilmcraft\n'; exit 0 ;;
+    shift; [[ \${1:-} == -- ]] && shift
+    if [[ \${LC_ALL:-} == C ]]; then r=Repository n=Name v=Version; else r=Repositorio n=Nombre v=Versión; fi
+    rc=0
+    for pkg in "\$@"; do
+      found=0
+      while read -r repo name version; do
+        [[ \$name == "\$pkg" ]] || continue
+        found=1
+        printf '%-15s : %s\n%-15s : %s\n%-15s : %s\n%-15s : %s\n\n' "\$r" "\$repo" "\$n" "\$name" "\$v" "\$version" \
+          Description "An app: with a colon"
+      done <"$TMP/sync-db"
+      (( found )) || { echo "error: package '\$pkg' was not found" >&2; rc=1; }
+    done
+    exit \$rc ;;
+  -Qm)
+    while read -r name version; do
+      awk -v p="\$name" '\$2 == p { f = 1 } END { exit !f }' "$TMP/sync-db" || echo "\$name \$version"
+    done <"$TMP/installed"
+    exit 0 ;;
 esac
-printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nother 1.0-1\n'
+cat "$TMP/installed"
 STUB
 chmod +x "$TMP/bin/pacman"
+printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nother 1.0-1\n' >"$TMP/installed"
+printf 'omarchy wordcraft-bin 1.0.0-1\nextra typesetter 0.16-1\nextra planify 1.0.0-1\n' >"$TMP/sync-db"
+# The sync databases and pacman.conf the script stats to know whether the repos changed.
+mkdir -p "$TMP/sync"; : >"$TMP/sync/omarchy.db"; : >"$TMP/sync/extra.db"; : >"$TMP/pacman.conf"
 stub omarchy-pkg-add 0
 stub omarchy-update 0
 export PATH="$TMP/bin:$PATH"
 
 calls() { cat "$TMP/log/$1" 2>/dev/null; }
 reset_log() { rm -f "$TMP/log/$1"; }
+# A new run's view of the repos (what a fresh process would load).
+resync_memo() { SYNC_LOADED=0; SYNC_REPO=(); SYNC_VERSION=(); }
+# The repos now ship exactly these ("repo name version"), as after a sync: the databases change on disk.
+sync_db() { printf '%s\n' "$@" >"$TMP/sync-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo; }
+# These packages are installed now ("name version").
+installed_now() { printf '%s\n' "$@" >"$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=(); }
 
 # shellcheck source=../bin/omarcraft
 source "$ROOT/bin/omarcraft"
+PACMAN_SYNC_DIR="$TMP/sync"
+PACMAN_CONF="$TMP/pacman.conf"
 
 # Nothing the script touches may be real: every path it writes or deletes must point into the test
 # folder, or the suite stops before any test.
-for var in CACHE_DIR STATE_DIR DATA_HOME MENU_FILE LEGACY_VIKUNJA_DIR LEGACY_VIKUNJA_ENTRY LEGACY_VIKUNJA_PID; do
+for var in CACHE_DIR STATE_DIR DATA_HOME MENU_FILE LEGACY_VIKUNJA_DIR LEGACY_VIKUNJA_ENTRY LEGACY_VIKUNJA_PID \
+  SYNC_CACHE CATALOG_FORMAT_FILE PACMAN_SYNC_DIR PACMAN_CONF; do
   [[ ${!var} == "$TMP"/* ]] || { echo "refusing to run: $var=${!var} is outside $TMP" >&2; exit 2; }
 done
 set +e
@@ -108,7 +139,8 @@ expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "16"
 expect_true "built-in catalog carries the extras" "grep -q '^memospot' \"$CATALOG\""
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
 catalog_fresh && fail "first-run cache is stale so versions are fetched at once" || ok "first-run cache is stale so versions are fetched at once"
-expect_eq "first-run state keeps empty versions empty (no column shift)" "$(state | jq -r '[.apps[] | .aurVersion] | unique | join(",")')" ""
+expect_eq "first-run state keeps empty AUR versions empty (no column shift)" "$(state | jq -r '[.apps[] | select(.kind == "aur") | .aurVersion] | unique | join(",")')" ""
+expect_eq "while a repo tool shows its repo's version at once" "$(state | jq -r '.apps[] | select(.id=="typesetter") | .aurVersion')" "0.16-1"
 expect_eq "first-run state carries the colours" "$(state | jq -r '.apps[] | select(.id=="photocraft") | .color')" "#2f7bf5"
 
 # --- groups and ids ----------------------------------------------------------------------------
@@ -174,31 +206,54 @@ expect_eq "installed version through a subshell" "$(installed_version photocraft
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
 expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
 expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot planify "
+( resync_memo; load_sync )
 reset_log pacman
-( INSTALLED_LOADED=0; FOREIGN_LOADED=0; load_installed; load_installed; load_foreign; load_foreign )
-expect_eq "installed and foreign packages are each read once per run" "$(calls pacman | tr '\n' ' ')" "-Q -Qm "
+( INSTALLED_LOADED=0; load_installed; load_installed; resync_memo; load_sync; load_sync )
+expect_eq "a run reads the installed packages once, and the repos not at all while they are unchanged" "$(calls pacman | tr '\n' ' ')" "-Q "
+printf x >>"$TMP/sync/omarchy.db"
+reset_log pacman
+( resync_memo; load_sync; load_sync )
+expect_eq "after a sync the repos are asked again, once" "$(calls pacman | cut -d' ' -f1-2 | tr '\n' ' ')" "-Si -- "
+expect_true "in one query naming every tool's package" "calls pacman | grep -q -- '-Si -- photocraft-bin .* memospot-bin typesetter planify'"
 
 # --- package kinds ------------------------------------------------------------------------------
 
 expect_eq "kinds: Craft app, repo tool" "$(kind_for photocraft)/$(kind_for typesetter)" "aur/repo"
-expect_eq "a foreign package stays an AUR app" "$(kind_for photocraft)/$(kind_for filmcraft)" "aur/aur"
-expect_eq "an installed package outside the AUR is a repo app" "$(kind_for wordcraft)/$(install_source wordcraft)" "repo/repo"
+expect_eq "a package no repo ships is an AUR app, installed or not" "$(kind_for photocraft)/$(kind_for deckcraft)" "aur/aur"
+expect_eq "a package Omarchy's repo ships is a repo app" "$(kind_for wordcraft)/$(install_source wordcraft)" "repo/repo"
 expect_eq "packages of a tool" "$(pkgs_for typesetter)|$(pkg_for typesetter)|$(pkg_for memospot)|$(pkg_for photocraft)" \
   "typesetter|typesetter|memospot-bin|photocraft-bin"
 expect_eq "a repo tool is installed from the repo" "$(install_source typesetter)" "repo"
 expect_eq "Update all takes only AUR apps" "$(outdated_ids | tr '\n' ' ')" "photocraft "
 expect_eq "repo apps behind the sync database are listed apart" "$(outdated_ids repo | tr '\n' ' ')" "typesetter "
-expect_eq "repo versions come from the sync database, mapped to ids" "$(repo_versions photocraft typesetter | tr '\t\n' '= ')" \
-  "typesetter=0.16-1 "
+expect_eq "a repo tool's version is its repo's, whatever the catalog column says" "$(version_var typesetter 9.9-1; echo "$VERSION")" "0.16-1"
+expect_eq "an AUR tool's version is the catalog's, the AUR's" "$(version_var photocraft 1.1.0-1; echo "$VERSION")" "1.1.0-1"
+expect_eq "the repos are read with pacman's field names untranslated, whatever the locale" \
+  "$(LC_ALL=C.UTF-8 sync_table typesetter wordcraft-bin nope-bin 2>/dev/null | tr '\t\n' ',;')" "typesetter,extra,0.16-1;wordcraft-bin,omarchy,1.0.0-1;"
+sync_table typesetter nope-bin >/dev/null
+expect_eq "a package no repo ships is not an error" "$?" "0"
 cat >"$TMP/bin/curl" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/curl"
 echo '{"results":[{"Name":"photocraft-bin","Version":"1.1.0-1"},{"Name":"memospot-bin","Version":"1.0.5-1"},{"Name":"unrelated-bin","Version":"9"}]}'
 STUB
-expect_eq "AUR names map back to ids; repo tools are not asked" "$(aur_versions photocraft memospot typesetter | tr '\t\n' '= ')" \
+expect_eq "AUR names map back to ids; pinned repo tools are not asked" "$(aur_versions photocraft memospot typesetter wordcraft | tr '\t\n' '= ')" \
   "photocraft=1.1.0-1 memospot=1.0.5-1 "
-expect_true "the AUR query names -bin packages only" "calls curl | grep -q 'arg\[\]=memospot-bin' && ! calls curl | grep -q typesetter"
+expect_true "the AUR is asked for -bin packages, one a repo ships too, never a pinned repo tool" \
+  "calls curl | grep -q 'arg\[\]=memospot-bin' && calls curl | grep -q 'arg\[\]=wordcraft-bin' && ! calls curl | grep -q typesetter"
+# curl answering with fixed JSON (stub cannot carry double quotes).
+fake_aur() { printf '#!/bin/bash\nprintf "%%s\\n" "$*" >>"%s/log/curl"\ncat <<"JSON"\n%s\nJSON\n' "$TMP" "$1" >"$TMP/bin/curl"; chmod +x "$TMP/bin/curl"; }
+fake_aur '{"version":5,"type":"multiinfo","resultcount":0,"results":[]}'
+expect_eq "an AUR answer without the packages is an answer: no versions, no failure" "$(aur_versions photocraft; echo "rc=$?")" "rc=0"
+fake_aur '{"version":5,"type":"error","resultcount":0,"results":[],"error":"Too many package names."}'
+aur_versions photocraft >/dev/null
+expect_eq "an AUR error is a failure, even with an empty results list" "$?" "1"
+fake_aur '{"version":5,"type":"error","error":"Incorrect request type specified."}'
+aur_versions photocraft >/dev/null
+expect_eq "an AUR error is a failure" "$?" "1"
 stub curl 7
+aur_versions photocraft >/dev/null
+expect_eq "so is an AUR that cannot be reached" "$?" "1"
 reset_log curl
 
 # --- state JSON --------------------------------------------------------------------------------
@@ -221,8 +276,9 @@ expect_eq "state: unpackaged app has null source and no version" "$(jq -c '.apps
 expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft","typesetter"]'
 expect_eq "state: no job, no last job" "$(jq -c '[.job,.lastJob,.offline,.refreshing]' <<<"$st")" '[null,null,false,false]'
 expect_eq "state carries the brand colours" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.color,.inkLight,.inkDark]' <<<"$st")" '["#3f5fe0","#2a44b8","#8ea2ff"]'
-expect_eq "state: wordcraft-bin comes from the Omarchy repo and updates with the system" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.group,.kind,.source,.installedVersion,.updateReady]' <<<"$st")" \
-  '["office","repo","repo","1.0.0-1",false]'
+expect_eq "state: wordcraft-bin comes from Omarchy's repo and updates with the system" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.group,.kind,.repo,.source,.installedVersion,.updateReady]' <<<"$st")" \
+  '["office","repo","omarchy","repo","1.0.0-1",false]'
+expect_eq "state names the repo of a repo tool, none for an AUR app" "$(jq -c '[.apps[] | select(.id=="typesetter" or .id=="photocraft") | .repo]' <<<"$st")" '["","extra"]'
 expect_eq "state glyph is the verified codepoint" "$(printf '%s' "$(jq -r '.apps[] | select(.id=="wordcraft") | .glyph' <<<"$st")" | od -An -tx1 | tr -d ' \n')" "f3b08899"
 expect_eq "state made no network call itself" "$(calls curl | wc -l)" "0"
 expect_true "state is fast" "[[ \$( { TIMEFORMAT=%R; time state >/dev/null; } 2>&1 ) < 1.0 ]]"
@@ -265,7 +321,7 @@ refresh_due && ok "refresh_due is true with no failure recorded" || fail "refres
 reset_log omarchy-pkg-add; reset_log omarchy-pkg-aur-add; reset_log omarchy-shell
 ( job install wordcraft deckcraft ) >/dev/null 2>&1
 expect_eq "job install exits with the package command's status" "$?" "0"
-expect_eq "an installed repo package installs through omarchy-pkg-add" "$(calls omarchy-pkg-add)" "wordcraft-bin"
+expect_eq "a package a repo ships installs through omarchy-pkg-add" "$(calls omarchy-pkg-add)" "wordcraft-bin"
 expect_eq "and an AUR package through omarchy-pkg-aur-add" "$(calls omarchy-pkg-aur-add)" "deckcraft-bin"
 expect_true "job file is gone after the job" "[[ ! -f '$JOB_FILE' ]]"
 expect_eq "last job records verb, ids and exit" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["install",["wordcraft","deckcraft"],0]'
@@ -487,6 +543,143 @@ rm -f "$LEGACY_VIKUNJA_ENTRY"
 for old in vikunja-session vikunja-stop tray-sync; do
   "$ROOT/bin/omarcraft" "$old" >/dev/null 2>&1; expect_eq "the old command $old exits cleanly" "$?" "0"
 done
+
+# --- an app's source, whichever installed it -----------------------------------------------------
+# Omarchy's own repo ships some Craft apps under their AUR names (wordcraft-bin and gridcraft-bin since
+# 2026-11). The package manager and the AUR helper both take a name from a repo when one ships it, so for
+# those the panel follows the repo, installed or not, and only offers what its action then delivers.
+
+cp "$TMP/installed" "$TMP/installed.baseline"; cp "$TMP/sync-db" "$TMP/sync-db.baseline"; cp "$CATALOG" "$TMP/catalog.baseline"
+aur_has() { awk -F'\t' -v OFS='\t' -v id="$1" -v v="$2" '$1 == id { $5 = v } { print }' "$CATALOG" >"$CATALOG.t" && mv "$CATALOG.t" "$CATALOG"; }
+app() { state | jq -c --arg id "$1" ".apps[] | select(.id == \$id) | $2"; }
+
+# The machine of the 0.5.3 report: Omarchy's builds installed, the AUR a release ahead.
+installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.15.2-1" "gridcraft-bin 0.16.1-1" "typesetter 0.16-1"
+sync_db "omarchy wordcraft-bin 0.15.2-1" "omarchy gridcraft-bin 0.16.1-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
+aur_has photocraft 0.21.0-1; aur_has wordcraft 0.16.0-1; aur_has gridcraft 0.17.0-1
+expect_eq "Omarchy's build is measured against Omarchy's repo, never the newer AUR build (0.5.3's stuck badge)" \
+  "$(app gridcraft '[.kind,.repo,.source,.installedVersion,.aurVersion,.updateReady]')" '["repo","omarchy","repo","0.16.1-1","0.16.1-1",false]'
+expect_eq "so no badge waits for an update the system cannot bring" "$(state | jq -c '[.apps[] | select(.updateReady) | .id]')" '[]'
+expect_eq "and Update all has nothing to hand the AUR helper" "$(outdated_ids | wc -l)" "0"
+
+sync_db "omarchy wordcraft-bin 0.16.0-1" "omarchy gridcraft-bin 0.16.1-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
+expect_eq "a newer build in Omarchy's repo shows the system badge" "$(app wordcraft '[.source,.aurVersion,.updateReady]')" '["repo","0.16.0-1",true]'
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update wordcraft ) >/dev/null 2>&1
+expect_true "which opens Omarchy's update" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update wordcraft'"
+installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.16.0-1" "gridcraft-bin 0.16.1-1" "typesetter 0.16-1"
+expect_eq "and once the system is updated the badge is gone" "$(app wordcraft '.updateReady')" "false"
+
+# Installed from the AUR while a repo ships the same name: the repo's build is the one that updates.
+installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.17.0-1" "gridcraft-bin 0.16.1-1"
+expect_eq "an AUR build newer than the repo's: a repo app, no badge" "$(app wordcraft '[.kind,.source,.installedVersion,.updateReady]')" '["repo","repo","0.17.0-1",false]'
+reset_log yay
+( job update wordcraft ) >/dev/null 2>&1 && fail "the AUR helper is never asked for a name a repo ships" || ok "the AUR helper is never asked for a name a repo ships"
+expect_eq "so nothing is reinstalled or downgraded (0.5.2 downgraded WordCraft that way)" "$(calls yay | wc -l)" "0"
+installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.15.1-1" "gridcraft-bin 0.16.1-1"
+expect_eq "an AUR build older than the repo's: the system update brings the repo's" "$(app wordcraft '[.source,.aurVersion,.updateReady]')" '["repo","0.16.0-1",true]'
+
+# Not installed, a repo ships it.
+installed_now "photocraft-bin 0.21.0-1"
+expect_eq "not installed: offered at the repo's version, from the repo" "$(app gridcraft '[.installed,.kind,.repo,.aurVersion]')" '[false,"repo","omarchy","0.16.1-1"]'
+reset_log omarchy-pkg-add; reset_log omarchy-pkg-aur-add
+( job install gridcraft ) >/dev/null 2>&1
+expect_eq "installed with Omarchy's repo command" "$(calls omarchy-pkg-add)|$(calls omarchy-pkg-aur-add | wc -l)" "gridcraft-bin|0"
+installed_now "photocraft-bin 0.21.0-1" "gridcraft-bin 0.16.1-1"
+expect_eq "and no badge right after the install" "$(app gridcraft '[.source,.updateReady]')" '["repo",false]'
+
+# A repo stops shipping an app, or starts: the app follows at the next sync, without waiting for a check.
+sync_db "omarchy gridcraft-bin 0.16.1-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
+installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.15.2-1" "gridcraft-bin 0.16.1-1"
+expect_eq "a repo that stops shipping an app hands it back to the AUR, with the AUR's version" \
+  "$(app wordcraft '[.kind,.repo,.source,.aurVersion,.updateReady]')" '["aur","","bin","0.16.0-1",true]'
+reset_log yay
+( job update wordcraft ) >/dev/null 2>&1
+expect_eq "which updates it package-exact through the AUR helper" "$(calls yay)" "-S --noconfirm wordcraft-bin"
+sync_db "omarchy gridcraft-bin 0.16.1-1" "omarchy deckcraft-bin 0.15.0-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
+expect_eq "a repo that starts shipping an app takes it over" "$(app deckcraft '[.kind,.repo,.aurVersion]')" '["repo","omarchy","0.15.0-1"]'
+
+# A source build stays one when a repo ships the -bin package.
+sync_db "omarchy filmcraft-bin 1.0.0-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
+installed_now "filmcraft 0.9.0-1"
+expect_eq "a source build stays a source build, never update-ready, whatever ships the -bin" \
+  "$(install_source filmcraft)|$(app filmcraft '[.source,.updateReady]')" 'source|["source",false]'
+( remove_apps filmcraft ) >/dev/null 2>&1 && fail "and is not removed as a package" || ok "and is not removed as a package"
+
+# A failed read of the repos is not cached: the next run asks again.
+cp "$SYNC_CACHE" "$TMP/sync.before"
+printf x >>"$TMP/sync/omarchy.db"
+mv "$TMP/bin/pacman" "$TMP/pacman.fake"
+cat >"$TMP/bin/pacman" <<STUB
+#!/bin/bash
+[[ \$1 == -Si ]] && { printf '%s\n' "\$*" >>"$TMP/log/pacman"; echo "error: could not read db 'omarchy' (Unrecognized archive format)" >&2; exit 1; }
+exec "$TMP/pacman.fake" "\$@"
+STUB
+chmod +x "$TMP/bin/pacman"
+( resync_memo; load_sync )
+cmp -s "$SYNC_CACHE" "$TMP/sync.before" && ok "a database pacman cannot read is not cached" || fail "a database pacman cannot read is not cached"
+mv "$TMP/pacman.fake" "$TMP/bin/pacman"
+reset_log pacman
+( resync_memo; load_sync )
+expect_eq "the next run asks again" "$(calls pacman | cut -d' ' -f1 | tr '\n' ' ')" "-Si "
+mkdir -p "$TMP/no-sync"; cp "$SYNC_CACHE" "$TMP/sync.before"
+reset_log pacman
+( PACMAN_SYNC_DIR="$TMP/no-sync"; resync_memo; load_sync; resync_memo; load_sync )
+expect_eq "with no sync database where expected, every run asks and the answer still counts" "$(calls pacman | cut -d' ' -f1 | tr '\n' ' ')|$(PACMAN_SYNC_DIR="$TMP/no-sync"; resync_memo; kind_for filmcraft)" "-Si -Si |repo"
+cmp -s "$SYNC_CACHE" "$TMP/sync.before" && ok "and nothing is kept" || fail "and nothing is kept"
+
+# --- checks: the AUR's version for every tool; a failure only when the AUR does not answer ---------
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/curl"
+[[ "\$*" == *aur.archlinux.org* ]] || exit 22
+printf '{"version":5,"type":"multiinfo","results":['
+sep=""
+for a in "\$@"; do
+  [[ \$a == 'arg[]='* ]] || continue
+  printf '%s{"Name":"%s","Version":"2.0.0-1"}' "\$sep" "\${a#'arg[]='}"; sep=,
+done
+printf ']}\n'
+STUB
+chmod +x "$TMP/bin/curl"
+for id in photocraft vectorcraft filmcraft lightcraft pdfcraft effectcraft designcraft wordcraft deckcraft gridcraft \
+  cadcraft soundcraft figcraft memospot; do echo "$id-bin 1.0.0-1"; done >"$TMP/installed"
+printf 'typesetter 0.16-1\nplanify 4.20.0-2\n' >>"$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=()
+sync_db "omarchy wordcraft-bin 1.0.0-1" "omarchy gridcraft-bin 1.0.0-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
+rm -f "$REFRESH_FAILED"
+refresh -f >/dev/null 2>&1
+expect_eq "with every tool installed a check still asks the AUR, and succeeds (0.5.3 said OFFLINE)" "$?" "0"
+expect_eq "so the panel is online" "$(state | jq -c .offline)" "false"
+expect_eq "the version column holds the AUR's version of every tool not pinned to a repo" \
+  "$(awk -F'\t' '$1 == "photocraft" || $1 == "gridcraft" || $1 == "typesetter" { print $1 "=" $5 }' "$CATALOG" | tr '\n' ' ')" \
+  "photocraft=2.0.0-1 gridcraft=2.0.0-1 typesetter= "
+expect_eq "an installed AUR app gets its badge from it, Omarchy's build does not" \
+  "$(state | jq -c '[.apps[] | select(.id == "photocraft" or .id == "gridcraft") | [.id,.aurVersion,.updateReady]]')" \
+  '[["photocraft","2.0.0-1",true],["gridcraft","1.0.0-1",false]]'
+sync_db "omarchy wordcraft-bin 1.0.0-1" "omarchy gridcraft-bin 1.0.0-1" "extra typesetter 0.17-1" "extra planify 4.20.0-2"
+out=$(check 2>/dev/null)
+expect_true "check names an AUR update with the AUR's version" "grep -qx 'PhotoCraft 1.0.0-1 → 2.0.0-1' <<<'$out'"
+expect_true "and a repo update with the repo's" "grep -qx 'Typesetter 0.16-1 → 0.17-1' <<<'$out'"
+expect_true "never an AUR version for an app a repo ships" "! grep -q GridCraft <<<'$out'"
+for cmd in state list check; do
+  reset_log pacman
+  ( INSTALLED_LOADED=0; INSTALLED=(); resync_memo; "$cmd" >/dev/null 2>&1 )
+  expect_eq "$cmd reads the installed packages once and the unchanged repos not at all" "$(calls pacman | tr '\n' ' ')" "-Q "
+done
+
+# --- upgrade from an older version -----------------------------------------------------------------
+rm -f "$CATALOG_FORMAT_FILE"; touch "$CATALOG"; now_iso >"$REFRESH_FAILED"
+ensure_cache
+catalog_fresh && fail "a cache an older version wrote is refreshed at once" || ok "a cache an older version wrote is refreshed at once"
+expect_true "the old failure's retry wait goes with it" "[[ ! -f '$REFRESH_FAILED' ]]"
+expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "2"
+touch "$CATALOG"; ensure_cache
+expect_true "once: the next read leaves a fresh cache fresh" "catalog_fresh"
+
+cp "$TMP/installed.baseline" "$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=()
+cp "$TMP/sync-db.baseline" "$TMP/sync-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo
+cp "$TMP/catalog.baseline" "$CATALOG"
+stub curl 7
 
 # --- hygiene -----------------------------------------------------------------------------------
 

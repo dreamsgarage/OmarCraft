@@ -183,9 +183,16 @@ function subtext(app, craft) {
     if (app.updateReady) return "Update ready " + app.installedVersion + " → " + app.aurVersion
     return app.installedVersion
   }
-  var where = app.kind === "repo" ? " · from the Arch repos" : " · prebuilt, no compiling"
+  var where = app.kind === "repo" ? " · from " + repoName(app.repo) : " · prebuilt, no compiling"
   if (app.new) return "New · install " + app.aurVersion + where
   return "Install " + app.aurVersion + where
+}
+
+// The repo a repo tool installs from, as a person names it.
+function repoName(repo) {
+  if (repo === "omarchy") return "Omarchy's repo"
+  if (!repo || repo === "core" || repo === "extra" || repo === "multilib") return "the Arch repos"
+  return "the " + repo + " repo"
 }
 
 // Tiles have no caption; the same words go in the tooltip, plus how to remove an installed package.

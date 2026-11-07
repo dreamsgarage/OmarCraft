@@ -5,11 +5,11 @@
 #
 #   omarcraft state                 JSON for the panel: catalog, installed state, job, counts (local only)
 #   omarcraft launch <id>           Launch (or focus) an installed app
-#   omarcraft install <id>...       Install apps (prebuilt packages: AUR -bin or the Arch repos) in a floating terminal
+#   omarcraft install <id>...       Install apps (prebuilt packages: a package repo or an AUR -bin) in a floating terminal
 #   omarcraft install-group <g>     Install every missing app in a group: all, creative, office or notes
 #   omarcraft remove <id>...        Remove apps (their packages) in a floating terminal; files stay
 #   omarcraft update [id...]        Update the given apps (default: all AUR apps with a newer build) in a floating
-#                                   terminal; an app from the Arch repos opens Omarchy's system update instead
+#                                   terminal; an app from a package repo opens Omarchy's system update instead
 #   omarcraft job <verb> [id...]    The terminal side of install/update/system-update/remove; writes job.json
 #   omarcraft check [--notify]      List installed apps with a newer build; exit 0 if any
 #   omarcraft refresh [-f]          Fetch the catalog and versions (cached 24h, -f forces)
@@ -19,9 +19,10 @@
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
 #   omarcraft remove-menu           Remove that section again
 #
-# Only prebuilt packages are ever installed, so nothing is compiled: AUR -bin packages through Omarchy's
-# omarchy-pkg-aur-add, Arch repo packages through omarchy-pkg-add. Per-app AUR updates call the AUR helper
-# Omarchy ships (yay); repo packages update with the system (omarchy-update). This script never elevates.
+# Only prebuilt packages are ever installed, so nothing is compiled: packages a configured repo ships
+# (Omarchy's own repo or the Arch repos) through omarchy-pkg-add, AUR -bin packages through Omarchy's
+# omarchy-pkg-aur-add. Per-app AUR updates call the AUR helper Omarchy ships (yay); repo packages update
+# with the system (omarchy-update). This script never elevates.
 
 set -euo pipefail
 
@@ -29,6 +30,14 @@ SELF="$(realpath "${BASH_SOURCE[0]}")"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy/omarcraft"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omarcraft"
 CATALOG="$CACHE_DIR/catalog.tsv"
+# The catalog's version column holds the AUR's version of every tool (format 2, 0.5.4). Before, a repo
+# tool's column held the repo's version; a cache without this marker is refreshed once, at once.
+CATALOG_FORMAT=2
+CATALOG_FORMAT_FILE="$CACHE_DIR/catalog.format"
+SYNC_CACHE="$CACHE_DIR/sync.tsv"
+# Read, never written: what decides whether the sync databases changed since SYNC_CACHE was made.
+PACMAN_CONF=/etc/pacman.conf
+PACMAN_SYNC_DIR=/var/lib/pacman/sync
 REFRESH_FAILED="$CACHE_DIR/refresh-failed"
 REFRESH_LOCK="$STATE_DIR/refresh.lock"
 JOB_FILE="$STATE_DIR/job.json"
@@ -53,12 +62,15 @@ declare -A GROUP_OF=(
   [memospot]=notes [planify]=notes
 )
 
-# Where a tool comes from. Not listed: "aur", one package <id>-bin, desktop id ai.storyteller.<id>.
-# "repo" tools come from a package repo (the Arch repos or Omarchy's) and update with the system. A tool
-# may list several packages:
-# the first is the app, the others install and remove with it.
+# Where a tool comes from. A tool whose package a configured repo ships (Omarchy's own repo or the Arch
+# repos) is a "repo" tool: the package manager and the AUR helper both take a name from a repo when one
+# ships it, so the tool installs with omarchy-pkg-add and updates with the system, whatever installed it
+# first. Any other tool is "aur": one package <id>-bin, desktop id ai.storyteller.<id>. KIND_OF pins the
+# tools that only ever come from a repo. A tool may list several packages: the first is the app, the
+# others install and remove with it.
 declare -A KIND_OF=([typesetter]=repo [planify]=repo)
-KIND=""   # set by kind_var, the no-subshell form of kind_for
+KIND=""      # set by kind_var, the no-subshell form of kind_for
+VERSION=""   # set by version_var
 declare -A PKGS_OF=([typesetter]=typesetter [planify]=planify)
 declare -A DESKTOP_OF=(
   [memospot]=memospot [typesetter]=net.trowell.typesetter [planify]=io.github.alainm23.planify
@@ -146,37 +158,88 @@ known_id() {
   catalog_rows | cut -d $'\037' -f1 | grep -qx "$1" || die "unknown app: $1 (see omarcraft list)"
 }
 
-# The package kind, in the global KIND (no subshell): fixed in KIND_OF for the tools whose package is
-# known to come from a repo, otherwise read from the package database. An installed package that is not
-# foreign (pacman -Qm) comes from a sync database — the Arch repos or another configured repo such as
-# Omarchy's — and updates with the system. An AUR package is foreign. Not installed: AUR, what an
-# install would use.
-declare -A FOREIGN=()
-FOREIGN_LOADED=0
+# --- package repos ----------------------------------------------------------------------------
+# What the configured repos ship of the catalog's packages, read from the local sync databases (no
+# network): package -> repository and version, from the first repo that ships it, the one the package
+# manager picks. Kept in SYNC_CACHE under a stamp of pacman.conf, the sync databases and the package list,
+# and asked again only when the stamp changes, so most runs never start pacman for it. Loaded once per run.
+declare -A SYNC_REPO=() SYNC_VERSION=()
+SYNC_LOADED=0
 
-load_foreign() {
-  (( FOREIGN_LOADED )) && return 0
-  local name
-  while read -r name; do
-    FOREIGN[$name]=1
-  done < <(pacman -Qm 2>/dev/null)
-  FOREIGN_LOADED=1
+# package<TAB>repository<TAB>version for each named package a repo ships. LC_ALL=C because pacman
+# translates its field names. Fails when pacman reports anything but a package no repo ships.
+sync_table() {
+  local out err
+  out=$(mktemp)
+  err=$(LC_ALL=C pacman -Si -- "$@" 2>&1 >"$out") || true
+  awk -F' *: ' '$1 == "Repository" { r = $2 } $1 == "Name" { n = $2 }
+    $1 == "Version" && !(n in seen) { seen[n]; print n "\t" r "\t" $2 }' "$out"
+  rm -f "$out"
+  [[ -z $(grep -v -e '^$' -e 'was not found' <<<"$err") ]]
 }
 
+load_sync() {
+  (( SYNC_LOADED )) && return 0
+  SYNC_LOADED=1
+  local id pkg repo version pkgs=() dbs=() stamp="" head="" table="" tmp
+  ensure_cache
+  while IFS=$'\t' read -r id _; do
+    [[ $id =~ ^[a-z0-9-]+$ ]] || continue
+    pkg=${PKGS_OF[$id]:-$id-bin}
+    pkgs+=("${pkg%% *}")
+  done <"$CATALOG"
+  (( ${#pkgs[@]} > 0 )) || return 0
+  # No sync database where expected (a pacman.conf with its own DBPath): nothing tells when a sync
+  # happened, so nothing is kept and every run asks.
+  dbs=("$PACMAN_SYNC_DIR"/*.db)
+  if [[ -e ${dbs[0]} ]]; then
+    stamp=$(stat -c '%n %s %Y %i' -- "$PACMAN_CONF" "${dbs[@]}" 2>/dev/null || true)
+    stamp="# ${stamp//$'\n'/ | } | ${pkgs[*]}"
+  fi
+  [[ -n $stamp && -f $SYNC_CACHE ]] && { IFS= read -r head <"$SYNC_CACHE" || true; }
+  if [[ -n $stamp && $head == "$stamp" ]]; then
+    table=$(<"$SYNC_CACHE")
+  elif table=$(sync_table "${pkgs[@]}") && [[ -n $stamp ]]; then
+    # Only a clean answer is kept; after any other error the next run asks again.
+    tmp=$(mktemp "$SYNC_CACHE.XXXXXX")
+    printf '%s\n%s\n' "$stamp" "$table" >"$tmp" && mv -f "$tmp" "$SYNC_CACHE"
+  fi
+  while IFS=$'\t' read -r pkg repo version; do
+    [[ -n $pkg && $pkg != '#'* && -n $repo ]] || continue
+    SYNC_REPO[$pkg]=$repo
+    SYNC_VERSION[$pkg]=$version
+  done <<<"$table"
+}
+
+# The tool's kind, in the global KIND (no subshell): "repo" when it is pinned or a repo ships its
+# package, installed or not; "aur" otherwise.
 kind_var() {
-  local pkg
+  local pkg=${PKGS_OF[$1]:-$1-bin}
   KIND=${KIND_OF[$1]:-}
   [[ -n $KIND ]] && return 0
-  KIND=aur
-  pkg=$(installed_pkg "$1" 2>/dev/null) || return 0
-  load_foreign
-  [[ -z ${FOREIGN[$pkg]:-} ]] && KIND=repo
+  load_sync
+  if [[ -n ${SYNC_REPO[${pkg%% *}]:-} ]]; then KIND=repo; else KIND=aur; fi
   return 0
 }
 
 kind_for() {
   kind_var "$1"
   printf '%s' "$KIND"
+}
+
+# The version an install or update of the tool brings, in the global VERSION (no subshell): the repo's
+# build for a repo tool, the AUR's for an AUR tool ($2, the catalog's column). Sets KIND too. A repo tool
+# is never measured against the AUR: its package comes from the repo whatever the AUR has.
+version_var() {
+  local pkg=${PKGS_OF[$1]:-$1-bin}
+  kind_var "$1"
+  if [[ $KIND == repo ]]; then
+    load_sync
+    VERSION=${SYNC_VERSION[${pkg%% *}]:-}
+  else
+    VERSION=${2:-}
+  fi
+  return 0
 }
 
 # Every package of a tool, space-separated; the app's own first.
@@ -228,11 +291,15 @@ installed_version() {
   printf '%s' "${INSTALLED[$pkg]}"
 }
 
-# "bin", "repo", "source" or "" for an app.
+# "bin", "repo", "source" or "" for an app. A source build (package <id>) stays "source" even when a repo
+# ships the -bin package: only the way it was built can update or remove it.
 install_source() {
   local pkg
   pkg=$(installed_pkg "$1" 2>/dev/null) || return 0
-  if [[ $(kind_for "$1") == repo ]]; then
+  kind_var "$1"
+  if [[ $pkg != "$(pkg_for "$1")" ]]; then
+    printf source
+  elif [[ $KIND == repo ]]; then
     printf repo
   elif [[ $pkg == *-bin ]]; then
     printf bin
@@ -241,13 +308,15 @@ install_source() {
   fi
 }
 
-# A newer build exists. For a repo app it means the system has not been updated since the last sync.
+# A build newer than the installed one exists: the AUR's for an AUR app ($2, the catalog's column), the
+# repo's for a repo app, which then means the system has not been updated since its last sync.
 update_ready() {
-  local id="$1" version="$2" current src
+  local id="$1" current src
   src=$(install_source "$id")
-  [[ -n $version && ( $src == bin || $src == repo ) ]] || return 1
+  version_var "$id" "${2:-}"
+  [[ -n $VERSION && ( $src == bin || $src == repo ) ]] || return 1
   current=$(installed_version "$id")
-  [[ -n $current ]] && (( $(vercmp "$current" "$version") < 0 ))
+  [[ -n $current ]] && (( $(vercmp "$current" "$VERSION") < 0 ))
 }
 
 # --- catalog ----------------------------------------------------------------------------------
@@ -287,8 +356,6 @@ parse_upstream_catalog() {
   '
 }
 
-# The AUR -bin version is what actually installs, so it (not the GitHub tag) defines "latest".
-# Prints id<TAB>version for the AUR tools among the ids.
 # Dependencies the named AUR packages declare that are neither installed nor in the Arch repos: the AUR
 # helper would build those from source, which OmarCraft never does. One per line; nothing when the AUR
 # cannot be asked (the install itself then fails on the network, as before).
@@ -318,35 +385,27 @@ refuse_source_builds() {
   return 3
 }
 
+# The AUR's version of each tool among the ids that is not pinned to a repo, as id<TAB>version. The AUR
+# -bin build is what installs from the AUR, so it (not the GitHub tag) defines "latest" there. Tools a
+# repo ships are asked too: their AUR version is then at hand on the day the repo stops shipping them.
+# Fails when the AUR does not answer; an answer that lacks a package means it has no AUR build.
 aur_versions() {
-  local args=() id name version
+  local args=() id pkg json name version
   local -A id_of=()
   for id in "$@"; do
-    [[ $(kind_for "$id") == aur ]] || continue
-    id_of[$(pkg_for "$id")]=$id
-    args+=(--data-urlencode "arg[]=$(pkg_for "$id")")
+    [[ $id =~ ^[a-z0-9-]+$ && -z ${KIND_OF[$id]:-} ]] || continue
+    pkg=${PKGS_OF[$id]:-$id-bin}
+    pkg=${pkg%% *}
+    id_of[$pkg]=$id
+    args+=(--data-urlencode "arg[]=$pkg")
   done
   (( ${#args[@]} > 0 )) || return 0
+  json=$(curl -fsSL --max-time 15 -G "$AUR_RPC" "${args[@]}") || return 1
+  # An error comes back as type "error", with an empty results list.
+  jq -e '.type != "error" and (.results | type == "array")' <<<"$json" >/dev/null 2>&1 || return 1
   while IFS=$'\t' read -r name version; do
     [[ -n ${id_of[$name]:-} ]] && printf '%s\t%s\n' "${id_of[$name]}" "$version"
-  done < <(curl -fsSL --max-time 15 -G "$AUR_RPC" "${args[@]}" 2>/dev/null |
-    jq -r '.results[] | "\(.Name)\t\(.Version)"' 2>/dev/null)
-  return 0
-}
-
-# Repo tools: the version in the local sync database, which is what an install would get. No network.
-repo_versions() {
-  local pkgs=() id name version
-  local -A id_of=()
-  for id in "$@"; do
-    [[ $(kind_for "$id") == repo ]] || continue
-    id_of[$(pkg_for "$id")]=$id
-    pkgs+=("$(pkg_for "$id")")
-  done
-  (( ${#pkgs[@]} > 0 )) || return 0
-  while IFS=$'\t' read -r name version; do
-    [[ -n ${id_of[$name]:-} ]] && printf '%s\t%s\n' "${id_of[$name]}" "$version"
-  done < <(pacman -Si -- "${pkgs[@]}" 2>/dev/null | awk -F' *: ' '$1 == "Name" { n = $2 } $1 == "Version" { print n "\t" $2 }')
+  done < <(jq -r '.results[] | "\(.Name)\t\(.Version)"' <<<"$json")
   return 0
 }
 
@@ -359,9 +418,21 @@ catalog_age_seconds() {
   printf '%s' $(( $(date +%s) - $(stat -c %Y "$CATALOG") ))
 }
 
+# The cache, ready to read: reconciled to the tools this version knows, and refreshed once, at once, when
+# an older version wrote it (see CATALOG_FORMAT). The retry backoff of a failed check is dropped with it.
+ensure_cache() {
+  local format=""
+  reconcile_cache
+  [[ -f $CATALOG_FORMAT_FILE ]] && format=$(<"$CATALOG_FORMAT_FILE")
+  [[ $format == "$CATALOG_FORMAT" ]] && return 0
+  touch -d '-2 days' "$CATALOG"
+  rm -f "$REFRESH_FAILED"
+  printf '%s\n' "$CATALOG_FORMAT" >"$CATALOG_FORMAT_FILE"
+}
+
 # First run, no network: the built-in list without versions, so state can answer at once. A cache from
 # an older layout (fewer columns) is rebuilt the same way, keeping the versions it knew.
-ensure_cache() {
+reconcile_cache() {
   mkdir -p "$CACHE_DIR" "$STATE_DIR"
   local id name tagline group color inkl inkd version old="" tmp missing="" extra=""
   if [[ -s $CATALOG ]]; then
@@ -420,14 +491,14 @@ refresh() {
   [[ -n $upstream ]] || upstream="$BUILTIN_CATALOG"
   upstream+=$'\n'"$EXTRA_CATALOG"
 
+  # The version column is the AUR's, for every tool; what the repos ship is read from the sync databases
+  # when it is needed. A check fails only when the AUR does not answer, never because nothing in it is
+  # newer or because every tool comes from a repo.
   # shellcheck disable=SC2046
-  versions=$(aur_versions $(cut -f1 <<<"$upstream") || true)
-  if [[ -z $versions ]]; then
+  if ! versions=$(aur_versions $(cut -f1 <<<"$upstream")); then
     now_iso >"$REFRESH_FAILED"
     return 1
   fi
-  # shellcheck disable=SC2046
-  versions+=$'\n'$(repo_versions $(cut -f1 <<<"$upstream") || true)
 
   local tmp
   tmp=$(mktemp)
@@ -515,13 +586,15 @@ mark_all_seen() {
   fi
 }
 
-# Ids of a group that have an AUR build: all, creative or office.
+# Ids of a group that have a package to install, from a repo or the AUR: all, creative, office or notes.
 group_ids() {
   local group="$1" id name tagline ugroup version
   [[ $group =~ $GROUPS_RE ]] || die "unknown group: $group (all, creative, office or notes)"
+  load_sync
   while IFS=$'\037' read -r id name tagline ugroup version _; do
-    [[ -n $version ]] || continue
-    [[ $group == all || $(group_for "$id") == "$group" ]] && echo "$id"
+    version_var "$id" "$version"
+    [[ -n $VERSION ]] || continue
+    [[ $group == all || ${GROUP_OF[$id]:-creative} == "$group" ]] && echo "$id"
   done < <(catalog_rows)
   return 0
 }
@@ -529,6 +602,7 @@ group_ids() {
 missing_ids() {
   local id
   load_installed
+  load_sync
   while read -r id; do
     is_installed "$id" || echo "$id"
   done < <(group_ids "${1:-all}")
@@ -539,6 +613,7 @@ missing_ids() {
 outdated_ids() {
   local want="${1:-bin}" id name tagline group version
   load_installed
+  load_sync
   while IFS=$'\037' read -r id name tagline group version _; do
     update_ready "$id" "$version" && [[ $(install_source "$id") == "$want" ]] && echo "$id"
   done < <(catalog_rows)
@@ -584,13 +659,15 @@ reconcile_job() {
 job() {
   local verb="${1:-}" id pkgs=() repo_pkgs=() aur_pkgs=() own=()
   shift || true
+  load_sync
   case "$verb" in
     install)
       (( $# > 0 )) || die "usage: omarcraft job install <id>..."
       for id in "$@"; do
         known_id "$id"
         read -ra own <<<"$(pkgs_for "$id")"
-        if [[ $(kind_for "$id") == repo ]]; then repo_pkgs+=("${own[@]}"); else aur_pkgs+=("${own[@]}"); fi
+        kind_var "$id"
+        if [[ $KIND == repo ]]; then repo_pkgs+=("${own[@]}"); else aur_pkgs+=("${own[@]}"); fi
       done
       ;;
     update)
@@ -601,7 +678,7 @@ job() {
       (( $# > 0 )) || die "nothing to update"
       for id in "$@"; do
         known_id "$id"
-        [[ $(kind_for "$id") == aur ]] || die "$id is installed from a package repo and updates with the system: omarcraft update $id"
+        [[ $(kind_for "$id") == aur ]] || die "$id comes from a package repo and updates with the system: omarcraft update $id"
         read -ra own <<<"$(pkgs_for "$id")"
         pkgs+=("${own[@]}")
       done
@@ -731,11 +808,12 @@ install_apps() {
   run_job install "$( (( $# == 1 )) && echo "$1")" "${ids[@]}"
 }
 
-# Remove apps installed as packages (-bin or Arch repo). An app installed some other way (a source
-# build) is left alone with a message: only the path that installed it knows how to undo it.
+# Remove apps installed as packages (an AUR -bin or a repo package). An app installed some other way (a
+# source build) is left alone with a message: only the path that installed it knows how to undo it.
 remove_apps() {
   local ids=() id src
   load_installed
+  load_sync
   for id in "$@"; do
     known_id "$id"
     is_installed "$id" || die "$id is not installed"
@@ -760,10 +838,12 @@ install_group() {
 # Omarchy's system update instead (only when no AUR app is asked for in the same call).
 update() {
   local ids=() system=() id
+  load_sync
   if (( $# > 0 )); then
     for id in "$@"; do
       known_id "$id"
-      if [[ $(kind_for "$id") == repo ]]; then system+=("$id"); else ids+=("$id"); fi
+      kind_var "$id"
+      if [[ $KIND == repo ]]; then system+=("$id"); else ids+=("$id"); fi
     done
   else
     mapfile -t ids < <(outdated_ids)
@@ -781,6 +861,8 @@ update() {
 check() {
   local notify_flag="${1:-}" ids names=() id
   refresh >/dev/null 2>&1 || true
+  load_installed
+  load_sync
   ids=$(outdated_ids; outdated_ids repo)
   if [[ -z $ids ]]; then
     rm -f "$NOTIFIED"
@@ -788,7 +870,8 @@ check() {
   fi
 
   while read -r id; do
-    names+=("$(app_name "$id") $(installed_version "$id") → $(aur_version "$id")")
+    version_var "$id" "$(aur_version "$id")"
+    names+=("$(app_name "$id") $(installed_version "$id") → $VERSION")
   done <<<"$ids"
   printf '%s\n' "${names[@]}"
 
@@ -806,12 +889,13 @@ check() {
 # Local only: cache files and the package database. A stale cache starts a detached refresh.
 
 state() {
-  local id name tagline ugroup version color inkl inkd src current ready new group glyph pkg kind
+  local id name tagline ugroup version color inkl inkd src current ready new group glyph pkg kind repo
   local rows="" job="null" last="null" office_json="[]" seen_known=0 office_ids=()
   local -A seen=()
   legacy_vikunja_cleanup
   load_installed
   ensure_cache
+  load_sync
   reconcile_job
   if { ! catalog_fresh || [[ -f $REFRESH_FAILED ]]; } && ! refreshing && refresh_due; then
     refresh_detached
@@ -826,8 +910,12 @@ state() {
   while IFS=$'\037' read -r id name tagline ugroup version color inkl inkd; do
     pkg=${PKGS_OF[$id]:-$id-bin}
     pkg=${pkg%% *}
-    kind_var "$id"
+    # A repo tool shows and compares the repo's build, never the AUR's: the repo's is what installs.
+    version_var "$id" "$version"
     kind=$KIND
+    version=$VERSION
+    repo=""
+    [[ $kind == repo ]] && repo=${SYNC_REPO[$pkg]:-}
     if [[ -n ${INSTALLED[$pkg]:-} ]]; then
       current=${INSTALLED[$pkg]}
       if [[ $kind == repo ]]; then src=repo; elif [[ $pkg == *-bin ]]; then src=bin; else src=source; fi
@@ -842,7 +930,7 @@ state() {
     glyph=${APP_ICON[$id]:-$ICON_ARTCRAFT}
     rows+="$id"$'\t'"$name"$'\t'"$tagline"$'\t'"$group"$'\t'"$ugroup"$'\t'"$glyph"$'\t'
     rows+="$version"$'\t'"$current"$'\t'"$src"$'\t'"$ready"$'\t'"$new"$'\t'"${DESKTOP_OF[$id]:-ai.storyteller.$id}"$'\t'
-    rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\t'"$kind"$'\n'
+    rows+="$color"$'\t'"$inkl"$'\t'"$inkd"$'\t'"$kind"$'\t'"$repo"$'\n'
   done < <(catalog_rows)
   (( ${#office_ids[@]} )) && office_json=$(printf '%s\n' "${office_ids[@]}" | jq -Rn '[inputs]')
 
@@ -861,7 +949,7 @@ state() {
       aurVersion: .[6], installedVersion: .[7],
       installed: (.[8] != ""), source: (if .[8] == "" then null else .[8] end),
       updateReady: (.[9] == "1"), new: (.[10] == "1"), desktopId: .[11],
-      color: .[12], inkLight: .[13], inkDark: .[14], kind: .[15]
+      color: .[12], inkLight: .[13], inkDark: .[14], kind: .[15], repo: .[16]
     }] as $apps
     | {
         generatedAt: $generated, catalogAgeSeconds: $age, offline: $offline, refreshing: $refreshing,
@@ -878,16 +966,24 @@ state() {
 }
 
 list() {
-  local id name tagline group version status
+  local id name tagline group version status src where pkg
   load_installed
+  load_sync
   while IFS=$'\037' read -r id name tagline group version _; do
+    version_var "$id" "$version"
+    version=$VERSION
+    pkg=${PKGS_OF[$id]:-$id-bin}
+    where="AUR"
+    [[ $KIND == repo ]] && where="${SYNC_REPO[${pkg%% *}]:-a} repo"
     if is_installed "$id"; then
-      status="installed $(installed_version "$id") ($(install_source "$id"))"
+      src=$(install_source "$id")
+      [[ $src == repo ]] && src=$where
+      status="installed $(installed_version "$id") ($src)"
       update_ready "$id" "$version" && status="$status, update ready $version"
     elif [[ -z $version ]]; then
       status="not packaged yet"
     else
-      status="available"
+      status="available ($where)"
     fi
     is_new "$id" && status="$status, new"
     printf '%-12s %-12s %-9s %-10s %s\n' "$id" "$name" "$(group_for "$id")" "${version:--}" "$status"
