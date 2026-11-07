@@ -39,8 +39,9 @@ one app. A tool that adds a capability ArtCraft lacks may exceed item 4; its row
 | [Memospot](https://memospot.github.io) | Notes | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
 | [Planify](https://useplanify.com) | Notes | `planify` (Arch repos) | Tasks and projects, each one a list or a kanban board, kept on your computer (Todoist, Nextcloud or CalDAV sync optional) | 153 MiB, 1 process |
 
-Tools from the Arch repos update with the system: their badge reads `↑ system` and opens Omarchy's
-update, because updating one repo package on its own is a partial upgrade.
+Tools whose installed package comes from a package repo — the Arch repos or Omarchy's own — update with
+the system: their badge reads `↑ system` and opens Omarchy's update, because updating one repo package on
+its own is a partial upgrade.
 
 ### Working with others
 
@@ -219,18 +220,21 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
 
 ## Safety
 
-- Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to its
-  AUR `<id>-bin` or, for a tool from the Arch repos, a fixed package name (`typesetter`).
+- Only catalog apps reach a package command, by an id checked against a strict pattern; each maps to a
+  package: `<id>-bin` by default, or a fixed name for a tool whose package differs (`typesetter`). An
+  installed package that is not foreign (not in `pacman -Qm`) comes from a package repo — the Arch repos
+  or Omarchy's own — so it is treated as a repo package: it installs through `omarchy-pkg-add` and updates
+  with the system. A foreign package is an AUR one.
   The plugin does not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add` (AUR) or `omarchy-pkg-add`
-  (Arch repos); updates call the AUR helper Omarchy ships for exactly the named AUR packages, and tools
-  from the Arch repos update with the system through Omarchy's update; removals go through Omarchy's
+  (repo packages); updates call the AUR helper Omarchy ships for exactly the named AUR packages, and repo
+  packages update with the system through Omarchy's update; removals go through Omarchy's
   `omarchy-pkg-drop`, which takes the package and the dependencies nothing else needs, never your
   documents or settings. Each runs in a visible Omarchy terminal that asks for your password itself; a
   job cut short (terminal closed, `Ctrl+C`) is reported as interrupted. Before an AUR install or update,
   OmarCraft checks the package's declared dependencies: if one is neither installed nor in the Arch repos,
   the AUR helper would compile it, so the job stops before anything is installed and says which one.
 - Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
-  from the AUR RPC, every 24 hours, with bounded timeouts; versions of Arch repo tools come from the local
+  from the AUR RPC, every 24 hours, with bounded timeouts; versions of repo packages come from the local
   sync database. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel
   itself never waits on the network.
 - Files: `~/.cache/omarchy/omarcraft/` (catalog) and `~/.local/state/omarchy/omarcraft/` (job records,

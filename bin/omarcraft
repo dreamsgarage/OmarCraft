@@ -54,9 +54,11 @@ declare -A GROUP_OF=(
 )
 
 # Where a tool comes from. Not listed: "aur", one package <id>-bin, desktop id ai.storyteller.<id>.
-# "repo" tools come from the Arch repos and update with the system. A tool may list several packages:
+# "repo" tools come from a package repo (the Arch repos or Omarchy's) and update with the system. A tool
+# may list several packages:
 # the first is the app, the others install and remove with it.
 declare -A KIND_OF=([typesetter]=repo [planify]=repo)
+KIND=""   # set by kind_var, the no-subshell form of kind_for
 declare -A PKGS_OF=([typesetter]=typesetter [planify]=planify)
 declare -A DESKTOP_OF=(
   [memospot]=memospot [typesetter]=net.trowell.typesetter [planify]=io.github.alainm23.planify
@@ -144,8 +146,37 @@ known_id() {
   catalog_rows | cut -d $'\037' -f1 | grep -qx "$1" || die "unknown app: $1 (see omarcraft list)"
 }
 
+# The package kind, in the global KIND (no subshell): fixed in KIND_OF for the tools whose package is
+# known to come from a repo, otherwise read from the package database. An installed package that is not
+# foreign (pacman -Qm) comes from a sync database — the Arch repos or another configured repo such as
+# Omarchy's — and updates with the system. An AUR package is foreign. Not installed: AUR, what an
+# install would use.
+declare -A FOREIGN=()
+FOREIGN_LOADED=0
+
+load_foreign() {
+  (( FOREIGN_LOADED )) && return 0
+  local name
+  while read -r name; do
+    FOREIGN[$name]=1
+  done < <(pacman -Qm 2>/dev/null)
+  FOREIGN_LOADED=1
+}
+
+kind_var() {
+  local pkg
+  KIND=${KIND_OF[$1]:-}
+  [[ -n $KIND ]] && return 0
+  KIND=aur
+  pkg=$(installed_pkg "$1" 2>/dev/null) || return 0
+  load_foreign
+  [[ -z ${FOREIGN[$pkg]:-} ]] && KIND=repo
+  return 0
+}
+
 kind_for() {
-  printf '%s' "${KIND_OF[$1]:-aur}"
+  kind_var "$1"
+  printf '%s' "$KIND"
 }
 
 # Every package of a tool, space-separated; the app's own first.
@@ -503,8 +534,8 @@ missing_ids() {
   done < <(group_ids "${1:-all}")
 }
 
-# Installed apps with a newer build: AUR apps (what Update all updates), or with "repo" the Arch repo
-# apps, which update with the system.
+# Installed apps with a newer build: AUR apps (what Update all updates), or with "repo" the repo
+# packages, which update with the system.
 outdated_ids() {
   local want="${1:-bin}" id name tagline group version
   load_installed
@@ -570,7 +601,7 @@ job() {
       (( $# > 0 )) || die "nothing to update"
       for id in "$@"; do
         known_id "$id"
-        [[ $(kind_for "$id") == aur ]] || die "$id comes from the Arch repos and updates with the system: omarcraft update $id"
+        [[ $(kind_for "$id") == aur ]] || die "$id is installed from a package repo and updates with the system: omarcraft update $id"
         read -ra own <<<"$(pkgs_for "$id")"
         pkgs+=("${own[@]}")
       done
@@ -604,7 +635,7 @@ job() {
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
     # directly here. It is the helper Omarchy ships and uses itself.
     update) refuse_source_builds "${pkgs[@]}" || return; yay -S --noconfirm "${pkgs[@]}" ;;
-    # Arch repo packages are never updated one by one (a partial upgrade); Omarchy updates them all.
+    # Repo packages are never updated one by one (a partial upgrade); Omarchy updates them all.
     system-update) omarchy-update ;;
     # Removal is Omarchy's own command: the package and the dependencies nothing else needs. The
     # app's documents and settings are not touched.
@@ -795,7 +826,8 @@ state() {
   while IFS=$'\037' read -r id name tagline ugroup version color inkl inkd; do
     pkg=${PKGS_OF[$id]:-$id-bin}
     pkg=${pkg%% *}
-    kind=${KIND_OF[$id]:-aur}
+    kind_var "$id"
+    kind=$KIND
     if [[ -n ${INSTALLED[$pkg]:-} ]]; then
       current=${INSTALLED[$pkg]}
       if [[ $kind == repo ]]; then src=repo; elif [[ $pkg == *-bin ]]; then src=bin; else src=source; fi

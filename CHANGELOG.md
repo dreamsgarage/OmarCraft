@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3 — 2026-11-07
+
+- **Fixed: Craft apps installed from Omarchy's repo could not update.** `gridcraft-bin`, `wordcraft-bin`
+  and the other Craft `-bin` packages, when installed from the `[omarchy]` repo, were assumed to be AUR
+  packages: Update ran `yay -S` against the stale local sync database, silently reinstalled the same build
+  and recorded success. The package kind now comes from the package database: an installed package that is
+  not foreign (`pacman -Qm`) is a repo package, so its tile reads `↑ system` and opens Omarchy's update;
+  foreign packages keep updating through the AUR helper. Tests cover both cases.
+
 ## 0.5.2 — 2026-10-24
 
 Tasks and kanban boards join *Notes*, without a server; sixteen tools. The evaluation is in

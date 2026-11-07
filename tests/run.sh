@@ -43,15 +43,21 @@ stub omarchy-pkg-drop 0
 stub yay 0
 stub omarchy-launch-floating-terminal-with-presentation 0
 stub setsid 0                                 # detached refreshes are recorded, never run
-# pacman: -Si answers from a fake sync database, anything else lists the installed packages. Typesetter
-# is a repo tool behind the sync database.
+# pacman: -Si answers from a fake sync database, -Qm lists the foreign (AUR) packages, anything else lists
+# the installed packages. Typesetter and wordcraft-bin are repo packages behind the sync database; the
+# Craft -bin packages are AUR ones.
 cat >"$TMP/bin/pacman" <<STUB
 #!/bin/bash
 printf '%s\n' "\$*" >>"$TMP/log/pacman"
-if [[ \$1 == -Si ]]; then
-  printf 'Repository      : extra\nName            : typesetter\nVersion         : 0.16-1\n\n'
-  exit 0
-fi
+case "\$1" in
+  -Si)
+    case "\${@: -1}" in
+      typesetter) printf 'Repository      : extra\nName            : typesetter\nVersion         : 0.16-1\n\n'; exit 0 ;;
+      wordcraft-bin) printf 'Repository      : omarchy\nName            : wordcraft-bin\nVersion         : 1.0.0-1\n\n'; exit 0 ;;
+    esac
+    exit 1 ;;
+  -Qm) printf 'photocraft-bin\nfilmcraft\n'; exit 0 ;;
+esac
 printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nother 1.0-1\n'
 STUB
 chmod +x "$TMP/bin/pacman"
@@ -168,11 +174,15 @@ expect_eq "installed version through a subshell" "$(installed_version photocraft
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
 expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
 expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot planify "
-expect_eq "one package-database read per run" "$(calls pacman | wc -l)" "1"
+reset_log pacman
+( INSTALLED_LOADED=0; FOREIGN_LOADED=0; load_installed; load_installed; load_foreign; load_foreign )
+expect_eq "installed and foreign packages are each read once per run" "$(calls pacman | tr '\n' ' ')" "-Q -Qm "
 
 # --- package kinds ------------------------------------------------------------------------------
 
 expect_eq "kinds: Craft app, repo tool" "$(kind_for photocraft)/$(kind_for typesetter)" "aur/repo"
+expect_eq "a foreign package stays an AUR app" "$(kind_for photocraft)/$(kind_for filmcraft)" "aur/aur"
+expect_eq "an installed package outside the AUR is a repo app" "$(kind_for wordcraft)/$(install_source wordcraft)" "repo/repo"
 expect_eq "packages of a tool" "$(pkgs_for typesetter)|$(pkg_for typesetter)|$(pkg_for memospot)|$(pkg_for photocraft)" \
   "typesetter|typesetter|memospot-bin|photocraft-bin"
 expect_eq "a repo tool is installed from the repo" "$(install_source typesetter)" "repo"
@@ -211,6 +221,8 @@ expect_eq "state: unpackaged app has null source and no version" "$(jq -c '.apps
 expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft","typesetter"]'
 expect_eq "state: no job, no last job" "$(jq -c '[.job,.lastJob,.offline,.refreshing]' <<<"$st")" '[null,null,false,false]'
 expect_eq "state carries the brand colours" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.color,.inkLight,.inkDark]' <<<"$st")" '["#3f5fe0","#2a44b8","#8ea2ff"]'
+expect_eq "state: wordcraft-bin comes from the Omarchy repo and updates with the system" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.group,.kind,.source,.installedVersion,.updateReady]' <<<"$st")" \
+  '["office","repo","repo","1.0.0-1",false]'
 expect_eq "state glyph is the verified codepoint" "$(printf '%s' "$(jq -r '.apps[] | select(.id=="wordcraft") | .glyph' <<<"$st")" | od -An -tx1 | tr -d ' \n')" "f3b08899"
 expect_eq "state made no network call itself" "$(calls curl | wc -l)" "0"
 expect_true "state is fast" "[[ \$( { TIMEFORMAT=%R; time state >/dev/null; } 2>&1 ) < 1.0 ]]"
@@ -250,10 +262,11 @@ refresh_due && ok "refresh_due is true with no failure recorded" || fail "refres
 
 # --- jobs --------------------------------------------------------------------------------------
 
-reset_log omarchy-pkg-aur-add; reset_log omarchy-shell
+reset_log omarchy-pkg-add; reset_log omarchy-pkg-aur-add; reset_log omarchy-shell
 ( job install wordcraft deckcraft ) >/dev/null 2>&1
 expect_eq "job install exits with the package command's status" "$?" "0"
-expect_eq "job install delegates to omarchy-pkg-aur-add with -bin names" "$(calls omarchy-pkg-aur-add)" "wordcraft-bin deckcraft-bin"
+expect_eq "an installed repo package installs through omarchy-pkg-add" "$(calls omarchy-pkg-add)" "wordcraft-bin"
+expect_eq "and an AUR package through omarchy-pkg-aur-add" "$(calls omarchy-pkg-aur-add)" "deckcraft-bin"
 expect_true "job file is gone after the job" "[[ ! -f '$JOB_FILE' ]]"
 expect_eq "last job records verb, ids and exit" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["install",["wordcraft","deckcraft"],0]'
 expect_eq "job pokes the panel when it ends" "$(calls omarchy-shell | grep -c 'omarcraft.productivity refresh')" "1"
@@ -274,8 +287,9 @@ reset_log yay
 expect_eq "job update with no ids takes every outdated app, through the helper" "$(calls yay)" "-S --noconfirm photocraft-bin"
 expect_eq "job update records the outdated ids" "$(jq -c '[.verb,.ids]' "$LAST_JOB_FILE")" '["update",["photocraft"]]'
 reset_log yay
-( job update wordcraft ) >/dev/null 2>&1
-expect_eq "job update <id> is package-exact" "$(calls yay)" "-S --noconfirm wordcraft-bin"
+( job update wordcraft ) >/dev/null 2>&1 && fail "a repo package is never updated by the AUR helper" || ok "a repo package is never updated by the AUR helper"
+( job update photocraft ) >/dev/null 2>&1
+expect_eq "job update <id> is package-exact" "$(calls yay)" "-S --noconfirm photocraft-bin"
 ( job update 'x;rm' ) >/dev/null 2>&1 && fail "job update refuses an unsafe id" || ok "job update refuses an unsafe id"
 expect_eq "the single-app update was the only helper call since the reset" "$(calls yay | wc -l)" "1"
 
@@ -438,6 +452,9 @@ expect_true "a repo tool can be removed" "calls omarchy-launch-floating-terminal
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update typesetter ) >/dev/null 2>&1
 expect_true "updating a repo tool opens the system update" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update typesetter'"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update wordcraft ) >/dev/null 2>&1
+expect_true "an Omarchy repo app opens the system update too" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update wordcraft'"
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update ) >/dev/null 2>&1
 expect_true "Update all leaves repo tools to the system" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update photocraft$'"
