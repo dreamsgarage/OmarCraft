@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.4 — unreleased
+## 0.5.4 — 2026-11-07
 
 Apps that Omarchy's own repo ships, done right, and 0.5.3's regression fixed. The decision is in
 `docs/v0.5.4-plan.md`.
