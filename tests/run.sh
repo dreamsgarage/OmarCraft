@@ -672,12 +672,102 @@ rm -f "$CATALOG_FORMAT_FILE"; touch "$CATALOG"; now_iso >"$REFRESH_FAILED"
 ensure_cache
 catalog_fresh && fail "a cache an older version wrote is refreshed at once" || ok "a cache an older version wrote is refreshed at once"
 expect_true "the old failure's retry wait goes with it" "[[ ! -f '$REFRESH_FAILED' ]]"
-expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "2"
+expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "3"
 touch "$CATALOG"; ensure_cache
 expect_true "once: the next read leaves a fresh cache fresh" "catalog_fresh"
 
 cp "$TMP/installed.baseline" "$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=()
 cp "$TMP/sync-db.baseline" "$TMP/sync-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo
+cp "$TMP/catalog.baseline" "$CATALOG"
+stub curl 7
+
+# --- what comes from the network is bounded (marketplace review of 0.5.4, #14311) -----------------
+# A hostile or broken answer can neither fill memory nor reach the panel: downloads stop at a size, every
+# field kept from them is checked, and state bounds again whatever the cache holds.
+fx="$ROOT/tests/fixtures/catalog.rs"
+long=$(printf '%5000s' '' | tr ' ' x)
+expect_eq "an app whose name is too long is dropped, the others kept" \
+  "$(sed "s/\"PhotoCraft\",/\"$long\",/" "$fx" | parse_upstream_catalog | cut -f1 | tr '\n' ' ')" \
+  "$(parse_upstream_catalog <"$fx" | cut -f1 | grep -v photocraft | tr '\n' ' ')"
+expect_eq "so is one whose tagline holds a control character" \
+  "$(sed 's/"Image editing",/"Image\x01editing",/' "$fx" | parse_upstream_catalog | grep -c '^photocraft')" "0"
+expect_eq "and one whose id is not a plain id" "$(sed 's/"photocraft",/"photo craft;x",/' "$fx" | parse_upstream_catalog | grep -c photo)" "0"
+expect_eq "at most MAX_APPS apps are kept" "$(MAX_APPS=5 parse_upstream_catalog <"$fx" | wc -l)" "5"
+
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/curl"
+case "\$*" in
+  *small*) printf 'hello\n' ;;
+  *exact*) head -c 1000 /dev/zero | tr '\0' a ;;
+  *over*) head -c 1001 /dev/zero | tr '\0' a ;;
+  *endless*) exec yes ;;
+esac
+STUB
+chmod +x "$TMP/bin/curl"; reset_log curl
+expect_eq "a download within its limit comes through whole" "$(fetch_bounded 1000 https://x/small)" "hello"
+fetch_bounded 1000 https://x/exact >/dev/null
+expect_eq "one exactly at its limit too" "$?" "0"
+fetch_bounded 1000 https://x/over >/dev/null
+expect_eq "one byte over is refused" "$?" "1"
+expect_eq "and nothing of it is printed" "$(fetch_bounded 1000 https://x/over | wc -c)" "0"
+fetch_bounded 1000 https://x/endless >/dev/null
+expect_eq "an endless answer is cut off and refused" "$?" "1"
+expect_true "curl is told the limit as well" "calls curl | grep -q -- '--max-filesize 1000'"
+
+# A hostile catalog during a real check: an endless download, then AUR versions that are not versions.
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/curl"
+[[ "\$*" == *raw.githubusercontent.com* ]] && { yes "    app(" | head -c 30000000; exit 0; }
+printf '{"version":5,"type":"multiinfo","results":[{"Name":"photocraft-bin","Version":"9.0.0-1"},'
+printf '{"Name":"vectorcraft-bin","Version":"9.0.0-1; rm -rf x"},{"Name":"filmcraft-bin","Version":"$long"}]}\n'
+STUB
+chmod +x "$TMP/bin/curl"; rm -f "$REFRESH_FAILED"
+refresh -f >/dev/null 2>&1
+expect_eq "a 30 MB catalog download falls back to the built-in list, and the check succeeds" "$?|$(wc -l <"$CATALOG")" "0|16"
+expect_eq "a well-formed AUR version is kept, a malformed or overlong one is not" \
+  "$(awk -F'\t' '$1 == "photocraft" || $1 == "vectorcraft" || $1 == "filmcraft" { print $1 "=" $5 }' "$CATALOG" | tr '\n' ' ')" \
+  "photocraft=9.0.0-1 vectorcraft= filmcraft= "
+# A well-formed catalog padded past its limit is refused whole, not read up to the limit: the built-in
+# list stays (the padded copy says "Image editing, padded").
+{ printf '// %s\n' "$long" "$long" "$long" "$long" "$long" "$long" "$long" "$long"
+  for i in $(seq 1 40); do printf '// %s\n' "$long"; done
+  sed 's/"Image editing",/"Image editing, padded",/' "$fx"; } >"$TMP/padded.rs"
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+[[ "\$*" == *raw.githubusercontent.com* ]] && exec cat "$TMP/padded.rs"
+printf '{"version":5,"type":"multiinfo","results":[{"Name":"photocraft-bin","Version":"9.0.0-1"}]}\n'
+STUB
+chmod +x "$TMP/bin/curl"
+CATALOG_MAX_BYTES=200000 refresh -f >/dev/null 2>&1
+expect_eq "a catalog over its limit is refused whole: the built-in list stays" \
+  "$(wc -c <"$TMP/padded.rs" | awk '{ print ($1 > 200000) }')|$(awk -F'\t' '$1 == "photocraft" { print $3 }' "$CATALOG")" "1|Image editing"
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+[[ "\$*" == *raw.githubusercontent.com* ]] && exit 22
+printf '{"version":5,"type":"multiinfo","results":['; head -c 1100000 /dev/zero | tr '\0' ' '; printf ']}\n'
+STUB
+cp "$CATALOG" "$TMP/catalog.before"
+refresh -f >/dev/null 2>&1
+expect_eq "an AUR answer over its limit fails the check and keeps the list" "$?|$(cmp -s "$CATALOG" "$TMP/catalog.before" && echo kept)" "1|kept"
+fake_aur '{"results":[{"Name":"memospot-bin","Version":"1.0.5-1","Depends":["gtk3","a;b","$(x)","ok-dep>=1"]}]}'
+reset_log pacman
+aur_source_deps memospot-bin >/dev/null
+expect_true "a declared dependency that is not a package name never reaches pacman" \
+  "calls pacman | grep -q -- '-T -- ok-dep' && ! calls pacman | grep -q -e 'a;b' -e 'x)'"
+
+# A cache written before 0.5.5 may hold anything: state bounds it on the way out.
+awk -F'\t' -v OFS='\t' -v long="$long" '$1 == "photocraft" { $2 = long; $3 = long; $5 = "1.0;x"; $6 = "red" } { print }' \
+  "$TMP/catalog.baseline" >"$CATALOG"
+for i in $(seq 1 200); do printf 'zz%s\tZz\tZz\tnew\t1.0-1\t#111111\t#222222\t#333333\n' "$i"; done >>"$CATALOG"
+touch "$CATALOG"
+st=$(state)
+expect_eq "state bounds a name and a tagline, and drops a colour or a version that is not one" \
+  "$(jq -c '.apps[] | select(.id=="photocraft") | [(.name | length), (.tagline | length), .color, .aurVersion]' <<<"$st")" '[48,96,"",""]'
+expect_eq "and lists at most MAX_APPS + 8 tools" "$(jq '.apps | length' <<<"$st")" "$((MAX_APPS + 8))"
+size=$(wc -c <<<"$st")
+expect_true "so its whole answer stays small ($size bytes)" "(( $size < 100000 ))"
 cp "$TMP/catalog.baseline" "$CATALOG"
 stub curl 7
 

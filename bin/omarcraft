@@ -30,9 +30,10 @@ SELF="$(realpath "${BASH_SOURCE[0]}")"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy/omarcraft"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omarcraft"
 CATALOG="$CACHE_DIR/catalog.tsv"
-# The catalog's version column holds the AUR's version of every tool (format 2, 0.5.4). Before, a repo
-# tool's column held the repo's version; a cache without this marker is refreshed once, at once.
-CATALOG_FORMAT=2
+# The cache's format; a cache without this marker is refreshed once, at once. 2 (0.5.4): the version
+# column holds the AUR's version of every tool, where a repo tool's held the repo's. 3 (0.5.5): every
+# field was checked and bounded on the way in; older caches may hold anything the network sent.
+CATALOG_FORMAT=3
 CATALOG_FORMAT_FILE="$CACHE_DIR/catalog.format"
 SYNC_CACHE="$CACHE_DIR/sync.tsv"
 # Read, never written: what decides whether the sync databases changed since SYNC_CACHE was made.
@@ -52,6 +53,15 @@ LEGACY_VIKUNJA_PID="$STATE_DIR/vikunja-server.pid"
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
+# Everything read from the network is untrusted and bounded, from the download to each field kept from it
+# (marketplace review of 0.5.4): a hostile or broken answer can neither fill memory nor reach the panel.
+CATALOG_MAX_BYTES=262144        # the upstream catalog; 19 KB in 2026-11
+AUR_MAX_BYTES=1048576           # one AUR answer for every tool; 10 KB in 2026-11
+MAX_APPS=64                     # apps kept from the upstream catalog; 13 in 2026-11
+NAME_MAX=48                     # characters in an app's name; the longest is 11
+TAGLINE_MAX=96                  # characters in its tagline; the longest is 41
+VERSION_RE='^[A-Za-z0-9._:+~-]{1,64}$'
+COLOR_RE='^#[0-9a-f]{6}$'
 IPC_TARGET="omarcraft.productivity"
 CATALOG_MAX_AGE_MINUTES=1440
 REFRESH_RETRY_MINUTES=10        # after a failed check the panel retries on its own at most this often
@@ -322,9 +332,11 @@ update_ready() {
 # --- catalog ----------------------------------------------------------------------------------
 
 # Parse the SUITE array of the official launcher: id, name, tagline, group and the three brand colours
-# (surface, ink on light, ink on dark) of each app( call.
+# (surface, ink on light, ink on dark) of each app( call. A record is kept only when every field is well
+# formed and within bounds (no control characters, NAME_MAX and TAGLINE_MAX), and at most MAX_APPS are.
 parse_upstream_catalog() {
-  awk '
+  awk -v max_apps="$MAX_APPS" -v name_max="$NAME_MAX" -v tagline_max="$TAGLINE_MAX" '
+    function ok(v, max) { return length(v) > 0 && length(v) <= max && v !~ /[[:cntrl:]]/ }
     /pub const SUITE/ { in_suite = 1; next }
     in_suite && /^\];/ { exit }
     in_suite && /app\($/ { want = 3; n = 0; group = ""; next }
@@ -350,10 +362,25 @@ parse_upstream_catalog() {
         hex = hex ((k == 1 || k == 4 || k == 7) ? "\t#" : "") tolower(substr(s, RSTART + 2, 2))
         s = substr(s, RSTART + RLENGTH)
       }
-      if (k == 9) print field[1] "\t" field[2] "\t" field[3] "\t" group hex
+      if (k == 9 && field[1] ~ /^[a-z0-9-]+$/ && length(field[1]) <= 32 && ok(field[2], name_max) \
+          && ok(field[3], tagline_max) && length(group) <= 16 && kept < max_apps) {
+        print field[1] "\t" field[2] "\t" field[3] "\t" group hex
+        kept++
+      }
       group = ""
     }
   '
+}
+
+# A download of at most $1 bytes, printed whole or not at all: curl stops at a larger declared size, and
+# a longer or endless answer is cut after one byte too many and refused, so it never fills memory. The
+# other arguments are curl's.
+fetch_bounded() {
+  local max=$1 out
+  shift
+  out=$(curl -fsSL --max-filesize "$max" "$@" | head -c $((max + 1))) || return 1
+  (( $(printf '%s' "$out" | wc -c) <= max )) || return 1
+  printf '%s\n' "$out"
 }
 
 # Dependencies the named AUR packages declare that are neither installed nor in the Arch repos: the AUR
@@ -362,15 +389,15 @@ parse_upstream_catalog() {
 aur_source_deps() {
   local args=() pkg json dep
   for pkg in "$@"; do args+=(--data-urlencode "arg[]=$pkg"); done
-  json=$(curl -fsSL --max-time 15 -G "$AUR_RPC" "${args[@]}") || return 0
+  json=$(fetch_bounded "$AUR_MAX_BYTES" --max-time 15 -G "$AUR_RPC" "${args[@]}") || return 0
   jq -e .results <<<"$json" >/dev/null || return 0
   while read -r dep; do
     dep=${dep%%[<>=]*}
-    [[ -n $dep ]] || continue
+    [[ $dep =~ ^[A-Za-z0-9@._+-]{1,128}$ ]] || continue
     pacman -T -- "$dep" >/dev/null && continue
     pacman -Si -- "$dep" >/dev/null 2>&1 && continue
     printf '%s\n' "$dep"
-  done < <(jq -r '.results[] | (.Depends // [])[]' <<<"$json" | sort -u)
+  done < <(jq -r '.results[] | (.Depends // [])[] | strings' <<<"$json" | sort -u | head -n 256)
 }
 
 # Stop a job before the AUR helper runs when it would compile a dependency.
@@ -400,11 +427,11 @@ aur_versions() {
     args+=(--data-urlencode "arg[]=$pkg")
   done
   (( ${#args[@]} > 0 )) || return 0
-  json=$(curl -fsSL --max-time 15 -G "$AUR_RPC" "${args[@]}") || return 1
+  json=$(fetch_bounded "$AUR_MAX_BYTES" --max-time 15 -G "$AUR_RPC" "${args[@]}") || return 1
   # An error comes back as type "error", with an empty results list.
   jq -e '.type != "error" and (.results | type == "array")' <<<"$json" >/dev/null 2>&1 || return 1
   while IFS=$'\t' read -r name version; do
-    [[ -n ${id_of[$name]:-} ]] && printf '%s\t%s\n' "${id_of[$name]}" "$version"
+    [[ -n ${id_of[$name]:-} && $version =~ $VERSION_RE ]] && printf '%s\t%s\n' "${id_of[$name]}" "$version"
   done < <(jq -r '.results[] | "\(.Name)\t\(.Version)"' <<<"$json")
   return 0
 }
@@ -487,7 +514,7 @@ refresh() {
     return 0
   fi
 
-  upstream=$(curl -fsSL --max-time 10 "$CATALOG_URL" 2>/dev/null | parse_upstream_catalog || true)
+  upstream=$(fetch_bounded "$CATALOG_MAX_BYTES" --max-time 10 "$CATALOG_URL" 2>/dev/null | parse_upstream_catalog || true)
   [[ -n $upstream ]] || upstream="$BUILTIN_CATALOG"
   upstream+=$'\n'"$EXTRA_CATALOG"
 
@@ -889,7 +916,7 @@ check() {
 # Local only: cache files and the package database. A stale cache starts a detached refresh.
 
 state() {
-  local id name tagline ugroup version color inkl inkd src current ready new group glyph pkg kind repo
+  local id name tagline ugroup version color inkl inkd src current ready new group glyph pkg kind repo row=0
   local rows="" job="null" last="null" office_json="[]" seen_known=0 office_ids=()
   local -A seen=()
   legacy_vikunja_cleanup
@@ -908,12 +935,23 @@ state() {
   # One pass with no subshell per field: a forked helper for each of them made a read of thirteen
   # installed apps take close to a second, long enough for the next read to collide with it.
   while IFS=$'\037' read -r id name tagline ugroup version color inkl inkd; do
+    # Bounded again on the way out, whatever wrote the cache: the panel reads all of this output, inside
+    # the shell that draws the whole bar.
+    (( ++row <= MAX_APPS + 8 )) || break
+    [[ $id =~ ^[a-z0-9-]{1,32}$ ]] || continue
+    name=${name:0:NAME_MAX}
+    tagline=${tagline:0:TAGLINE_MAX}
+    [[ $ugroup =~ ^[a-z]{0,16}$ ]] || ugroup=""
+    [[ $color =~ $COLOR_RE ]] || color=""
+    [[ $inkl =~ $COLOR_RE ]] || inkl=""
+    [[ $inkd =~ $COLOR_RE ]] || inkd=""
     pkg=${PKGS_OF[$id]:-$id-bin}
     pkg=${pkg%% *}
     # A repo tool shows and compares the repo's build, never the AUR's: the repo's is what installs.
     version_var "$id" "$version"
     kind=$KIND
     version=$VERSION
+    [[ -z $version || $version =~ $VERSION_RE ]] || version=""
     repo=""
     [[ $kind == repo ]] && repo=${SYNC_REPO[$pkg]:-}
     if [[ -n ${INSTALLED[$pkg]:-} ]]; then
