@@ -2,7 +2,8 @@
 
 ## 0.5.6 — unreleased
 
-Apps from a package repo show their updates. The review is in `docs/v0.5.6-plan.md`.
+Apps from a package repo show their updates, and apps from Omarchy's repo update alone. The review and the
+decisions are in `docs/v0.5.6-plan.md`.
 
 - **Fixed: WordCraft and GridCraft never showed an update.** OmarCraft read what the repos ship from the
   system's package lists, which are only as new as its last update: on 2026-11-08 they still said
@@ -10,20 +11,25 @@ Apps from a package repo show their updates. The review is in `docs/v0.5.6-plan.
   offered 0.17.0, and a reinstall from the tile installed 0.16.1 again. Each check now reads the repos as
   they are now, the way Omarchy's own update check does: `checkupdates` refreshes a private copy of the
   package lists (about 9 MB in `~/.cache/omarchy/omarcraft/checkup-db`), without a password and without
-  touching the system's. An installed app whose repo has a newer build shows `↑ system`; Enter runs
-  Omarchy's update, which brings exactly that build, and the badge clears. The six-hourly notification
-  names them too.
-- **Fixed: Update all did nothing for apps from a package repo.** It updated AUR apps only and, when
-  only repo apps were pending, said "The rest update with the system · Enter on their tile". It now
-  updates every pending app: AUR apps alone one package each through the AUR helper, as before; once an
-  app from a package repo is among them, Omarchy's update, which brings them all at once. The
-  confirmation names each app and its new version. The menu's *Update all* and `omarcraft update` do the
-  same.
+  touching the system's. The six-hourly notification names these updates too.
+- **Apps from Omarchy's repo update alone, like the AUR ones**, without Omarchy's whole update: their
+  badge shows the new version, and Enter or *Update all* installs just that app, in one terminal with one
+  password prompt. OmarCraft first asks pacman, against the private copy, what the update needs, and goes
+  ahead only when nothing but that app would change; the package comes from Omarchy's https address, pacman
+  checking its signature (OmarCraft refuses where pacman would not require one), through the AUR helper
+  Omarchy ships. When the update needs other packages, nothing is installed and the terminal names them;
+  Omarchy's update brings them together. The system's own lists and every other package stay as they are,
+  and Omarchy's update still updates these apps with everything else when it runs. One risk remains: a new
+  build that needs a newer library without declaring it would affect that app alone, until the next full
+  update. Tools from the Arch repos (Typesetter, Planify) still update with the system.
+- **Fixed: Update all did nothing when only system updates were pending.** It said "The rest update with
+  the system · Enter on their tile"; it now runs Omarchy's update when only tools from the Arch repos are
+  pending, and otherwise updates every app that updates alone, as before.
 - **Fixed: the six-hourly check checked once a day.** The panel checked every six hours, but the list was
   only fetched again after 24 hours; it is now fetched at every six-hourly check.
 - README: an app's own "Update and restart" cannot update a package that pacman installed; update it from
   OmarCraft or with Omarchy's update.
-- Tests: 249 offline tests (15 new), each new piece checked by breaking it on purpose.
+- Tests: 267 offline tests (33 new), each new piece checked by breaking it on purpose.
 
 ## 0.5.5 — 2026-11-08
 

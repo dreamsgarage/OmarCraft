@@ -144,22 +144,33 @@ Every six hours, and whenever you press `r` or right-click the icon, OmarCraft c
 AUR `-bin` packages with the AUR. Newer builds show on the tiles or rows and on the icon; the six-hourly check
 also sends one desktop notification per new set, which opens the panel. If the AUR cannot be reached the
 hero says `OFFLINE · CACHED LIST` and the panel retries on its own every ten minutes. Updates are package-exact: `Enter` on the app updates that
-one, *Update all* (`u`) every app with a newer build, each through the AUR helper Omarchy ships, in a
-floating terminal that asks for your password; when an app from a package repo is pending too, *Update all*
-runs Omarchy's update instead, which brings them all at once. `omarchy update` updates them too. "Newer" means a newer
+one, *Update all* (`u`) every app with a newer build, each on its own, in a floating terminal that asks for
+your password; only when nothing but tools from the Arch repos is pending does it run Omarchy's update.
+`omarchy update` updates them too. "Newer" means a newer
 AUR build exists, which can trail an ArtCraft release by a day or so.
 
 **Tools a package repo ships.** When a configured repo ships a tool's package (the Arch repos for
 Typesetter and Planify; Omarchy's own repo for WordCraft and GridCraft, under their AUR names), the tool
 comes from that repo, installed or not and whatever installed it first: pacman and the AUR helper both take
-a package from a repo when one ships it. Its tile shows the repo's version, installs with Omarchy's
-`omarchy-pkg-add` and updates with the system. Each check reads the repos as they are now, the way
-Omarchy's own update check does: `checkupdates` refreshes a private copy of the package lists (about
-9 MB in `~/.cache/omarchy/omarcraft/checkup-db`) without a password and without touching the system's,
-which are only as new as its last update. The badge reads `↑ system` when the repo has a newer build than
-the one installed, and opens Omarchy's update, which brings exactly that build, because updating one repo
-package on its own is a partial upgrade; *Update all* runs Omarchy's update when one of these is pending. A repo's build can trail the AUR's by a day or
-so. When a repo starts or stops shipping a tool, the panel follows after the next system update.
+a package from a repo when one ships it. Its tile shows the repo's version and installs with Omarchy's
+`omarchy-pkg-add`. Each check reads the repos as they are now, the way Omarchy's own update check does:
+`checkupdates` refreshes a private copy of the package lists (about 9 MB in
+`~/.cache/omarchy/omarcraft/checkup-db`) without a password and without touching the system's, which are
+only as new as its last update.
+
+- **Apps from Omarchy's repo update alone**, like the AUR ones: the badge shows the new version, and
+  `Enter` or *Update all* installs just that app. OmarCraft first asks pacman, against that private copy,
+  what the update needs, and goes ahead only when nothing else would change; the package comes from
+  Omarchy's https address and pacman checks its signature. If the update needs other packages, nothing is
+  installed and the terminal names them: Omarchy's update brings them together. The system's own lists
+  and every other package stay as they are. One risk remains: a new build that needs a newer library
+  without declaring it would affect that app alone, until the next full update.
+- **Tools from the Arch repos update with the system**: their badge reads `↑ system` and opens Omarchy's
+  update, because updating one of those packages on its own is a partial upgrade; *Update all* runs
+  Omarchy's update when only these are pending.
+
+A repo's build can trail the AUR's by a day or so. When a repo starts or stops shipping a tool, the panel
+follows after the next system update.
 
 **The apps' own update prompts.** A Craft app may announce a new version itself ("Update and restart")
 as soon as ArtCraft releases it. Its own updater cannot replace a package that pacman installed (it fails
@@ -245,8 +256,10 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   a repo package, installed or not: it installs through `omarchy-pkg-add` and updates with the system. Any
   other is an AUR package.
   The plugin does not use sudo or pkexec. Installs go through Omarchy's `omarchy-pkg-aur-add` (AUR) or `omarchy-pkg-add`
-  (repo packages); updates call the AUR helper Omarchy ships for exactly the named AUR packages, and repo
-  packages update with the system through Omarchy's update; removals go through Omarchy's
+  (repo packages); updates call the AUR helper Omarchy ships for exactly the named AUR packages, and for
+  one package from Omarchy's repo at a time (from its https address, pacman checking its signature, and
+  only when nothing else would change); tools from the Arch repos update with the system through
+  Omarchy's update; removals go through Omarchy's
   `omarchy-pkg-drop`, which takes the package and the dependencies nothing else needs, never your
   documents or settings. Each runs in a visible Omarchy terminal that asks for your password itself; a
   job cut short (terminal closed, `Ctrl+C`) is reported as interrupted. Before an AUR install or update,

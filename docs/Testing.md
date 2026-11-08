@@ -183,9 +183,10 @@ may start a few background processes the unpacked benchmark could not.
 Before the update, on a machine whose WordCraft or GridCraft is older than Omarchy's repo:
 `CHECKUPDATES_DB=/tmp/omc-check checkupdates --nocolor` lists them (no password, the system untouched).
 After `omarchy plugin update omarcraft.productivity` and `omarchy restart shell`, within a few seconds
-the panel shows `↑ system` on them; `$P/bin/omarcraft check` names the same versions. Enter on one: the
-confirm says it comes with the system update; a terminal runs Omarchy's update; when it ends, the badge is
-gone. Rows 51 and 52 of `v1-acceptance.md`.
+the panel shows a badge with the new version on them; `$P/bin/omarcraft check` names the same versions.
+Enter on one: the confirm reads like an AUR update; the terminal checks the repos, installs just that
+package from `https://pkgs.omarchy.org/…` (pacman checks its signature) and nothing else; when it ends,
+the badge is gone and `pacman -Q gridcraft-bin` shows the new version. Rows 51–56 of `v1-acceptance.md`.
 
 ## 0.5.5: bounded network input
 
