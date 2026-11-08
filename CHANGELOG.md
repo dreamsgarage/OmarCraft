@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.5 — unreleased
+
+What comes from the network is bounded: a fix from the marketplace review of 0.5.4. The decision is in
+`docs/v0.5.5-plan.md`.
+
+- **Fixed: an oversized answer could fill the shell's memory.** OmarCraft took app names and taglines from
+  the upstream catalog without a length limit, and its download had a time limit but no size limit; the
+  panel reads all of OmarCraft's output inside the shell that draws the bar. Whoever controlled that
+  catalog or its connection could have sent a huge record and run the shell out of memory during the
+  automatic check. Now each download stops at a size (256 KB for the catalog, which is 19 KB; 1 MB for an
+  AUR answer, which is 10 KB) and a longer one is refused whole. Only well-formed records are kept: a plain
+  id, a name of at most 48 characters and a tagline of at most 96 without control characters, `#rrggbb`
+  colours, at most 64 apps. AUR versions must look like versions, and a declared dependency must look
+  like a package name before it reaches pacman. The panel's data is bounded again on the way out (at most
+  72 tools), so a cache an older version wrote cannot carry an oversized field either; such a cache is
+  checked again once, at once.
+- README: tested on Omarchy 4.5.
+- Tests: 234 offline tests (18 new), each new bound checked by breaking it on purpose.
+
 ## 0.5.4 — 2026-11-07
 
 Apps that Omarchy's own repo ships, done right, and 0.5.3's regression fixed. The decision is in

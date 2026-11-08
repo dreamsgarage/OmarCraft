@@ -178,6 +178,12 @@ Rows 35–41 of `v1-acceptance.md`. Planify's data lives in `~/.local/share/io.g
 check it after a remove. Measure its memory once installed: with Evolution's data services available it
 may start a few background processes the unpacked benchmark could not.
 
+## 0.5.5: bounded network input
+
+After `omarchy plugin update omarcraft.productivity` and `omarchy restart shell`: the panel is online and
+shows the same tools and versions as before; `$P/bin/omarcraft state | wc -c` prints well under 100000
+(about 9000 in 2026-11). Row 50 of `v1-acceptance.md`.
+
 ## 0.5.4: apps a package repo ships
 
 Omarchy's own repo ships `wordcraft-bin` and `gridcraft-bin`; check where each tool comes from before you

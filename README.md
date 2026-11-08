@@ -67,7 +67,7 @@ command-line program (Typst's compiler, the Memos server itself) are not tiles: 
 
 ## Requirements
 
-- Omarchy 4 (Quattro). Nothing else: the plugin uses Omarchy's bundled tools (`curl`, `jq`, the AUR
+- Omarchy 4 (Quattro); tested on Omarchy 4.5. Nothing else: the plugin uses Omarchy's bundled tools (`curl`, `jq`, the AUR
   helper behind `omarchy-pkg-aur-add`) and no Python or extra packages.
 
 ## Install
@@ -247,6 +247,11 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   from the AUR RPC, every 24 hours, with bounded timeouts; versions of repo packages come from the local
   sync database. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel
   itself never waits on the network.
+- What comes from the network is untrusted and bounded: a download stops at a size (256 KB for the
+  catalog, 1 MB for an AUR answer; a longer one is refused whole), and only well-formed records are kept
+  (a plain id, a name of at most 48 characters and a tagline of at most 96 without control characters,
+  `#rrggbb` colours, version strings that look like versions, at most 64 apps). The panel's own data is
+  bounded again on the way out, so neither a hostile nor a broken answer can fill the shell's memory.
 - Files: `~/.cache/omarchy/omarcraft/` (catalog, and what the configured repos ship of it, read again after
   each sync) and `~/.local/state/omarchy/omarcraft/` (job records,
   seen apps, notification state). Nothing under `~/.config` without the opt-in commands. Where 0.5.0

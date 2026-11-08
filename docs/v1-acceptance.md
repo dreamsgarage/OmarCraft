@@ -141,3 +141,5 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 46 | 0.5.4 · Remove GridCraft, then install it from its tile: the tile says *from Omarchy's repo*, the terminal runs `omarchy-pkg-add gridcraft-bin`, no badge afterwards | | pending | |
 | 47 | 0.5.4 · When Omarchy's repo ships a newer WordCraft or GridCraft: `↑ system`, Enter runs Omarchy's update, the badge clears | | pending | Next `[omarchy]` bump |
 | 48 | 0.5.4 · A third machine (a notebook): the plugin updated or added at 0.5.4, the panel online, WordCraft and GridCraft follow Omarchy's repo (installed: no stuck badge; not installed: *from Omarchy's repo*) | 8bf4802 | PASS (user) | 2026-11-07, the author: "the 3rd computer behaves as expected" |
+| 49 | 0.5.5 · Network input is bounded: an oversized or malformed catalog or AUR answer never reaches the panel, a download over its limit is refused whole, the panel's data stays small | | PASS | 2026-11-07, 234 offline tests (18 new), each bound broken on purpose and caught |
+| 50 | 0.5.5 · Update on the author's machine: online, every tool as before, the state read small and fast | | pending | |
