@@ -178,6 +178,15 @@ Rows 35–41 of `v1-acceptance.md`. Planify's data lives in `~/.local/share/io.g
 check it after a remove. Measure its memory once installed: with Evolution's data services available it
 may start a few background processes the unpacked benchmark could not.
 
+## 0.5.6: updates of apps from a package repo
+
+Before the update, on a machine whose WordCraft or GridCraft is older than Omarchy's repo:
+`CHECKUPDATES_DB=/tmp/omc-check checkupdates --nocolor` lists them (no password, the system untouched).
+After `omarchy plugin update omarcraft.productivity` and `omarchy restart shell`, within a few seconds
+the panel shows `↑ system` on them; `$P/bin/omarcraft check` names the same versions. Enter on one: the
+confirm says it comes with the system update; a terminal runs Omarchy's update; when it ends, the badge is
+gone. Rows 51 and 52 of `v1-acceptance.md`.
+
 ## 0.5.5: bounded network input
 
 After `omarchy plugin update omarcraft.productivity` and `omarchy restart shell`: the panel is online and

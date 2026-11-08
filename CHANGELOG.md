@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.6 — unreleased
+
+Apps from a package repo show their updates. The review is in `docs/v0.5.6-plan.md`.
+
+- **Fixed: WordCraft and GridCraft never showed an update.** OmarCraft read what the repos ship from the
+  system's package lists, which are only as new as its last update: on 2026-11-08 they still said
+  GridCraft 0.16.1 while Omarchy's repo shipped 0.17.0, so the panel showed nothing while the app itself
+  offered 0.17.0, and a reinstall from the tile installed 0.16.1 again. Each check now reads the repos as
+  they are now, the way Omarchy's own update check does: `checkupdates` refreshes a private copy of the
+  package lists (about 9 MB in `~/.cache/omarchy/omarcraft/checkup-db`), without a password and without
+  touching the system's. An installed app whose repo has a newer build shows `↑ system`; Enter runs
+  Omarchy's update, which brings exactly that build, and the badge clears. The six-hourly notification
+  names them too.
+- **Fixed: the six-hourly check checked once a day.** The panel checked every six hours, but the list was
+  only fetched again after 24 hours; it is now fetched at every six-hourly check.
+- README: an app's own "Update and restart" cannot update a package that pacman installed; update it from
+  OmarCraft or with Omarchy's update.
+- Tests: 247 offline tests (13 new), each new piece checked by breaking it on purpose.
+
 ## 0.5.5 — 2026-11-08
 
 What comes from the network is bounded: a fix from the marketplace review of 0.5.4. The decision is in

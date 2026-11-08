@@ -152,10 +152,18 @@ AUR build exists, which can trail an ArtCraft release by a day or so.
 Typesetter and Planify; Omarchy's own repo for WordCraft and GridCraft, under their AUR names), the tool
 comes from that repo, installed or not and whatever installed it first: pacman and the AUR helper both take
 a package from a repo when one ships it. Its tile shows the repo's version, installs with Omarchy's
-`omarchy-pkg-add` and updates with the system. The badge reads `↑ system` only when the repo has a newer
-build than the one installed, and opens Omarchy's update, because updating one repo package on its own is
-a partial upgrade; *Update all* leaves these to the system. A repo's build can trail the AUR's by a day or
+`omarchy-pkg-add` and updates with the system. Each check reads the repos as they are now, the way
+Omarchy's own update check does: `checkupdates` refreshes a private copy of the package lists (about
+9 MB in `~/.cache/omarchy/omarcraft/checkup-db`) without a password and without touching the system's,
+which are only as new as its last update. The badge reads `↑ system` when the repo has a newer build than
+the one installed, and opens Omarchy's update, which brings exactly that build, because updating one repo
+package on its own is a partial upgrade; *Update all* leaves these to the system. A repo's build can trail the AUR's by a day or
 so. When a repo starts or stops shipping a tool, the panel follows after the next system update.
+
+**The apps' own update prompts.** A Craft app may announce a new version itself ("Update and restart")
+as soon as ArtCraft releases it. Its own updater cannot replace a package that pacman installed (it fails
+with "Permission denied"): update the app from OmarCraft or with Omarchy's update instead. Until the
+package has the new build, OmarCraft shows none.
 
 ## Apps installed some other way
 
@@ -244,16 +252,15 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   OmarCraft checks the package's declared dependencies: if one is neither installed nor in the Arch repos,
   the AUR helper would compile it, so the job stops before anything is installed and says which one.
 - Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
-  from the AUR RPC, every 24 hours, with bounded timeouts; versions of repo packages come from the local
-  sync database. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel
+  from the AUR RPC, every six hours, with bounded timeouts; the package lists of the configured repos through `checkupdates`, into a private copy. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel
   itself never waits on the network.
 - What comes from the network is untrusted and bounded: a download stops at a size (256 KB for the
   catalog, 1 MB for an AUR answer; a longer one is refused whole), and only well-formed records are kept
   (a plain id, a name of at most 48 characters and a tagline of at most 96 without control characters,
   `#rrggbb` colours, version strings that look like versions, at most 64 apps). The panel's own data is
   bounded again on the way out, so neither a hostile nor a broken answer can fill the shell's memory.
-- Files: `~/.cache/omarchy/omarcraft/` (catalog, and what the configured repos ship of it, read again after
-  each sync) and `~/.local/state/omarchy/omarcraft/` (job records,
+- Files: `~/.cache/omarchy/omarcraft/` (catalog, what the configured repos ship of it, and the private copy
+  of the package lists the repo check uses) and `~/.local/state/omarchy/omarcraft/` (job records,
   seen apps, notification state). Nothing under `~/.config` without the opt-in commands. Where 0.5.0
   installed Vikunja, 0.5.1 deletes, once, the two files 0.5.0 wrote for it: its desktop entry in
   `~/.local/share/applications` and that entry's launcher.
