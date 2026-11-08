@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.5 — unreleased
+## 0.5.5 — 2026-11-08
 
 What comes from the network is bounded: a fix from the marketplace review of 0.5.4. The decision is in
 `docs/v0.5.5-plan.md`.
