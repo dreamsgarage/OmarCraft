@@ -535,7 +535,16 @@ reset_log omarchy-launch-floating-terminal-with-presentation
 expect_true "an Omarchy repo app opens the system update too" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update wordcraft'"
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update ) >/dev/null 2>&1
-expect_true "Update all leaves repo tools to the system" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update photocraft$'"
+expect_true "Update all with a repo tool pending runs Omarchy's update for every pending app, the AUR ones too" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update typesetter photocraft$'"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update wordcraft photocraft ) >/dev/null 2>&1
+expect_true "so does an update naming a repo app and an AUR app together" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update wordcraft photocraft$'"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update photocraft ) >/dev/null 2>&1
+expect_true "while AUR apps alone still update one package each through the helper" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update photocraft$'"
 ( remove_apps figcraft ) >/dev/null 2>&1 && fail "remove refuses an app that is not installed" || ok "remove refuses an app that is not installed"
 ( remove_apps filmcraft ) >/dev/null 2>&1 && fail "remove refuses a source build" || ok "remove refuses a source build"
 expect_eq "refused removals open no terminal" "$(calls omarchy-launch-floating-terminal-with-presentation | wc -l)" "1"

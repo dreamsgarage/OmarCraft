@@ -923,10 +923,13 @@ install_group() {
   run_job install "" "${ids[@]}"
 }
 
-# update [id...]: the given apps, or every AUR app with a newer build. Repo apps given by id open
-# Omarchy's system update instead (only when no AUR app is asked for in the same call).
+# update [id...]: the given apps, or every installed app with a newer build. AUR apps alone update one
+# package each through the AUR helper. Once an app from a package repo is among them, Omarchy's update
+# runs instead and brings them all at once, the AUR ones included (its AUR step): a repo package is never
+# updated on its own.
 update() {
   local ids=() system=() id
+  load_installed
   load_sync
   if (( $# > 0 )); then
     for id in "$@"; do
@@ -936,9 +939,10 @@ update() {
     done
   else
     mapfile -t ids < <(outdated_ids)
+    mapfile -t system < <(outdated_ids repo)
   fi
-  if (( ${#ids[@]} == 0 && ${#system[@]} > 0 )); then
-    run_job system-update "" "${system[@]}"
+  if (( ${#system[@]} > 0 )); then
+    run_job system-update "" "${system[@]}" "${ids[@]}"
   fi
   if (( ${#ids[@]} == 0 )); then
     notify "No updates pending"

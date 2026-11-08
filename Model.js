@@ -73,11 +73,19 @@ function newCount(apps) {
   return n
 }
 
-// What Update all updates: AUR apps only. Repo apps (source "repo") update with the system.
-function outdatedIds(apps) {
-  var ids = []
-  for (var i = 0; i < (apps || []).length; i++) if (apps[i].updateReady && apps[i].source !== "repo") ids.push(apps[i].id)
-  return ids
+// What Update all updates: every installed app with a newer build. AUR apps alone update one package each
+// through the AUR helper ("update"). Once an app from a package repo is among them it is Omarchy's update
+// ("system-update"), which brings them all at once, the AUR ones included: a repo package is never
+// updated on its own.
+function updateAllPlan(apps) {
+  var aur = [], sys = []
+  for (var i = 0; i < (apps || []).length; i++) {
+    var a = apps[i]
+    if (!a.updateReady) continue
+    if (a.source === "repo") sys.push(a.id)
+    else aur.push(a.id)
+  }
+  return sys.length > 0 ? { kind: "system-update", ids: sys.concat(aur) } : { kind: "update", ids: aur }
 }
 
 // The tile badge: "↑ 0.9.0" for an AUR build, "↑ system" for a repo app behind the sync database.
@@ -219,9 +227,13 @@ function actionTip(app) {
 // "Typesetter 0.15.2 → 0.16 comes with the system update · a terminal will run Omarchy's update"
 function confirmText(kind, apps, ids) {
   if (kind === "system-update") {
-    var s = appById(apps, ids[0])
-    var what = s ? s.name + " " + shortVersion(s.installedVersion) + " → " + shortVersion(s.aurVersion) : ids[0]
-    return what + " comes with the system update · a terminal will run Omarchy's update and ask for your password"
+    var those = []
+    for (var j = 0; j < ids.length; j++) {
+      var s = appById(apps, ids[j])
+      those.push(s ? s.name + " " + shortVersion(s.installedVersion) + " → " + shortVersion(s.aurVersion) : ids[j])
+    }
+    var what = ids.length <= 3 ? those.join(", ") : ids.length + " apps"
+    return what + (ids.length === 1 ? " comes" : " come") + " with the system update · a terminal will run Omarchy's update and ask for your password"
   }
   var parts = []
   for (var i = 0; i < ids.length; i++) {

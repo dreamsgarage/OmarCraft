@@ -161,13 +161,15 @@ Panel {
     openConfirm("install", ids, root.tiles ? "strip" : "group")
   }
 
+  // Update all: every pending app. With an app from a package repo among them, Omarchy's update brings
+  // them all at once; AUR apps alone update one package each (Model.updateAllPlan).
   function confirmUpdateAll() {
-    var ids = Model.outdatedIds(craft.apps)
-    if (ids.length === 0) {
-      craft.flash(pending > 0 ? "The rest update with the system · Enter on their tile" : "No updates pending")
+    var plan = Model.updateAllPlan(craft.apps)
+    if (plan.ids.length === 0) {
+      craft.flash("No updates pending")
       return
     }
-    openConfirm("update", ids, "strip")
+    openConfirm(plan.kind, plan.ids, "strip")
   }
 
   function refreshNow() {
@@ -243,7 +245,7 @@ Panel {
     }
     function update(ids: string): string {
       var list = String(ids || "").trim().split(/\s+/).filter(function(s) { return s.length > 0 })
-      if (list.length === 0) list = Model.outdatedIds(craft.apps)
+      if (list.length === 0) list = Model.updateAllPlan(craft.apps).ids
       if (list.length === 0) return "no ArtCraft updates pending"
       for (var i = 0; i < list.length; i++) if (!Model.appById(craft.apps, list[i])) return "unknown app: " + list[i]
       root.run("update " + list.join(" "))

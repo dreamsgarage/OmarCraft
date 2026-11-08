@@ -145,7 +145,8 @@ AUR `-bin` packages with the AUR. Newer builds show on the tiles or rows and on 
 also sends one desktop notification per new set, which opens the panel. If the AUR cannot be reached the
 hero says `OFFLINE · CACHED LIST` and the panel retries on its own every ten minutes. Updates are package-exact: `Enter` on the app updates that
 one, *Update all* (`u`) every app with a newer build, each through the AUR helper Omarchy ships, in a
-floating terminal that asks for your password. `omarchy update` updates them too. "Newer" means a newer
+floating terminal that asks for your password; when an app from a package repo is pending too, *Update all*
+runs Omarchy's update instead, which brings them all at once. `omarchy update` updates them too. "Newer" means a newer
 AUR build exists, which can trail an ArtCraft release by a day or so.
 
 **Tools a package repo ships.** When a configured repo ships a tool's package (the Arch repos for
@@ -157,7 +158,7 @@ Omarchy's own update check does: `checkupdates` refreshes a private copy of the 
 9 MB in `~/.cache/omarchy/omarcraft/checkup-db`) without a password and without touching the system's,
 which are only as new as its last update. The badge reads `↑ system` when the repo has a newer build than
 the one installed, and opens Omarchy's update, which brings exactly that build, because updating one repo
-package on its own is a partial upgrade; *Update all* leaves these to the system. A repo's build can trail the AUR's by a day or
+package on its own is a partial upgrade; *Update all* runs Omarchy's update when one of these is pending. A repo's build can trail the AUR's by a day or
 so. When a repo starts or stops shipping a tool, the panel follows after the next system update.
 
 **The apps' own update prompts.** A Craft app may announce a new version itself ("Update and restart")

@@ -13,11 +13,17 @@ Apps from a package repo show their updates. The review is in `docs/v0.5.6-plan.
   touching the system's. An installed app whose repo has a newer build shows `↑ system`; Enter runs
   Omarchy's update, which brings exactly that build, and the badge clears. The six-hourly notification
   names them too.
+- **Fixed: Update all did nothing for apps from a package repo.** It updated AUR apps only and, when
+  only repo apps were pending, said "The rest update with the system · Enter on their tile". It now
+  updates every pending app: AUR apps alone one package each through the AUR helper, as before; once an
+  app from a package repo is among them, Omarchy's update, which brings them all at once. The
+  confirmation names each app and its new version. The menu's *Update all* and `omarcraft update` do the
+  same.
 - **Fixed: the six-hourly check checked once a day.** The panel checked every six hours, but the list was
   only fetched again after 24 hours; it is now fetched at every six-hourly check.
 - README: an app's own "Update and restart" cannot update a package that pacman installed; update it from
   OmarCraft or with Omarchy's update.
-- Tests: 247 offline tests (13 new), each new piece checked by breaking it on purpose.
+- Tests: 249 offline tests (15 new), each new piece checked by breaking it on purpose.
 
 ## 0.5.5 — 2026-11-08
 
