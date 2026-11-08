@@ -73,19 +73,18 @@ function newCount(apps) {
   return n
 }
 
-// What Update all updates: every installed app with a newer build. AUR apps alone update one package each
-// through the AUR helper ("update"). Once an app from a package repo is among them it is Omarchy's update
-// ("system-update"), which brings them all at once, the AUR ones included: a repo package is never
-// updated on its own.
+// What Update all updates: every pending app that updates alone, one package each (AUR apps, and apps
+// from Omarchy's repo, whose source reads "bin"). Only when nothing else is pending do the apps that
+// update with the system (source "repo": the Arch repos) make it Omarchy's update ("system-update").
 function updateAllPlan(apps) {
-  var aur = [], sys = []
+  var one = [], sys = []
   for (var i = 0; i < (apps || []).length; i++) {
     var a = apps[i]
     if (!a.updateReady) continue
     if (a.source === "repo") sys.push(a.id)
-    else aur.push(a.id)
+    else one.push(a.id)
   }
-  return sys.length > 0 ? { kind: "system-update", ids: sys.concat(aur) } : { kind: "update", ids: aur }
+  return one.length > 0 ? { kind: "update", ids: one } : { kind: "system-update", ids: sys }
 }
 
 // The tile badge: "↑ 0.9.0" for an AUR build, "↑ system" for a repo app behind the sync database.

@@ -84,6 +84,10 @@ declare -A GROUP_OF=(
 # tools that only ever come from a repo. A tool may list several packages: the first is the app, the
 # others install and remove with it.
 declare -A KIND_OF=([typesetter]=repo [planify]=repo)
+# Repos whose tools update one package at a time, like the AUR ones, after a dependency check, instead of
+# with Omarchy's whole update (0.5.6, the author's decision): Omarchy's own repo, whose Craft packages are
+# self-contained builds. Tools from the Arch repos keep updating with the system.
+APP_REPOS_RE='^omarchy$'
 KIND=""      # set by kind_var, the no-subshell form of kind_for
 VERSION=""   # set by version_var
 declare -A PKGS_OF=([typesetter]=typesetter [planify]=planify)
@@ -313,6 +317,65 @@ upgrade_var() {
   return 0
 }
 
+# True when a repo tool updates alone: its package comes from one of the APP_REPOS_RE repos.
+updates_alone() {
+  local pkg=${PKGS_OF[$1]:-$1-bin}
+  load_sync
+  [[ ${SYNC_REPO[${pkg%% *}]:-} =~ $APP_REPOS_RE ]]
+}
+
+# pacman will require a valid signature on a package installed from a URL: RemoteFileSigLevel, or SigLevel,
+# which it defaults to, says PackageRequired (pacman-conf prefixes each level with Package or Database;
+# DatabaseOptional is about the package lists, not the packages). Anything else, or an answer this does
+# not recognise, counts as no.
+remote_signatures_required() {
+  local level
+  level=" $(pacman-conf RemoteFileSigLevel 2>/dev/null | tr '\n' ' ') "
+  [[ -n ${level// /} ]] || level=" $(pacman-conf SigLevel 2>/dev/null | tr '\n' ' ') "
+  [[ $level == *" PackageRequired "* ]]
+}
+
+# Update packages from an app repo alone, without Omarchy's whole update. The private copy of the package
+# lists is refreshed (repo_check) and pacman resolves the update against it: it goes ahead only when
+# nothing but the named packages would change, so the system's own lists and every other package stay as
+# they are. Each package is then installed from its repo's https address, pacman checking its signature,
+# through the AUR helper Omarchy ships, which asks for the password. What remains is a new build that
+# needs a newer library without declaring it: only that app would be affected, until the next full update.
+repo_update() {
+  local out err name url want=" $* " urls=() extra=()
+  if ! remote_signatures_required; then
+    printf '\nNothing was updated: this system does not require signatures on packages installed from a URL.\n'
+    printf 'Update with Omarchy instead: omarchy update\n'
+    return 1
+  fi
+  if ! repo_check; then
+    printf '\nNothing was updated: the repos could not be read just now. Try again in a moment.\n'
+    return 1
+  fi
+  mkdir -p "$REPO_DB/no-cache"   # empty: pacman then prints the repo's address, never a cached file
+  err=$(mktemp)
+  out=$(LC_ALL=C pacman -Sp --needed --dbpath "$REPO_DB" --cachedir "$REPO_DB/no-cache" \
+    --print-format '%n %l' -- "$@" 2>"$err") || { cat "$err"; rm -f "$err"; return 1; }
+  rm -f "$err"
+  while read -r name url; do
+    [[ -n $name ]] || continue
+    if [[ $want != *" $name "* ]]; then extra+=("$name"); continue; fi
+    [[ $url =~ ^https://[^[:space:]]+$ ]] || { printf '\nNothing was updated: %s would come from %s, not an https address.\n' "$name" "$url"; return 1; }
+    urls+=("$url")
+  done <<<"$out"
+  if (( ${#extra[@]} > 0 )); then
+    printf '\nNothing was updated. %s also needs %s from the repos, which makes it a system update.\n' "$*" "${extra[*]}"
+    printf 'Omarchy'"'"'s update brings them together: omarchy update\n'
+    notify "Not updated alone" "$* needs ${extra[*]} too. Omarchy's update brings them together."
+    return 4
+  fi
+  if (( ${#urls[@]} == 0 )); then
+    printf '\n%s: already the newest build.\n' "$*"
+    return 0
+  fi
+  yay -U --noconfirm "${urls[@]}"
+}
+
 # Every package of a tool, space-separated; the app's own first.
 pkgs_for() {
   printf '%s' "${PKGS_OF[$1]:-$1-bin}"
@@ -371,7 +434,7 @@ install_source() {
   if [[ $pkg != "$(pkg_for "$1")" ]]; then
     printf source
   elif [[ $KIND == repo ]]; then
-    printf repo
+    if updates_alone "$1"; then printf bin; else printf repo; fi
   elif [[ $pkg == *-bin ]]; then
     printf bin
   else
@@ -697,8 +760,8 @@ missing_ids() {
   done < <(group_ids "${1:-all}")
 }
 
-# Installed apps with a newer build: AUR apps (what Update all updates), or with "repo" the repo
-# packages, which update with the system.
+# Installed apps with a newer build that update alone (AUR apps and Omarchy's repo apps: what Update all
+# updates), or with "repo" the ones that update with the system (the Arch repos).
 outdated_ids() {
   local want="${1:-bin}" id name tagline group version
   load_installed
@@ -767,9 +830,15 @@ job() {
       (( $# > 0 )) || die "nothing to update"
       for id in "$@"; do
         known_id "$id"
-        [[ $(kind_for "$id") == aur ]] || die "$id comes from a package repo and updates with the system: omarcraft update $id"
         read -ra own <<<"$(pkgs_for "$id")"
-        pkgs+=("${own[@]}")
+        kind_var "$id"
+        if [[ $KIND == aur ]]; then
+          pkgs+=("${own[@]}")
+        elif updates_alone "$id"; then
+          repo_pkgs+=("${own[@]}")
+        else
+          die "$id comes from a package repo and updates with the system: omarcraft update $id"
+        fi
       done
       ;;
     system-update)
@@ -800,7 +869,10 @@ job() {
       ;;
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
     # directly here. It is the helper Omarchy ships and uses itself.
-    update) refuse_source_builds "${pkgs[@]}" || return; yay -S --noconfirm "${pkgs[@]}" ;;
+    update)
+      if (( ${#repo_pkgs[@]} > 0 )); then repo_update "${repo_pkgs[@]}" || return; fi
+      if (( ${#pkgs[@]} > 0 )); then refuse_source_builds "${pkgs[@]}" || return; yay -S --noconfirm "${pkgs[@]}" || return; fi
+      ;;
     # Repo packages are never updated one by one (a partial upgrade); Omarchy updates them all.
     system-update) omarchy-update ;;
     # Removal is Omarchy's own command: the package and the dependencies nothing else needs. The
@@ -923,10 +995,10 @@ install_group() {
   run_job install "" "${ids[@]}"
 }
 
-# update [id...]: the given apps, or every installed app with a newer build. AUR apps alone update one
-# package each through the AUR helper. Once an app from a package repo is among them, Omarchy's update
-# runs instead and brings them all at once, the AUR ones included (its AUR step): a repo package is never
-# updated on its own.
+# update [id...]: the given apps, or every installed app with a newer build that updates alone, one
+# package each: AUR apps, and apps from Omarchy's repo after a dependency check. Apps from the Arch repos
+# open Omarchy's update instead when nothing else is to update: a package from those is never updated on
+# its own.
 update() {
   local ids=() system=() id
   load_installed
@@ -935,14 +1007,14 @@ update() {
     for id in "$@"; do
       known_id "$id"
       kind_var "$id"
-      if [[ $KIND == repo ]]; then system+=("$id"); else ids+=("$id"); fi
+      if [[ $KIND == repo ]] && ! updates_alone "$id"; then system+=("$id"); else ids+=("$id"); fi
     done
   else
     mapfile -t ids < <(outdated_ids)
     mapfile -t system < <(outdated_ids repo)
   fi
-  if (( ${#system[@]} > 0 )); then
-    run_job system-update "" "${system[@]}" "${ids[@]}"
+  if (( ${#ids[@]} == 0 && ${#system[@]} > 0 )); then
+    run_job system-update "" "${system[@]}"
   fi
   if (( ${#ids[@]} == 0 )); then
     notify "No updates pending"
@@ -1023,7 +1095,7 @@ state() {
     [[ $kind == repo ]] && repo=${SYNC_REPO[$pkg]:-}
     if [[ -n ${INSTALLED[$pkg]:-} ]]; then
       current=${INSTALLED[$pkg]}
-      if [[ $kind == repo ]]; then src=repo; elif [[ $pkg == *-bin ]]; then src=bin; else src=source; fi
+      if [[ $kind == repo && ! $repo =~ $APP_REPOS_RE ]]; then src=repo; elif [[ $kind == repo || $pkg == *-bin ]]; then src=bin; else src=source; fi
     elif [[ -z ${PKGS_OF[$id]:-} && -n ${INSTALLED[$id]:-} ]]; then src=source; current=${INSTALLED[$id]}
     else src=""; current=""; fi
     ready=0
@@ -1082,7 +1154,7 @@ list() {
     [[ $KIND == repo ]] && where="${SYNC_REPO[${pkg%% *}]:-a} repo"
     if is_installed "$id"; then
       src=$(install_source "$id")
-      [[ $src == repo ]] && src=$where
+      [[ $src != source && $where != AUR ]] && src=$where
       status="installed $(installed_version "$id") ($src)"
       update_ready "$id" "$version" && status="$status, update ready $version"
     elif [[ -z $version ]]; then

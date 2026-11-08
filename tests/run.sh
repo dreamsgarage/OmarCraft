@@ -72,6 +72,30 @@ case "\$1" in
       (( found )) || { echo "error: package '\$pkg' was not found" >&2; rc=1; }
     done
     exit \$rc ;;
+  -Sp)
+    # What installing the named packages would download, as pacman prints it with --print-format '%n %l':
+    # from the private copy with --dbpath, skipping current ones with --needed, plus what $TMP/fresh-deps
+    # ("pkg dep") says the install would also need. Addresses: https://pkgs.example/<repo>, or \$FAKE_PKG_URL.
+    shift; db="$TMP/sync-db"; needed=0
+    while (( \$# > 0 )); do
+      case "\$1" in
+        --dbpath) db="\$2/fake-sync-db"; shift 2 ;;
+        --cachedir|--print-format) shift 2 ;;
+        --needed) needed=1; shift ;;
+        --) shift; break ;;
+        *) break ;;
+      esac
+    done
+    for pkg in "\$@"; do
+      line=\$(awk -v p="\$pkg" '\$2 == p { print; exit }' "\$db" 2>/dev/null)
+      [[ -n \$line ]] || { echo "error: target not found: \$pkg" >&2; exit 1; }
+      read -r repo name version <<<"\$line"
+      inst=\$(awk -v p="\$pkg" '\$1 == p { print \$2 }' "$TMP/installed")
+      if (( needed )) && [[ -n \$inst ]] && (( \$(vercmp "\$inst" "\$version") >= 0 )); then continue; fi
+      echo "\$name \${FAKE_PKG_URL:-https://pkgs.example/\$repo}/\$name-\$version-x86_64.pkg.tar.zst"
+      awk -v p="\$pkg" '\$1 == p { print \$2 " https://pkgs.example/extra/" \$2 "-1-1-x86_64.pkg.tar.zst" }' "$TMP/fresh-deps" 2>/dev/null
+    done
+    exit 0 ;;
   -Qm)
     while read -r name version; do
       awk -v p="\$name" '\$2 == p { f = 1 } END { exit !f }' "$TMP/sync-db" || echo "\$name \$version"
@@ -103,6 +127,18 @@ done <"$TMP/installed"
 (( n > 0 )) && exit 0 || exit 2
 STUB
 chmod +x "$TMP/bin/checkupdates"
+# pacman-conf, with the signature levels of a stock Omarchy pacman.conf (SigLevel Required; RemoteFileSigLevel
+# unset, so it defaults to SigLevel); $TMP/remote-siglevel sets RemoteFileSigLevel.
+cat >"$TMP/bin/pacman-conf" <<STUB
+#!/bin/bash
+case "\$1" in
+  SigLevel) printf 'PackageRequired\nPackageTrustedOnly\nDatabaseOptional\nDatabaseTrustedOnly\n' ;;
+  RemoteFileSigLevel) cat "$TMP/remote-siglevel" 2>/dev/null ;;
+esac
+exit 0
+STUB
+chmod +x "$TMP/bin/pacman-conf"
+: >"$TMP/fresh-deps"
 # The sync databases and pacman.conf the script stats to know whether the repos changed.
 mkdir -p "$TMP/sync"; : >"$TMP/sync/omarchy.db"; : >"$TMP/sync/extra.db"; : >"$TMP/pacman.conf"
 stub omarchy-pkg-add 0
@@ -113,8 +149,10 @@ calls() { cat "$TMP/log/$1" 2>/dev/null; }
 reset_log() { rm -f "$TMP/log/$1"; }
 # A new run's view of the repos (what a fresh process would load).
 resync_memo() { SYNC_LOADED=0; SYNC_REPO=(); SYNC_VERSION=(); LATEST_LOADED=0; LATEST_VERSION=(); }
-# The repos now ship exactly these ("repo name version"), as after a sync: the databases change on disk.
-sync_db() { printf '%s\n' "$@" >"$TMP/sync-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo; }
+# The repos now ship exactly these ("repo name version"), as after a sync: the system's lists change on
+# disk, and a check of the repos as they are now (checkupdates) would see the same. Tests that need the
+# repos ahead of the system's lists write $TMP/fresh-db after this.
+sync_db() { printf '%s\n' "$@" >"$TMP/sync-db"; cp "$TMP/sync-db" "$TMP/fresh-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo; }
 # These packages are installed now ("name version").
 installed_now() { printf '%s\n' "$@" >"$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=(); }
 
@@ -242,7 +280,7 @@ expect_true "in one query naming every tool's package" "calls pacman | grep -q -
 
 expect_eq "kinds: Craft app, repo tool" "$(kind_for photocraft)/$(kind_for typesetter)" "aur/repo"
 expect_eq "a package no repo ships is an AUR app, installed or not" "$(kind_for photocraft)/$(kind_for deckcraft)" "aur/aur"
-expect_eq "a package Omarchy's repo ships is a repo app" "$(kind_for wordcraft)/$(install_source wordcraft)" "repo/repo"
+expect_eq "a package Omarchy's repo ships is a repo app that updates alone, like an AUR one" "$(kind_for wordcraft)/$(install_source wordcraft)" "repo/bin"
 expect_eq "packages of a tool" "$(pkgs_for typesetter)|$(pkg_for typesetter)|$(pkg_for memospot)|$(pkg_for photocraft)" \
   "typesetter|typesetter|memospot-bin|photocraft-bin"
 expect_eq "a repo tool is installed from the repo" "$(install_source typesetter)" "repo"
@@ -298,8 +336,8 @@ expect_eq "state: unpackaged app has null source and no version" "$(jq -c '.apps
 expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft","typesetter"]'
 expect_eq "state: no job, no last job" "$(jq -c '[.job,.lastJob,.offline,.refreshing]' <<<"$st")" '[null,null,false,false]'
 expect_eq "state carries the brand colours" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.color,.inkLight,.inkDark]' <<<"$st")" '["#3f5fe0","#2a44b8","#8ea2ff"]'
-expect_eq "state: wordcraft-bin comes from Omarchy's repo and updates with the system" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.group,.kind,.repo,.source,.installedVersion,.updateReady]' <<<"$st")" \
-  '["office","repo","omarchy","repo","1.0.0-1",false]'
+expect_eq "state: wordcraft-bin comes from Omarchy's repo and updates alone" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.group,.kind,.repo,.source,.installedVersion,.updateReady]' <<<"$st")" \
+  '["office","repo","omarchy","bin","1.0.0-1",false]'
 expect_eq "state names the repo of a repo tool, none for an AUR app" "$(jq -c '[.apps[] | select(.id=="typesetter" or .id=="photocraft") | .repo]' <<<"$st")" '["","extra"]'
 expect_eq "state glyph is the verified codepoint" "$(printf '%s' "$(jq -r '.apps[] | select(.id=="wordcraft") | .glyph' <<<"$st")" | od -An -tx1 | tr -d ' \n')" "f3b08899"
 expect_eq "state made no network call itself" "$(calls curl | wc -l)" "0"
@@ -365,7 +403,9 @@ reset_log yay
 expect_eq "job update with no ids takes every outdated app, through the helper" "$(calls yay)" "-S --noconfirm photocraft-bin"
 expect_eq "job update records the outdated ids" "$(jq -c '[.verb,.ids]' "$LAST_JOB_FILE")" '["update",["photocraft"]]'
 reset_log yay
-( job update wordcraft ) >/dev/null 2>&1 && fail "a repo package is never updated by the AUR helper" || ok "a repo package is never updated by the AUR helper"
+( job update wordcraft ) >/dev/null 2>&1
+expect_eq "an Omarchy repo package already at its repo's build: nothing to do, and the AUR helper is never asked" \
+  "$?|$(calls yay | wc -l)" "0|0"
 ( job update photocraft ) >/dev/null 2>&1
 expect_eq "job update <id> is package-exact" "$(calls yay)" "-S --noconfirm photocraft-bin"
 ( job update 'x;rm' ) >/dev/null 2>&1 && fail "job update refuses an unsafe id" || ok "job update refuses an unsafe id"
@@ -532,15 +572,19 @@ reset_log omarchy-launch-floating-terminal-with-presentation
 expect_true "updating a repo tool opens the system update" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update typesetter'"
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update wordcraft ) >/dev/null 2>&1
-expect_true "an Omarchy repo app opens the system update too" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update wordcraft'"
+expect_true "an Omarchy repo app updates alone, like an AUR one" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update wordcraft$'"
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update ) >/dev/null 2>&1
-expect_true "Update all with a repo tool pending runs Omarchy's update for every pending app, the AUR ones too" \
-  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update typesetter photocraft$'"
+expect_true "Update all updates the apps that update alone and leaves an Arch repo tool to the system" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update photocraft$'"
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update wordcraft photocraft ) >/dev/null 2>&1
-expect_true "so does an update naming a repo app and an AUR app together" \
-  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update wordcraft photocraft$'"
+expect_true "an Omarchy repo app and an AUR app update together, each alone" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update wordcraft photocraft$'"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update typesetter photocraft ) >/dev/null 2>&1
+expect_true "asked with an AUR app, an Arch repo tool is left to the system, as before 0.5.6" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update photocraft$'"
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update photocraft ) >/dev/null 2>&1
 expect_true "while AUR apps alone still update one package each through the helper" \
@@ -581,6 +625,8 @@ done
 # those the panel follows the repo, installed or not, and only offers what its action then delivers.
 
 cp "$TMP/installed" "$TMP/installed.baseline"; cp "$TMP/sync-db" "$TMP/sync-db.baseline"; cp "$CATALOG" "$TMP/catalog.baseline"
+# These cases predate the check of the repos as they are now: start without one (jobs above ran it).
+rm -f "$REPO_LATEST"; resync_memo
 aur_has() { awk -F'\t' -v OFS='\t' -v id="$1" -v v="$2" '$1 == id { $5 = v } { print }' "$CATALOG" >"$CATALOG.t" && mv "$CATALOG.t" "$CATALOG"; }
 app() { state | jq -c --arg id "$1" ".apps[] | select(.id == \$id) | $2"; }
 
@@ -589,26 +635,27 @@ installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.15.2-1" "gridcraft-bin 
 sync_db "omarchy wordcraft-bin 0.15.2-1" "omarchy gridcraft-bin 0.16.1-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
 aur_has photocraft 0.21.0-1; aur_has wordcraft 0.16.0-1; aur_has gridcraft 0.17.0-1
 expect_eq "Omarchy's build is measured against Omarchy's repo, never the newer AUR build (0.5.3's stuck badge)" \
-  "$(app gridcraft '[.kind,.repo,.source,.installedVersion,.aurVersion,.updateReady]')" '["repo","omarchy","repo","0.16.1-1","0.16.1-1",false]'
+  "$(app gridcraft '[.kind,.repo,.source,.installedVersion,.aurVersion,.updateReady]')" '["repo","omarchy","bin","0.16.1-1","0.16.1-1",false]'
 expect_eq "so no badge waits for an update the system cannot bring" "$(state | jq -c '[.apps[] | select(.updateReady) | .id]')" '[]'
 expect_eq "and Update all has nothing to hand the AUR helper" "$(outdated_ids | wc -l)" "0"
 
 sync_db "omarchy wordcraft-bin 0.16.0-1" "omarchy gridcraft-bin 0.16.1-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
-expect_eq "a newer build in Omarchy's repo shows the system badge" "$(app wordcraft '[.source,.aurVersion,.updateReady]')" '["repo","0.16.0-1",true]'
+expect_eq "a newer build in Omarchy's repo shows a badge" "$(app wordcraft '[.source,.aurVersion,.updateReady]')" '["bin","0.16.0-1",true]'
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update wordcraft ) >/dev/null 2>&1
-expect_true "which opens Omarchy's update" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update wordcraft'"
+expect_true "which updates it alone" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update wordcraft$'"
 installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.16.0-1" "gridcraft-bin 0.16.1-1" "typesetter 0.16-1"
 expect_eq "and once the system is updated the badge is gone" "$(app wordcraft '.updateReady')" "false"
 
 # Installed from the AUR while a repo ships the same name: the repo's build is the one that updates.
 installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.17.0-1" "gridcraft-bin 0.16.1-1"
-expect_eq "an AUR build newer than the repo's: a repo app, no badge" "$(app wordcraft '[.kind,.source,.installedVersion,.updateReady]')" '["repo","repo","0.17.0-1",false]'
+expect_eq "an AUR build newer than the repo's: a repo app, no badge" "$(app wordcraft '[.kind,.source,.installedVersion,.updateReady]')" '["repo","bin","0.17.0-1",false]'
 reset_log yay
-( job update wordcraft ) >/dev/null 2>&1 && fail "the AUR helper is never asked for a name a repo ships" || ok "the AUR helper is never asked for a name a repo ships"
+( job update wordcraft ) >/dev/null 2>&1
+expect_eq "updating it finds nothing newer in its repo, and the AUR helper is not asked for it" "$?|$(calls yay | grep -c -- '-S ')" "0|0"
 expect_eq "so nothing is reinstalled or downgraded (0.5.2 downgraded WordCraft that way)" "$(calls yay | wc -l)" "0"
 installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.15.1-1" "gridcraft-bin 0.16.1-1"
-expect_eq "an AUR build older than the repo's: the system update brings the repo's" "$(app wordcraft '[.source,.aurVersion,.updateReady]')" '["repo","0.16.0-1",true]'
+expect_eq "an AUR build older than the repo's: the repo's build is offered" "$(app wordcraft '[.source,.aurVersion,.updateReady]')" '["bin","0.16.0-1",true]'
 
 # Not installed, a repo ships it.
 installed_now "photocraft-bin 0.21.0-1"
@@ -617,7 +664,7 @@ reset_log omarchy-pkg-add; reset_log omarchy-pkg-aur-add
 ( job install gridcraft ) >/dev/null 2>&1
 expect_eq "installed with Omarchy's repo command" "$(calls omarchy-pkg-add)|$(calls omarchy-pkg-aur-add | wc -l)" "gridcraft-bin|0"
 installed_now "photocraft-bin 0.21.0-1" "gridcraft-bin 0.16.1-1"
-expect_eq "and no badge right after the install" "$(app gridcraft '[.source,.updateReady]')" '["repo",false]'
+expect_eq "and no badge right after the install" "$(app gridcraft '[.source,.updateReady]')" '["bin",false]'
 
 # A repo stops shipping an app, or starts: the app follows at the next sync, without waiting for a check.
 sync_db "omarchy gridcraft-bin 0.16.1-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
@@ -815,16 +862,15 @@ printf 'omarchy gridcraft-bin 0.17.0-1\nomarchy wordcraft-bin 0.16.0-1\nextra ty
 reset_log checkupdates; rm -f "$REFRESH_FAILED" "$REPO_LATEST"
 refresh -f >/dev/null 2>&1
 expect_eq "a check reads the repos as they are now, into a private copy in the cache" "$?|$(calls checkupdates)" "0|--nocolor|$REPO_DB"
-expect_eq "an installed app whose repo has a newer build than the stale lists shows the system badge" \
-  "$(app gridcraft '[.kind,.repo,.source,.installedVersion,.aurVersion,.updateReady]')" '["repo","omarchy","repo","0.16.1-1","0.17.0-1",true]'
+expect_eq "an installed app whose repo has a newer build than the stale lists shows a badge" \
+  "$(app gridcraft '[.kind,.repo,.source,.installedVersion,.aurVersion,.updateReady]')" '["repo","omarchy","bin","0.16.1-1","0.17.0-1",true]'
 expect_eq "so does the other one" "$(app wordcraft '[.aurVersion,.updateReady]')" '["0.16.0-1",true]'
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( update gridcraft ) >/dev/null 2>&1
-expect_true "Enter on it opens Omarchy's update, which refreshes the lists and brings that build" \
-  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update gridcraft'"
+expect_true "Enter on it updates it alone" "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update gridcraft$'"
 out=$(check 2>/dev/null)
 expect_true "the six-hourly check names the repo's build" "grep -qx 'GridCraft 0.16.1-1 → 0.17.0-1' <<<'$out'"
-expect_eq "and Update all leaves them to the system" "$(outdated_ids | wc -l)" "0"
+expect_eq "and Update all takes them" "$(outdated_ids | tr '\n' ' ')" "wordcraft gridcraft "
 installed_now "gridcraft-bin 0.17.0-1" "wordcraft-bin 0.16.0-1" "photocraft-bin 1.0.0-1"
 sync_db "omarchy gridcraft-bin 0.17.0-1" "omarchy wordcraft-bin 0.16.0-1" "extra typesetter 0.16-1" "extra planify 1.0.0-1"
 expect_eq "after Omarchy's update both badges are gone" "$(state | jq -c '[.apps[] | select(.updateReady) | .id]')" '[]'
@@ -853,12 +899,78 @@ cp "$TMP/sync-db.b6" "$TMP/sync-db"; cp "$TMP/fresh-db.b6" "$TMP/fresh-db"; prin
 cp "$TMP/catalog.b6" "$CATALOG"; rm -f "$REPO_LATEST"
 stub curl 7
 
+# --- an app from Omarchy's repo updates alone (0.5.6) ------------------------------------------------
+# Like an AUR app, without Omarchy's whole update (the author's decision): the private copy of the repos is
+# refreshed, pacman resolves the update against it, and the app is installed alone from its repo's https
+# address, pacman checking its signature. When the update needs anything else, nothing is installed.
+cp "$TMP/installed" "$TMP/installed.b7"; cp "$TMP/sync-db" "$TMP/sync-db.b7"; cp "$TMP/fresh-db" "$TMP/fresh-db.b7"
+installed_now "gridcraft-bin 0.16.1-1" "wordcraft-bin 0.15.2-1" "photocraft-bin 1.0.0-1" "typesetter 0.15.2-1"
+sync_db "omarchy gridcraft-bin 0.16.1-1" "omarchy wordcraft-bin 0.15.2-1" "extra typesetter 0.15.2-1" "extra planify 1.0.0-1"
+printf 'omarchy gridcraft-bin 0.17.0-1\nomarchy wordcraft-bin 0.16.0-1\nextra typesetter 0.16-1\nextra planify 1.0.0-1\n' >"$TMP/fresh-db"
+want_sp="-Sp --needed --dbpath $REPO_DB --cachedir $REPO_DB/no-cache --print-format %n %l -- gridcraft-bin"
+reset_log yay; reset_log checkupdates; reset_log omarchy-update; reset_log pacman
+( job update gridcraft ) >/dev/null 2>&1
+expect_eq "an app from Omarchy's repo updates alone: the job succeeds" "$?" "0"
+expect_eq "after refreshing the private copy of the repos" "$(calls checkupdates | wc -l)" "1"
+expect_true "pacman resolves it against that copy and prints the repo's address" "calls pacman | grep -qxF -- \"\$want_sp\""
+expect_eq "the helper installs that one package from its https address" "$(calls yay)" \
+  "-U --noconfirm https://pkgs.example/omarchy/gridcraft-bin-0.17.0-1-x86_64.pkg.tar.zst"
+expect_eq "Omarchy's whole update is not run" "$(calls omarchy-update | wc -l)" "0"
+expect_eq "and the job is recorded as an update" "$(jq -c '[.verb,.ids,.exit]' "$LAST_JOB_FILE")" '["update",["gridcraft"],0]'
+
+echo "gridcraft-bin libfoo" >"$TMP/fresh-deps"
+reset_log yay; reset_log omarchy-notification-send
+out=$( ( job update gridcraft ) 2>&1 )
+expect_eq "when the update needs another package too, nothing is installed" \
+  "$(jq -c '[.verb,.exit]' "$LAST_JOB_FILE")|$(calls yay | wc -l)" '["update",4]|0'
+expect_true "the terminal names it, and Omarchy's update as the way" "grep -q 'also needs libfoo' <<<\"\$out\" && grep -q 'omarchy update' <<<\"\$out\""
+expect_true "and so does a notification" "calls omarchy-notification-send | grep -q libfoo"
+: >"$TMP/fresh-deps"
+
+reset_log yay
+( FAKE_PKG_URL=http://pkgs.example/omarchy; export FAKE_PKG_URL; job update gridcraft ) >/dev/null 2>&1
+expect_eq "an address that is not https is refused" "$(jq -c '.exit' "$LAST_JOB_FILE")|$(calls yay | wc -l)" "1|0"
+printf 'PackageOptional\nPackageTrustedOnly\n' >"$TMP/remote-siglevel"; reset_log yay
+( job update gridcraft ) >/dev/null 2>&1
+expect_eq "nothing is installed from an address where pacman would not require its signature" \
+  "$(jq -c '.exit' "$LAST_JOB_FILE")|$(calls yay | wc -l)" "1|0"
+rm -f "$TMP/remote-siglevel"
+touch "$TMP/checkupdates-fail"; reset_log yay
+( job update gridcraft ) >/dev/null 2>&1
+expect_eq "nor when the repos cannot be read just then" "$(jq -c '.exit' "$LAST_JOB_FILE")|$(calls yay | wc -l)" "1|0"
+rm -f "$TMP/checkupdates-fail"
+
+reset_log yay
+( job update gridcraft photocraft ) >/dev/null 2>&1
+expect_eq "an Omarchy repo app and an AUR app in one job: each alone" "$(calls yay | tr '\n' '|')" \
+  "-U --noconfirm https://pkgs.example/omarchy/gridcraft-bin-0.17.0-1-x86_64.pkg.tar.zst|-S --noconfirm photocraft-bin|"
+installed_now "gridcraft-bin 0.17.0-1" "wordcraft-bin 0.15.2-1" "photocraft-bin 1.0.0-1" "typesetter 0.15.2-1"
+reset_log yay
+( job update gridcraft ) >/dev/null 2>&1
+expect_eq "an app already at its repo's newest build is left alone" "$(jq -c '.exit' "$LAST_JOB_FILE")|$(calls yay | wc -l)" "0|0"
+( job update typesetter ) >/dev/null 2>&1 && fail "a tool from the Arch repos never updates alone" || ok "a tool from the Arch repos never updates alone"
+
+installed_now "gridcraft-bin 0.16.1-1" "wordcraft-bin 0.15.2-1" "photocraft-bin 1.0.0-1" "typesetter 0.15.2-1"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update ) >/dev/null 2>&1
+expect_true "Update all updates the Omarchy repo apps alone and leaves the Arch repo tool to the system" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job update wordcraft gridcraft$'"
+installed_now "gridcraft-bin 0.17.0-1" "wordcraft-bin 0.16.0-1" "photocraft-bin 1.0.0-1" "typesetter 0.15.2-1"
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update ) >/dev/null 2>&1
+expect_true "with only an Arch repo tool pending, Update all runs Omarchy's update rather than nothing" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update typesetter$'"
+
+cp "$TMP/installed.b7" "$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=()
+cp "$TMP/sync-db.b7" "$TMP/sync-db"; cp "$TMP/fresh-db.b7" "$TMP/fresh-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo
+rm -f "$REPO_LATEST"
+
 # --- hygiene -----------------------------------------------------------------------------------
 
 expect_eq "no privilege strings in the script" \
-  "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -R|pacman -S([^i]|$)' "$ROOT/bin/omarcraft")" "0"
-expect_eq "the helper is called in exactly one place (the update job)" \
-  "$(grep -cE '(^|[^a-z-])yay ' "$ROOT/bin/omarcraft")" "1"
+  "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -R|pacman -S([^ip]|$)' "$ROOT/bin/omarcraft")" "0"
+expect_eq "the helper is called in two places, both for the update job: AUR packages, and one repo package" \
+  "$(grep -E '(^|[^a-z-])yay ' "$ROOT/bin/omarcraft" | grep -oE 'yay -[SU] --noconfirm' | tr '\n' '|')" "yay -U --noconfirm|yay -S --noconfirm|"
 expect_eq "manifest id" "$(jq -r .id "$ROOT/manifest.json")" "omarcraft.productivity"
 expect_eq "IPC target matches the manifest id" "$IPC_TARGET" "$(jq -r .id "$ROOT/manifest.json")"
 [[ -x $ROOT/bin/omarcraft ]] && ok "bin/omarcraft is executable" || fail "bin/omarcraft is executable"
