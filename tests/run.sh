@@ -56,7 +56,9 @@ cat >"$TMP/bin/pacman" <<STUB
 printf '%s\n' "\$*" >>"$TMP/log/pacman"
 case "\$1" in
   -Si)
-    shift; [[ \${1:-} == -- ]] && shift
+    shift; db="$TMP/sync-db"
+    if [[ \${1:-} == --dbpath ]]; then db="\$2/fake-sync-db"; shift 2; fi
+    [[ \${1:-} == -- ]] && shift
     if [[ \${LC_ALL:-} == C ]]; then r=Repository n=Name v=Version; else r=Repositorio n=Nombre v=Versión; fi
     rc=0
     for pkg in "\$@"; do
@@ -66,7 +68,7 @@ case "\$1" in
         found=1
         printf '%-15s : %s\n%-15s : %s\n%-15s : %s\n%-15s : %s\n\n' "\$r" "\$repo" "\$n" "\$name" "\$v" "\$version" \
           Description "An app: with a colon"
-      done <"$TMP/sync-db"
+      done < <(cat "\$db" 2>/dev/null)
       (( found )) || { echo "error: package '\$pkg' was not found" >&2; rc=1; }
     done
     exit \$rc ;;
@@ -81,6 +83,26 @@ STUB
 chmod +x "$TMP/bin/pacman"
 printf 'photocraft-bin 0.8.0-1\nwordcraft-bin 1.0.0-1\nfilmcraft 1.0.0-1\ntypesetter 0.15.2-1\nother 1.0-1\n' >"$TMP/installed"
 printf 'omarchy wordcraft-bin 1.0.0-1\nextra typesetter 0.16-1\nextra planify 1.0.0-1\n' >"$TMP/sync-db"
+cp "$TMP/sync-db" "$TMP/fresh-db"
+# checkupdates, as pacman-contrib's: it refreshes a private copy of the package lists in $CHECKUPDATES_DB
+# (here: copies $TMP/fresh-db, the repos as they are now, into it), prints "name old -> new" for each
+# installed package with a newer build, exits 0 when it listed any and 2 when none, and 1 when it failed
+# ($TMP/checkupdates-fail). The real one is never reached: this stub comes first on PATH.
+cat >"$TMP/bin/checkupdates" <<STUB
+#!/bin/bash
+printf '%s|%s\n' "\$*" "\${CHECKUPDATES_DB:-}" >>"$TMP/log/checkupdates"
+# A failed refresh can leave the copy broken: here it is emptied, so whatever reads it after a failure
+# reads nothing.
+[[ -f "$TMP/checkupdates-fail" ]] && { [[ -d \${CHECKUPDATES_DB:-/nonexistent} ]] && : >"\$CHECKUPDATES_DB/fake-sync-db"; exit 1; }
+mkdir -p "\$CHECKUPDATES_DB" && cp "$TMP/fresh-db" "\$CHECKUPDATES_DB/fake-sync-db" || exit 1
+n=0
+while read -r name version; do
+  new=\$(awk -v p="\$name" '\$2 == p { print \$3; exit }' "$TMP/fresh-db")
+  if [[ -n \$new && \$new != "\$version" ]] && (( \$(vercmp "\$version" "\$new") < 0 )); then echo "\$name \$version -> \$new"; n=\$((n + 1)); fi
+done <"$TMP/installed"
+(( n > 0 )) && exit 0 || exit 2
+STUB
+chmod +x "$TMP/bin/checkupdates"
 # The sync databases and pacman.conf the script stats to know whether the repos changed.
 mkdir -p "$TMP/sync"; : >"$TMP/sync/omarchy.db"; : >"$TMP/sync/extra.db"; : >"$TMP/pacman.conf"
 stub omarchy-pkg-add 0
@@ -90,7 +112,7 @@ export PATH="$TMP/bin:$PATH"
 calls() { cat "$TMP/log/$1" 2>/dev/null; }
 reset_log() { rm -f "$TMP/log/$1"; }
 # A new run's view of the repos (what a fresh process would load).
-resync_memo() { SYNC_LOADED=0; SYNC_REPO=(); SYNC_VERSION=(); }
+resync_memo() { SYNC_LOADED=0; SYNC_REPO=(); SYNC_VERSION=(); LATEST_LOADED=0; LATEST_VERSION=(); }
 # The repos now ship exactly these ("repo name version"), as after a sync: the databases change on disk.
 sync_db() { printf '%s\n' "$@" >"$TMP/sync-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo; }
 # These packages are installed now ("name version").
@@ -104,7 +126,7 @@ PACMAN_CONF="$TMP/pacman.conf"
 # Nothing the script touches may be real: every path it writes or deletes must point into the test
 # folder, or the suite stops before any test.
 for var in CACHE_DIR STATE_DIR DATA_HOME MENU_FILE LEGACY_VIKUNJA_DIR LEGACY_VIKUNJA_ENTRY LEGACY_VIKUNJA_PID \
-  SYNC_CACHE CATALOG_FORMAT_FILE PACMAN_SYNC_DIR PACMAN_CONF; do
+  SYNC_CACHE CATALOG_FORMAT_FILE PACMAN_SYNC_DIR PACMAN_CONF REPO_DB REPO_LATEST; do
   [[ ${!var} == "$TMP"/* ]] || { echo "refusing to run: $var=${!var} is outside $TMP" >&2; exit 2; }
 done
 set +e
@@ -672,7 +694,7 @@ rm -f "$CATALOG_FORMAT_FILE"; touch "$CATALOG"; now_iso >"$REFRESH_FAILED"
 ensure_cache
 catalog_fresh && fail "a cache an older version wrote is refreshed at once" || ok "a cache an older version wrote is refreshed at once"
 expect_true "the old failure's retry wait goes with it" "[[ ! -f '$REFRESH_FAILED' ]]"
-expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "3"
+expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "4"
 touch "$CATALOG"; ensure_cache
 expect_true "once: the next read leaves a fresh cache fresh" "catalog_fresh"
 
@@ -769,6 +791,57 @@ expect_eq "and lists at most MAX_APPS + 8 tools" "$(jq '.apps | length' <<<"$st"
 size=$(wc -c <<<"$st")
 expect_true "so its whole answer stays small ($size bytes)" "(( $size < 100000 ))"
 cp "$TMP/catalog.baseline" "$CATALOG"
+stub curl 7
+
+# --- the repos as they are now (0.5.6) -------------------------------------------------------------
+# The system's lists are as old as its last update: on 2026-11-08 they said GridCraft 0.16.1 while
+# Omarchy's repo shipped 0.17.0, so 0.5.5 showed no update. A check now reads the repos as they are
+# through checkupdates, into a private copy in the cache.
+cp "$TMP/installed" "$TMP/installed.b6"; cp "$TMP/sync-db" "$TMP/sync-db.b6"; cp "$TMP/fresh-db" "$TMP/fresh-db.b6"
+cp "$CATALOG" "$TMP/catalog.b6"
+fake_aur '{"version":5,"type":"multiinfo","resultcount":0,"results":[]}'
+installed_now "gridcraft-bin 0.16.1-1" "wordcraft-bin 0.15.2-1" "photocraft-bin 1.0.0-1"
+sync_db "omarchy gridcraft-bin 0.16.1-1" "omarchy wordcraft-bin 0.15.2-1" "extra typesetter 0.16-1" "extra planify 1.0.0-1"
+printf 'omarchy gridcraft-bin 0.17.0-1\nomarchy wordcraft-bin 0.16.0-1\nextra typesetter 0.16-1\nextra planify 1.0.0-1\n' >"$TMP/fresh-db"
+reset_log checkupdates; rm -f "$REFRESH_FAILED" "$REPO_LATEST"
+refresh -f >/dev/null 2>&1
+expect_eq "a check reads the repos as they are now, into a private copy in the cache" "$?|$(calls checkupdates)" "0|--nocolor|$REPO_DB"
+expect_eq "an installed app whose repo has a newer build than the stale lists shows the system badge" \
+  "$(app gridcraft '[.kind,.repo,.source,.installedVersion,.aurVersion,.updateReady]')" '["repo","omarchy","repo","0.16.1-1","0.17.0-1",true]'
+expect_eq "so does the other one" "$(app wordcraft '[.aurVersion,.updateReady]')" '["0.16.0-1",true]'
+reset_log omarchy-launch-floating-terminal-with-presentation
+( update gridcraft ) >/dev/null 2>&1
+expect_true "Enter on it opens Omarchy's update, which refreshes the lists and brings that build" \
+  "calls omarchy-launch-floating-terminal-with-presentation | grep -q 'job system-update gridcraft'"
+out=$(check 2>/dev/null)
+expect_true "the six-hourly check names the repo's build" "grep -qx 'GridCraft 0.16.1-1 → 0.17.0-1' <<<'$out'"
+expect_eq "and Update all leaves them to the system" "$(outdated_ids | wc -l)" "0"
+installed_now "gridcraft-bin 0.17.0-1" "wordcraft-bin 0.16.0-1" "photocraft-bin 1.0.0-1"
+sync_db "omarchy gridcraft-bin 0.17.0-1" "omarchy wordcraft-bin 0.16.0-1" "extra typesetter 0.16-1" "extra planify 1.0.0-1"
+expect_eq "after Omarchy's update both badges are gone" "$(state | jq -c '[.apps[] | select(.updateReady) | .id]')" '[]'
+
+# Not installed: an install brings the system lists' build, so the tile offers that one; once it is
+# installed, the repo's newer build shows as a system update.
+installed_now "photocraft-bin 1.0.0-1"
+sync_db "omarchy gridcraft-bin 0.16.1-1" "omarchy wordcraft-bin 0.15.2-1" "extra typesetter 0.16-1" "extra planify 1.0.0-1"
+expect_eq "not installed: offered at what an install brings now" "$(app gridcraft '[.installed,.aurVersion,.updateReady]')" '[false,"0.16.1-1",false]'
+installed_now "photocraft-bin 1.0.0-1" "gridcraft-bin 0.16.1-1"
+expect_eq "installed: the repo's newer build as a system update" "$(app gridcraft '[.aurVersion,.updateReady]')" '["0.17.0-1",true]'
+
+cp "$REPO_LATEST" "$TMP/latest.before"; touch "$TMP/checkupdates-fail"
+refresh -f >/dev/null 2>&1
+expect_eq "a failed repo check keeps the previous answer, and the check itself succeeds" \
+  "$?|$(cmp -s "$REPO_LATEST" "$TMP/latest.before" && echo kept)" "0|kept"
+rm -f "$TMP/checkupdates-fail"
+printf 'gridcraft-bin\tomarchy\t9.9.9;rm\n' >"$REPO_LATEST"; resync_memo
+expect_eq "a malformed version in the copy is ignored" "$(app gridcraft '.aurVersion')" '"0.16.1-1"'
+expect_eq "a check every six hours, like the panel's timer" "$CATALOG_MAX_AGE_MINUTES" "360"
+touch -d '-7 hours' "$CATALOG"
+catalog_fresh && fail "a list older than six hours is checked again" || ok "a list older than six hours is checked again"
+
+cp "$TMP/installed.b6" "$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=()
+cp "$TMP/sync-db.b6" "$TMP/sync-db"; cp "$TMP/fresh-db.b6" "$TMP/fresh-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo
+cp "$TMP/catalog.b6" "$CATALOG"; rm -f "$REPO_LATEST"
 stub curl 7
 
 # --- hygiene -----------------------------------------------------------------------------------

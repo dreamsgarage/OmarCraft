@@ -32,10 +32,15 @@ STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omarcraft"
 CATALOG="$CACHE_DIR/catalog.tsv"
 # The cache's format; a cache without this marker is refreshed once, at once. 2 (0.5.4): the version
 # column holds the AUR's version of every tool, where a repo tool's held the repo's. 3 (0.5.5): every
-# field was checked and bounded on the way in; older caches may hold anything the network sent.
-CATALOG_FORMAT=3
+# field was checked and bounded on the way in; older caches may hold anything the network sent. 4 (0.5.6):
+# a check also reads the repos as they are now (REPO_LATEST), so the first read after the update checks.
+CATALOG_FORMAT=4
 CATALOG_FORMAT_FILE="$CACHE_DIR/catalog.format"
 SYNC_CACHE="$CACHE_DIR/sync.tsv"
+# The repos as they are now, not as of the last system update (see repo_check): a private copy of the
+# package lists, and what it says of the catalog's packages.
+REPO_DB="$CACHE_DIR/checkup-db"
+REPO_LATEST="$CACHE_DIR/repo-latest.tsv"
 # Read, never written: what decides whether the sync databases changed since SYNC_CACHE was made.
 PACMAN_CONF=/etc/pacman.conf
 PACMAN_SYNC_DIR=/var/lib/pacman/sync
@@ -63,7 +68,7 @@ TAGLINE_MAX=96                  # characters in its tagline; the longest is 41
 VERSION_RE='^[A-Za-z0-9._:+~-]{1,64}$'
 COLOR_RE='^#[0-9a-f]{6}$'
 IPC_TARGET="omarcraft.productivity"
-CATALOG_MAX_AGE_MINUTES=1440
+CATALOG_MAX_AGE_MINUTES=360    # a check every six hours, like the panel's own timer (Service.qml)
 REFRESH_RETRY_MINUTES=10        # after a failed check the panel retries on its own at most this often
 GROUPS_RE='^(all|creative|office|notes)$'
 # Panel groups. Craft apps not listed here are Creative.
@@ -176,12 +181,14 @@ known_id() {
 declare -A SYNC_REPO=() SYNC_VERSION=()
 SYNC_LOADED=0
 
-# package<TAB>repository<TAB>version for each named package a repo ships. LC_ALL=C because pacman
-# translates its field names. Fails when pacman reports anything but a package no repo ships.
+# package<TAB>repository<TAB>version for each named package a repo ships, from the system's package lists
+# or, with --dbpath DIR first, from another copy. LC_ALL=C because pacman translates its field names.
+# Fails when pacman reports anything but a package no repo ships.
 sync_table() {
-  local out err
+  local out err db=()
+  if [[ ${1:-} == --dbpath ]]; then db=(--dbpath "$2"); shift 2; fi
   out=$(mktemp)
-  err=$(LC_ALL=C pacman -Si -- "$@" 2>&1 >"$out") || true
+  err=$(LC_ALL=C pacman -Si "${db[@]}" -- "$@" 2>&1 >"$out") || true
   awk -F' *: ' '$1 == "Repository" { r = $2 } $1 == "Name" { n = $2 }
     $1 == "Version" && !(n in seen) { seen[n]; print n "\t" r "\t" $2 }' "$out"
   rm -f "$out"
@@ -252,6 +259,60 @@ version_var() {
   return 0
 }
 
+# --- the repos as they are now ---------------------------------------------------------------------
+# The system's package lists are as old as its last update, so they never show that a repo has a newer
+# build of a tool: Omarchy's repo shipped GridCraft 0.17.0 while the lists still said 0.16.1. checkupdates
+# (pacman-contrib; Omarchy's own update indicator runs it) refreshes a private copy of the lists, without
+# root and without touching the system's, and the catalog's packages are read from that copy into
+# REPO_LATEST. Part of every check (network); a failed check keeps the previous answer.
+declare -A LATEST_VERSION=()
+LATEST_LOADED=0
+
+repo_check() {
+  local id pkg pkgs=() rc=0 table tmp
+  command -v checkupdates >/dev/null || return 0
+  while IFS=$'\t' read -r id _; do
+    [[ $id =~ ^[a-z0-9-]+$ ]] || continue
+    pkg=${PKGS_OF[$id]:-$id-bin}
+    pkgs+=("${pkg%% *}")
+  done <"$CATALOG"
+  (( ${#pkgs[@]} > 0 )) || return 0
+  mkdir -p "$REPO_DB"
+  # 0: updates listed, 2: none; anything else means the copy was not refreshed.
+  CHECKUPDATES_DB="$REPO_DB" checkupdates --nocolor >/dev/null 2>&1 || rc=$?
+  (( rc == 0 || rc == 2 )) || return 1
+  table=$(sync_table --dbpath "$REPO_DB" "${pkgs[@]}") || return 1
+  tmp=$(mktemp "$REPO_LATEST.XXXXXX")
+  printf '%s\n' "$table" >"$tmp" && mv -f "$tmp" "$REPO_LATEST"
+  LATEST_LOADED=0
+  LATEST_VERSION=()
+}
+
+load_latest() {
+  (( LATEST_LOADED )) && return 0
+  LATEST_LOADED=1
+  local pkg repo version
+  [[ -f $REPO_LATEST ]] || return 0
+  while IFS=$'\t' read -r pkg repo version; do
+    [[ $pkg =~ ^[A-Za-z0-9@._+-]{1,128}$ && $version =~ $VERSION_RE ]] || continue
+    LATEST_VERSION[$pkg]=$version
+  done <"$REPO_LATEST"
+}
+
+# The version an update of an installed tool reaches, in VERSION: for an AUR tool the AUR's ($2); for a
+# repo tool the newer of the system's lists and its repo as it is now, since Omarchy's update refreshes the
+# lists before it upgrades. Sets KIND too. An install still brings what version_var says.
+upgrade_var() {
+  local pkg=${PKGS_OF[$1]:-$1-bin} latest
+  version_var "$1" "${2:-}"
+  [[ $KIND == repo ]] || return 0
+  load_latest
+  latest=${LATEST_VERSION[${pkg%% *}]:-}
+  [[ -n $latest && $latest != "$VERSION" ]] || return 0
+  if [[ -z $VERSION ]] || (( $(vercmp "$VERSION" "$latest") < 0 )); then VERSION=$latest; fi
+  return 0
+}
+
 # Every package of a tool, space-separated; the app's own first.
 pkgs_for() {
   printf '%s' "${PKGS_OF[$1]:-$1-bin}"
@@ -318,12 +379,12 @@ install_source() {
   fi
 }
 
-# A build newer than the installed one exists: the AUR's for an AUR app ($2, the catalog's column), the
-# repo's for a repo app, which then means the system has not been updated since its last sync.
+# A build newer than the installed one exists: the AUR's for an AUR app ($2, the catalog's column), its
+# repo's for a repo app (upgrade_var), which Omarchy's update then installs.
 update_ready() {
   local id="$1" current src
   src=$(install_source "$id")
-  version_var "$id" "${2:-}"
+  upgrade_var "$id" "${2:-}"
   [[ -n $VERSION && ( $src == bin || $src == repo ) ]] || return 1
   current=$(installed_version "$id")
   [[ -n $current ]] && (( $(vercmp "$current" "$VERSION") < 0 ))
@@ -537,6 +598,7 @@ refresh() {
   done <<<"$upstream"
   mv "$tmp" "$CATALOG"
   rm -f "$REFRESH_FAILED"
+  repo_check || true
 
   while IFS=$'\t' read -r id name _ _ _; do
     grep -qx "$id" "$SEEN" || new_names+=("$name")
@@ -897,7 +959,7 @@ check() {
   fi
 
   while read -r id; do
-    version_var "$id" "$(aur_version "$id")"
+    upgrade_var "$id" "$(aur_version "$id")"
     names+=("$(app_name "$id") $(installed_version "$id") → $VERSION")
   done <<<"$ids"
   printf '%s\n' "${names[@]}"
@@ -947,8 +1009,9 @@ state() {
     [[ $inkd =~ $COLOR_RE ]] || inkd=""
     pkg=${PKGS_OF[$id]:-$id-bin}
     pkg=${pkg%% *}
-    # A repo tool shows and compares the repo's build, never the AUR's: the repo's is what installs.
-    version_var "$id" "$version"
+    # A repo tool shows and compares the repo's build, never the AUR's: the repo's is what installs, and,
+    # once installed, what its repo ships now is what Omarchy's update brings.
+    if [[ -n ${INSTALLED[$pkg]:-} ]]; then upgrade_var "$id" "$version"; else version_var "$id" "$version"; fi
     kind=$KIND
     version=$VERSION
     [[ -z $version || $version =~ $VERSION_RE ]] || version=""
@@ -1008,7 +1071,7 @@ list() {
   load_installed
   load_sync
   while IFS=$'\037' read -r id name tagline group version _; do
-    version_var "$id" "$version"
+    if is_installed "$id"; then upgrade_var "$id" "$version"; else version_var "$id" "$version"; fi
     version=$VERSION
     pkg=${PKGS_OF[$id]:-$id-bin}
     where="AUR"

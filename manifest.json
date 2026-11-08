@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omarcraft.productivity",
   "name": "OmarCraft",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "author": "Entangled-Forge",
   "license": "MIT",
   "description": "Productivity tools from the Omarchy bar: the ArtCraft Craft apps (PhotoCraft, FilmCraft, WordCraft and ten more), Typesetter, Memospot and Planify. See what is installed, launch, install one tool or a group, update, remove. Prebuilt packages only (Omarchy's or the Arch repos, or AUR -bin), through Omarchy's own package commands. Unofficial.",
