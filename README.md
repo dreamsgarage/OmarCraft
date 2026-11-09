@@ -159,33 +159,31 @@ your password; only when nothing but tools from the Arch repos is pending does i
 `omarchy update` updates them too. "Newer" means a newer
 AUR build exists, which can trail an ArtCraft release by a day or so.
 
-**Tools a package repo ships.** When a configured repo ships a tool's package (the Arch repos for
-Typesetter and Planify; Omarchy's own repo for WordCraft and GridCraft, under their AUR names), the tool
-comes from that repo, installed or not and whatever installed it first: pacman and the AUR helper both take
-a package from a repo when one ships it. Its tile shows the repo's version and installs with Omarchy's
-`omarchy-pkg-add`. Each check reads the repos as they are now, the way Omarchy's own update check does:
-`checkupdates` refreshes a private copy of the package lists (about 9 MB in
+**Craft apps that Omarchy's repo also ships.** Omarchy's own repo ships WordCraft and GridCraft under
+their AUR names (`wordcraft-bin`, `gridcraft-bin`), but its builds can trail ArtCraft's releases, while the
+AUR's `-bin` packages download ArtCraft's own release files within hours. Since 0.5.7 OmarCraft takes these
+apps from the AUR, like every other Craft app: the badge shows the AUR's version, and installs and updates
+name the AUR explicitly (`yay -S aur/wordcraft-bin`), since pacman and the AUR helper otherwise take a
+package from a repo when one ships it. There is only ever one copy: both builds use the same package name,
+so the AUR build replaces Omarchy's in place, documents and settings untouched. Omarchy's update never
+downgrades it (pacman keeps a newer local build and says so in one warning line); when Omarchy's repo has
+a newer build than the installed one, Omarchy's update brings that build, which is fine, and OmarCraft
+offers the AUR's next release once it is newer. If the AUR ever has no build of such an app, the app
+follows Omarchy's repo instead. (0.5.4 to 0.5.6 followed Omarchy's repo for these apps; that code is kept,
+switched off, until Omarchy answers [omacom/omarchy-pkgs#2390](https://github.com/omacom/omarchy-pkgs/issues/2390).)
+
+**Tools from the Arch repos** (Typesetter, Planify) come from those repos, installed or not, and install
+with Omarchy's `omarchy-pkg-add`. Each check reads the repos as they are now, the way Omarchy's own update
+check does: `checkupdates` refreshes a private copy of the package lists (about 9 MB in
 `~/.cache/omarchy/omarcraft/checkup-db`) without a password and without touching the system's, which are
-only as new as its last update.
-
-- **Apps from Omarchy's repo update alone**, like the AUR ones: the badge shows the new version, and
-  `Enter` or *Update all* installs just that app. OmarCraft first asks pacman, against that private copy,
-  what the update needs, and goes ahead only when nothing else would change; the package comes from
-  Omarchy's https address and pacman checks its signature. If the update needs other packages, nothing is
-  installed and the terminal names them: Omarchy's update brings them together. The system's own lists
-  and every other package stay as they are. One risk remains: a new build that needs a newer library
-  without declaring it would affect that app alone, until the next full update.
-- **Tools from the Arch repos update with the system**: their badge reads `↑ system` and opens Omarchy's
-  update, because updating one of those packages on its own is a partial upgrade; *Update all* runs
-  Omarchy's update when only these are pending.
-
-A repo's build can trail the AUR's by a day or so. When a repo starts or stops shipping a tool, the panel
-follows after the next system update.
+only as new as its last update. Their badge reads `↑ system` and opens Omarchy's update, because updating
+one of those packages on its own is a partial upgrade; *Update all* runs Omarchy's update when only these
+are pending.
 
 **The apps' own update prompts.** A Craft app may announce a new version itself ("Update and restart")
 as soon as ArtCraft releases it. Its own updater cannot replace a package that pacman installed (it fails
-with "Permission denied"): update the app from OmarCraft or with Omarchy's update instead. Until the
-package has the new build, OmarCraft shows none.
+with "Permission denied"): update the app from OmarCraft instead. The AUR package usually has the new build
+within hours of the release; until it does, OmarCraft shows none.
 
 ## Apps installed some other way
 
@@ -193,8 +191,8 @@ OmarCraft recognises apps it did not install and never removes or replaces anyth
 
 | How the app got there | In the panel |
 |---|---|
-| `<app>-bin` from the AUR by any means | Installed; launches; counted for updates. If a package repo ships the same name, the app follows that repo: the system update brings the repo's build once it is newer |
-| `<app>-bin` from a package repo (Omarchy's own ships `wordcraft-bin` and `gridcraft-bin`) | Installed; launches; shows the repo's version; updates with the system |
+| `<app>-bin` from the AUR by any means | Installed; launches; counted for updates against the AUR |
+| `<app>-bin` from Omarchy's repo (it ships `wordcraft-bin` and `gridcraft-bin`) | Installed; launches; counted for updates against the AUR: the next AUR build replaces Omarchy's |
 | Source build (`<app>`, e.g. via `storytold-office` or `storytold-suite`) | Installed; launches; reads `Source build · updates via omarchy update`; never in OmarCraft's update checks (updating it would compile again) |
 | AppImage or Flatpak from the official ArtCraft Launcher | Not detected; the panel offers the `-bin` package. Remove the other copy first if you want one |
 

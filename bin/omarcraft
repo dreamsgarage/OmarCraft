@@ -34,7 +34,9 @@ CATALOG="$CACHE_DIR/catalog.tsv"
 # column holds the AUR's version of every tool, where a repo tool's held the repo's. 3 (0.5.5): every
 # field was checked and bounded on the way in; older caches may hold anything the network sent. 4 (0.5.6):
 # a check also reads the repos as they are now (REPO_LATEST), so the first read after the update checks.
-CATALOG_FORMAT=4
+# 5 (0.5.7): a Craft app a repo also ships compares with the AUR's version (FOLLOW_APP_REPOS), so the
+# badges for the newer AUR builds show at the first read instead of the next six-hourly check.
+CATALOG_FORMAT=5
 CATALOG_FORMAT_FILE="$CACHE_DIR/catalog.format"
 SYNC_CACHE="$CACHE_DIR/sync.tsv"
 # The repos as they are now, not as of the last system update (see repo_check): a private copy of the
@@ -88,6 +90,11 @@ declare -A KIND_OF=([typesetter]=repo [planify]=repo)
 # with Omarchy's whole update (0.5.6, the author's decision): Omarchy's own repo, whose Craft packages are
 # self-contained builds. Tools from the Arch repos keep updating with the system.
 APP_REPOS_RE='^omarchy$'
+# 0.5.7 (the author's decision, omacom/omarchy-pkgs#2390): a Craft app a repo also ships comes from the
+# AUR, whose -bin packages follow ArtCraft's releases within hours, while the AUR has a build of it. 0 here
+# keeps the repo-following code of 0.5.4 to 0.5.6 (kind repo, Omarchy's version, repo_update) switched
+# off; 1 brings it back unchanged. Tools pinned in KIND_OF are not affected.
+FOLLOW_APP_REPOS=0
 KIND=""      # set by kind_var, the no-subshell form of kind_for
 VERSION=""   # set by version_var
 declare -A PKGS_OF=([typesetter]=typesetter [planify]=planify)
@@ -232,15 +239,62 @@ load_sync() {
   done <<<"$table"
 }
 
-# The tool's kind, in the global KIND (no subshell): "repo" when it is pinned or a repo ships its
-# package, installed or not; "aur" otherwise.
+# The AUR's version of each tool, from the catalog's version column: one read per run, read again after
+# the catalog is rewritten (AUR_LOADED=0). Fields split on \x1f, not tab, so an empty column stays empty.
+declare -A AUR_OF=()
+AUR_LOADED=0
+
+load_aur() {
+  (( AUR_LOADED )) && return 0
+  AUR_LOADED=1
+  local id version
+  [[ -f $CATALOG ]] || return 0
+  while IFS=$'\037' read -r id _ _ _ version _; do
+    [[ $id =~ ^[a-z0-9-]+$ && -n $version && $version =~ $VERSION_RE ]] && AUR_OF[$id]=$version
+  done < <(tr '\t' '\037' <"$CATALOG")
+  return 0
+}
+
+# The tool's kind, in the global KIND (no subshell): "repo" when it is pinned, or when a repo ships its
+# package and either FOLLOW_APP_REPOS is on or the AUR has no build of it; "aur" otherwise.
 kind_var() {
   local pkg=${PKGS_OF[$1]:-$1-bin}
   KIND=${KIND_OF[$1]:-}
   [[ -n $KIND ]] && return 0
   load_sync
-  if [[ -n ${SYNC_REPO[${pkg%% *}]:-} ]]; then KIND=repo; else KIND=aur; fi
+  if [[ -n ${SYNC_REPO[${pkg%% *}]:-} ]]; then
+    KIND=repo
+    if (( ! FOLLOW_APP_REPOS )); then
+      load_aur
+      [[ -n ${AUR_OF[$1]:-} ]] && KIND=aur
+    fi
+  else
+    KIND=aur
+  fi
   return 0
+}
+
+# The name to give the AUR helper for an AUR package: aur/<pkg> when a repo ships the same name, since
+# yay, like pacman, takes the repo's build otherwise (2026-11-06: a plain `yay -S wordcraft-bin`
+# downgraded the AUR build to Omarchy's). The system's own lists decide, as they decide for yay.
+aur_target() {
+  load_sync
+  if [[ -n ${SYNC_REPO[$1]:-} ]]; then printf 'aur/%s' "$1"; else printf '%s' "$1"; fi
+}
+
+# Installs AUR packages a repo also ships, by their aur/ name. omarchy-pkg-aur-add cannot take that name:
+# its own last check runs `pacman -Q aur/<pkg>`, which always fails. Same steps otherwise: --needed, then
+# a check that each package is there, on its plain name.
+aur_install_shadowed() {
+  local pkg targets=()
+  for pkg in "$@"; do targets+=("aur/$pkg"); done
+  yay -S --noconfirm --needed -- "${targets[@]}" || return 1
+  for pkg in "$@"; do
+    if ! pacman -Q -- "$pkg" &>/dev/null; then
+      printf '\033[31mError: Package %s did not install\033[0m\n' "$pkg" >&2
+      return 1
+    fi
+  done
 }
 
 kind_for() {
@@ -604,6 +658,8 @@ reconcile_cache() {
         printf '%s\t%s\t%s\t%s\t\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$color" "$inkl" "$inkd" >>"$tmp"
       done < <(builtin_rows)
       mv "$tmp" "$CATALOG"
+      AUR_LOADED=0
+      AUR_OF=()
       # A new tool has no version yet; make the cache stale so the next state read fetches it.
       [[ -n $missing ]] && touch -d '-2 days' "$CATALOG"
       return 0
@@ -616,6 +672,8 @@ reconcile_cache() {
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$tagline" "$group" "$version" "$color" "$inkl" "$inkd"
   done < <(builtin_rows) >"$tmp"
   mv "$tmp" "$CATALOG"
+  AUR_LOADED=0
+  AUR_OF=()
   # No versions yet: stale on purpose, so the first state read starts a refresh right away.
   touch -d '-2 days' "$CATALOG"
   # Nothing has been seen yet; the first real catalog must not notify fourteen "new" apps.
@@ -660,6 +718,8 @@ refresh() {
       "${color:-}" "${inkl:-}" "${inkd:-}" >>"$tmp"
   done <<<"$upstream"
   mv "$tmp" "$CATALOG"
+  AUR_LOADED=0
+  AUR_OF=()
   rm -f "$REFRESH_FAILED"
   repo_check || true
 
@@ -809,7 +869,7 @@ reconcile_job() {
 
 # Runs inside the floating terminal. Exit status is the package command's.
 job() {
-  local verb="${1:-}" id pkgs=() repo_pkgs=() aur_pkgs=() own=()
+  local verb="${1:-}" id pkg pkgs=() repo_pkgs=() aur_pkgs=() shadowed=() own=()
   shift || true
   load_sync
   case "$verb" in
@@ -819,7 +879,13 @@ job() {
         known_id "$id"
         read -ra own <<<"$(pkgs_for "$id")"
         kind_var "$id"
-        if [[ $KIND == repo ]]; then repo_pkgs+=("${own[@]}"); else aur_pkgs+=("${own[@]}"); fi
+        if [[ $KIND == repo ]]; then
+          repo_pkgs+=("${own[@]}")
+        else
+          for pkg in "${own[@]}"; do
+            if [[ -n ${SYNC_REPO[$pkg]:-} ]]; then shadowed+=("$pkg"); else aur_pkgs+=("$pkg"); fi
+          done
+        fi
       done
       ;;
     update)
@@ -864,14 +930,20 @@ job() {
     install)
       # Explicit returns: the status of a failed install must reach end_job even without set -e.
       if (( ${#repo_pkgs[@]} > 0 )); then omarchy-pkg-add "${repo_pkgs[@]}" || return; fi
-      if (( ${#aur_pkgs[@]} > 0 )); then refuse_source_builds "${aur_pkgs[@]}" || return; fi
+      if (( ${#aur_pkgs[@]} + ${#shadowed[@]} > 0 )); then refuse_source_builds "${aur_pkgs[@]}" "${shadowed[@]}" || return; fi
       if (( ${#aur_pkgs[@]} > 0 )); then omarchy-pkg-aur-add "${aur_pkgs[@]}" || return; fi
+      if (( ${#shadowed[@]} > 0 )); then aur_install_shadowed "${shadowed[@]}" || return; fi
       ;;
     # Package-exact update: Omarchy's own AUR updater takes every AUR package, so the helper is called
     # directly here. It is the helper Omarchy ships and uses itself.
     update)
       if (( ${#repo_pkgs[@]} > 0 )); then repo_update "${repo_pkgs[@]}" || return; fi
-      if (( ${#pkgs[@]} > 0 )); then refuse_source_builds "${pkgs[@]}" || return; yay -S --noconfirm "${pkgs[@]}" || return; fi
+      if (( ${#pkgs[@]} > 0 )); then
+        refuse_source_builds "${pkgs[@]}" || return
+        own=()
+        for pkg in "${pkgs[@]}"; do own+=("$(aur_target "$pkg")"); done
+        yay -S --noconfirm "${own[@]}" || return
+      fi
       ;;
     # Repo packages are never updated one by one (a partial upgrade); Omarchy updates them all.
     system-update) omarchy-update ;;

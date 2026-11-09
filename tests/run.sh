@@ -96,6 +96,17 @@ case "\$1" in
       awk -v p="\$pkg" '\$1 == p { print \$2 " https://pkgs.example/extra/" \$2 "-1-1-x86_64.pkg.tar.zst" }' "$TMP/fresh-deps" 2>/dev/null
     done
     exit 0 ;;
+  -Q)
+    # -Q with names: "name version" for each installed one; "error: package 'x' was not found" on stderr
+    # and exit 1 for any other. Without names it lists every installed package, like the default below.
+    shift; [[ \${1:-} == -- ]] && shift
+    (( \$# == 0 )) && { cat "$TMP/installed"; exit 0; }
+    rc=0
+    for pkg in "\$@"; do
+      line=\$(awk -v p="\$pkg" '\$1 == p { print; exit }' "$TMP/installed")
+      if [[ -n \$line ]]; then echo "\$line"; else echo "error: package '\$pkg' was not found" >&2; rc=1; fi
+    done
+    exit \$rc ;;
   -Qm)
     while read -r name version; do
       awk -v p="\$name" '\$2 == p { f = 1 } END { exit !f }' "$TMP/sync-db" || echo "\$name \$version"
@@ -160,6 +171,10 @@ installed_now() { printf '%s\n' "$@" >"$TMP/installed"; INSTALLED_LOADED=0; INST
 source "$ROOT/bin/omarcraft"
 PACMAN_SYNC_DIR="$TMP/sync"
 PACMAN_CONF="$TMP/pacman.conf"
+# The tests up to the 0.5.7 section describe 0.5.4 to 0.5.6, where an app a repo ships follows the repo:
+# they run with that code switched on, to show it is kept unchanged. The 0.5.7 section switches it off,
+# as the release ships.
+FOLLOW_APP_REPOS=1
 
 # Nothing the script touches may be real: every path it writes or deletes must point into the test
 # folder, or the suite stops before any test.
@@ -750,7 +765,7 @@ rm -f "$CATALOG_FORMAT_FILE"; touch "$CATALOG"; now_iso >"$REFRESH_FAILED"
 ensure_cache
 catalog_fresh && fail "a cache an older version wrote is refreshed at once" || ok "a cache an older version wrote is refreshed at once"
 expect_true "the old failure's retry wait goes with it" "[[ ! -f '$REFRESH_FAILED' ]]"
-expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "4"
+expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "5"
 touch "$CATALOG"; ensure_cache
 expect_true "once: the next read leaves a fresh cache fresh" "catalog_fresh"
 
@@ -965,12 +980,100 @@ cp "$TMP/installed.b7" "$TMP/installed"; INSTALLED_LOADED=0; INSTALLED=()
 cp "$TMP/sync-db.b7" "$TMP/sync-db"; cp "$TMP/fresh-db.b7" "$TMP/fresh-db"; printf x >>"$TMP/sync/omarchy.db"; resync_memo
 rm -f "$REPO_LATEST"
 
+# --- 0.5.7: a Craft app a repo also ships comes from the AUR (FOLLOW_APP_REPOS=0) -----------------
+# The author's machine on 2026-11-09: Omarchy's builds of WordCraft and GridCraft installed, ArtCraft's
+# newer releases in the AUR; WordCraft's own prompt offered 0.17.0 while OmarCraft showed nothing.
+
+FOLLOW_APP_REPOS=0
+for f in installed sync-db fresh-db; do cp "$TMP/$f" "$TMP/$f.before057"; done
+cp "$CATALOG" "$TMP/catalog.before057"
+aur_now() { aur_has "$@"; AUR_LOADED=0; AUR_OF=(); }
+rm -f "$REPO_LATEST"
+installed_now "photocraft-bin 0.21.0-1" "wordcraft-bin 0.16.0-1" "gridcraft-bin 0.17.0-1" "typesetter 0.16-1"
+sync_db "omarchy wordcraft-bin 0.16.0-1" "omarchy gridcraft-bin 0.17.0-1" "extra typesetter 0.16-1" "extra planify 4.20.0-2"
+aur_now photocraft 0.21.0-1; aur_now wordcraft 0.17.0-1; aur_now gridcraft 0.18.0-1
+
+expect_eq "0.5.7: Omarchy's WordCraft installed, the AUR newer: an AUR app with a badge (the author's report)" \
+  "$(app wordcraft '[.kind,.repo,.source,.installedVersion,.aurVersion,.updateReady]')" '["aur","","bin","0.16.0-1","0.17.0-1",true]'
+expect_eq "0.5.7: GridCraft the same, at the AUR's 0.18.0" "$(app gridcraft '[.kind,.aurVersion,.updateReady]')" '["aur","0.18.0-1",true]'
+expect_eq "0.5.7: Typesetter, pinned to the Arch repos, is not affected" "$(app typesetter '[.kind,.repo]')" '["repo","extra"]'
+expect_eq "0.5.7: both are what Update all updates, none goes to the system update" \
+  "$(outdated_ids | tr '\n' ' ')|$(outdated_ids repo | tr '\n' ' ')" "wordcraft gridcraft |"
+expect_true "0.5.7: list shows the AUR's build ready, not Omarchy's repo" \
+  "list | grep '^wordcraft' | grep -q 'update ready 0.17.0-1' && ! list | grep '^wordcraft' | grep -q 'omarchy repo'"
+
+reset_log yay; reset_log checkupdates; reset_log omarchy-update
+( job update wordcraft ) >/dev/null 2>&1
+expect_eq "0.5.7: its update names the AUR, or yay would take Omarchy's build" "$?|$(calls yay)" "0|-S --noconfirm aur/wordcraft-bin"
+expect_eq "0.5.7: and runs neither the repo update nor Omarchy's update" "$(calls checkupdates | wc -l)|$(calls omarchy-update | wc -l)" "0|0"
+
+aur_now photocraft 0.22.0-1
+reset_log yay
+( job update ) >/dev/null 2>&1
+expect_eq "0.5.7: Update all: one helper call, the AUR prefix only where a repo ships the name" \
+  "$(calls yay)" "-S --noconfirm photocraft-bin aur/wordcraft-bin aur/gridcraft-bin"
+aur_now photocraft 0.21.0-1
+
+# Install from the tile. The fake yay installs nothing, so the package is put in place first where the
+# install is meant to succeed.
+reset_log yay; reset_log omarchy-pkg-aur-add; reset_log omarchy-pkg-add
+installed_now "photocraft-bin 0.21.0-1"
+expect_eq "0.5.7: not installed: offered at the AUR's version, not as from Omarchy's repo" \
+  "$(app gridcraft '[.installed,.kind,.repo,.aurVersion]')" '[false,"aur","","0.18.0-1"]'
+installed_now "photocraft-bin 0.21.0-1" "gridcraft-bin 0.18.0-1"
+( job install gridcraft ) >/dev/null 2>&1
+expect_eq "0.5.7: installed from the AUR by its aur/ name, --needed" "$?|$(calls yay)" "0|-S --noconfirm --needed -- aur/gridcraft-bin"
+expect_eq "0.5.7: not through omarchy-pkg-aur-add (its own check cannot take aur/) nor Omarchy's repo" \
+  "$(calls omarchy-pkg-aur-add | wc -l)|$(calls omarchy-pkg-add | wc -l)" "0|0"
+installed_now "photocraft-bin 0.21.0-1"
+out=$( ( job install gridcraft ) 2>&1 )
+expect_eq "0.5.7: an install that leaves no package fails, checked on the plain name" \
+  "$(jq -c '[.verb,.exit]' "$LAST_JOB_FILE")|$(grep -c 'gridcraft-bin did not install' <<<"$out")" '["install",1]|1'
+reset_log yay; reset_log omarchy-pkg-aur-add
+installed_now "photocraft-bin 0.21.0-1" "gridcraft-bin 0.18.0-1" "deckcraft-bin 1.0.0-1"
+( job install deckcraft gridcraft ) >/dev/null 2>&1
+expect_eq "0.5.7: an AUR app no repo ships still installs through omarchy-pkg-aur-add, in the same job" \
+  "$?|$(calls omarchy-pkg-aur-add)|$(calls yay)" "0|deckcraft-bin|-S --noconfirm --needed -- aur/gridcraft-bin"
+
+# Omarchy's update brought Omarchy's build, newer than the AUR's (or a higher pkgrel of the same version).
+installed_now "wordcraft-bin 0.18.0-1"
+expect_eq "0.5.7: installed newer than the AUR: no badge, no error" "$(app wordcraft '[.kind,.source,.updateReady]')" '["aur","bin",false]'
+installed_now "wordcraft-bin 0.17.0-2"
+expect_eq "0.5.7: a higher pkgrel of the AUR's version: no badge" "$(app wordcraft '.updateReady')" 'false'
+aur_now wordcraft 0.19.0-1
+expect_eq "0.5.7: the AUR's next release is offered again" "$(app wordcraft '[.aurVersion,.updateReady]')" '["0.19.0-1",true]'
+
+# The AUR has no build of it (removed there, or no check yet): it follows its repo, as in 0.5.6.
+installed_now "wordcraft-bin 0.16.0-1"
+aur_now wordcraft ""
+expect_eq "0.5.7: no AUR build: the app follows Omarchy's repo, as in 0.5.6" \
+  "$(app wordcraft '[.kind,.repo,.source,.aurVersion]')" '["repo","omarchy","bin","0.16.0-1"]'
+aur_now wordcraft 0.17.0-1
+
+# The switch: on, the same machine behaves exactly as under 0.5.6.
+FOLLOW_APP_REPOS=1; resync_memo
+expect_eq "0.5.7: with FOLLOW_APP_REPOS on, Omarchy's build follows Omarchy's repo again, no badge" \
+  "$(app wordcraft '[.kind,.repo,.aurVersion,.updateReady]')" '["repo","omarchy","0.16.0-1",false]'
+FOLLOW_APP_REPOS=0; resync_memo
+
+# The AUR versions are read again after the catalog is rewritten.
+AUR_LOADED=1; AUR_OF=()
+grep -v "^memospot" "$CATALOG" >"$CATALOG.tmp" && mv "$CATALOG.tmp" "$CATALOG"
+reconcile_cache
+expect_eq "0.5.7: a rewritten catalog is read again for the AUR's versions" "$AUR_LOADED" "0"
+expect_eq "0.5.7: and the AUR's version decides again" "$(app wordcraft '.kind')" '"aur"'
+
+FOLLOW_APP_REPOS=1
+for f in installed sync-db fresh-db; do cp "$TMP/$f.before057" "$TMP/$f"; done
+cp "$TMP/catalog.before057" "$CATALOG"; INSTALLED_LOADED=0; INSTALLED=(); resync_memo; AUR_LOADED=0; AUR_OF=()
+rm -f "$REPO_LATEST"
+
 # --- hygiene -----------------------------------------------------------------------------------
 
 expect_eq "no privilege strings in the script" \
   "$(grep -cE '(^|[^a-z-])(sudo|pkexec)([^a-z-]|$)|pacman -R|pacman -S([^ip]|$)' "$ROOT/bin/omarcraft")" "0"
-expect_eq "the helper is called in two places, both for the update job: AUR packages, and one repo package" \
-  "$(grep -E '(^|[^a-z-])yay ' "$ROOT/bin/omarcraft" | grep -oE 'yay -[SU] --noconfirm' | tr '\n' '|')" "yay -U --noconfirm|yay -S --noconfirm|"
+expect_eq "the helper is called in three places: installing an AUR package a repo also ships, and for the update job AUR packages and one repo package" \
+  "$(grep -E '(^|[^a-z-])yay ' "$ROOT/bin/omarcraft" | grep -oE 'yay -[SU] --noconfirm' | tr '\n' '|')" "yay -S --noconfirm|yay -U --noconfirm|yay -S --noconfirm|"
 expect_eq "manifest id" "$(jq -r .id "$ROOT/manifest.json")" "omarcraft.productivity"
 expect_eq "IPC target matches the manifest id" "$IPC_TARGET" "$(jq -r .id "$ROOT/manifest.json")"
 [[ -x $ROOT/bin/omarcraft ]] && ok "bin/omarcraft is executable" || fail "bin/omarcraft is executable"

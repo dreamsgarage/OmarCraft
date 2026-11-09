@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.7 — unreleased
+
+WordCraft and GridCraft come from the AUR again, so OmarCraft offers ArtCraft's releases within hours. The
+decision and its cases are in `docs/v0.5.7-plan.md`.
+
+- **Changed: Craft apps that Omarchy's repo also ships follow the AUR.** On 2026-11-09 WordCraft 0.16.0
+  offered its own update to 0.17.0 while OmarCraft and Omarchy showed none: ArtCraft and the AUR had
+  0.17.0, Omarchy's repo still 0.16.0. These apps now compare with the AUR's build, and installs and
+  updates name the AUR explicitly (`yay -S aur/<pkg>`), since pacman and the AUR helper otherwise take the
+  repo's build. The AUR build replaces Omarchy's in place under the same name, so there is only one copy;
+  Omarchy's update never downgrades it, and brings Omarchy's build only when that one is newer. If the AUR
+  has no build of such an app, it follows Omarchy's repo as before. Typesetter and Planify are unchanged.
+- The code that followed Omarchy's repo (0.5.4 to 0.5.6) is kept, switched off (`FOLLOW_APP_REPOS`), until
+  Omarchy answers omacom/omarchy-pkgs#2390; its tests still run with it on.
+- The first read after the update checks at once (cache format 5), so the new badges show without waiting
+  for the six-hourly check.
+
 ## 0.5.6 — 2026-11-09
 
 Apps from a package repo show their updates, and apps from Omarchy's repo update alone. The review and the
