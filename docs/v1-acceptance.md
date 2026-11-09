@@ -157,6 +157,6 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 62 | 0.5.7 · Remove GridCraft, install it from its tile: no *from Omarchy's repo*, the terminal runs `yay -S --needed aur/gridcraft-bin`, the job ends with exit 0 | | pending | |
 | 63 | 0.5.7 · Omarchy's repo newer than the AUR: no badge, no error, the next AUR release offered when newer | | PASS | 2026-11-09, offline tests (a newer build and a higher pkgrel installed) |
 | 64 | 0.5.7 · The AUR without a build of an app a repo ships: the app follows the repo as in 0.5.6 | | PASS | 2026-11-09, offline test |
-| 65 | 0.5.7 · Switch on (`FOLLOW_APP_REPOS=1`): every 0.5.6 test passes unchanged | | PASS | 2026-11-09, the 267 earlier tests run with it on; 20 new tests with it off; ten breaks, each caught |
-| 66 | 0.5.7 · Upgrade from every earlier release (`tests/upgrade-paths.sh`), back online with every tool | | pending | |
+| 65 | 0.5.7 · Switch on (`FOLLOW_APP_REPOS=1`): every 0.5.6 test passes unchanged | aa6fca6 | PASS | 2026-11-09, the 267 earlier tests run with it on; 20 new tests with it off; ten breaks, each caught |
+| 66 | 0.5.7 · Upgrade from every earlier release (`tests/upgrade-paths.sh`), back online with every tool | aa6fca6 | PASS | 2026-11-09, against the local branch: 0.1.0, 0.2.0, 0.5.0, 0.5.1, 0.5.2, 0.5.3, 0.5.4, 0.5.5 and 0.5.6 all `ok`, online, 16 tools, 7 updates (WordCraft and GridCraft among them) |
 | 67 | 0.5.7 · The other machines, after the release: `omarchy plugin update`, the two badges, Enter, rows 59 and 61 on each | | pending | |
