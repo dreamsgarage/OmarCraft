@@ -178,6 +178,30 @@ Rows 35–41 of `v1-acceptance.md`. Planify's data lives in `~/.local/share/io.g
 check it after a remove. Measure its memory once installed: with Evolution's data services available it
 may start a few background processes the unpacked benchmark could not.
 
+## Upgrade from any earlier release
+
+Before a release, on the commit to ship (network, nothing outside a temporary folder):
+
+```bash
+bash tests/upgrade-paths.sh "$PWD"     # or with no argument: what GitHub's main serves
+```
+
+Every earlier release (each tag, and 0.5.3) must print `ok`: cloned at that release, it leaves its own
+cache and state, then the steps of `omarchy plugin update` (fetch, fast-forward, validate) bring it to
+this commit, which reads the old data and comes back online. On a real machine that runs an older
+version:
+
+```bash
+omarchy plugin update omarcraft.productivity --yes && omarchy restart shell
+grep '"version"' ~/.config/omarchy/plugins/omarcraft.productivity/manifest.json   # the new version
+git -C ~/.config/omarchy/plugins/omarcraft.productivity status --short --branch     # "## main...origin/main", nothing else
+```
+
+If the update refuses (*cannot fast-forward*, *local changes*, *not a git checkout*), the plugin folder
+was edited or is not a clone: `omarchy plugin remove omarcraft.productivity --yes`, then `omarchy plugin
+add https://github.com/dreamsgarage/OmarCraft.git --enable --yes` and `omarchy restart shell`. Apps stay
+installed.
+
 ## 0.5.6: updates of apps from a package repo
 
 Before the update, on a machine whose WordCraft or GridCraft is older than Omarchy's repo:

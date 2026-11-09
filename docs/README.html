@@ -477,12 +477,15 @@ omarchy-shell omarcraft.productivity layout tiles|rows</code></pre>
     <pre><code>omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable</code></pre>
     <p>The rocket icon lands in the right section of the bar. Enabling installs no app and writes no configuration; nothing happens until you pick something in the panel.</p>
     <h3 id="upgrade-h">Upgrade from an earlier version</h3>
-    <p>From any earlier version, update the plugin and answer yes when it asks, then restart the shell so the panel loads the new code. Your installed apps are not touched and nothing new is installed.</p>
-    <pre><code>omarchy plugin update omarcraft.productivity
+    <p>From any earlier version, update the plugin, then restart the shell so the panel loads the new code. Your installed apps are not touched and nothing new is installed.</p>
+    <pre><code>omarchy plugin update omarcraft.productivity --yes
 omarchy restart shell</code></pre>
-    <p>The panel header then reads <code>N OF 16 INSTALLED</code>, and this prints <code>0.5.3</code>:</p>
-    <pre><code>jq -r .version ~/.config/omarchy/plugins/omarcraft.productivity/manifest.json</code></pre>
-    <p>If the update says <em>cannot fast-forward</em> or <em>not a git checkout</em>, reinstall instead: <code>omarchy plugin remove omarcraft.productivity</code>, then the <code>omarchy plugin add</code> line above. Your apps stay installed.</p>
+    <p>The panel header then reads <code>N OF 16 INSTALLED</code>, and this prints the latest release's version:</p>
+    <pre><code>grep '"version"' ~/.config/omarchy/plugins/omarcraft.productivity/manifest.json</code></pre>
+    <p>Every release upgrades this way, 0.1.0 included: the history only moves forward, and each earlier release is upgraded in a test before a new one ships. The update refuses, with <em>cannot fast-forward</em> or <em>local changes</em>, only when files in the plugin folder were edited or copied over, and with <em>not a git checkout</em> when the folder is not a clone. Then reinstall the plugin; your apps and their files stay:</p>
+    <pre><code>omarchy plugin remove omarcraft.productivity --yes
+omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable --yes
+omarchy restart shell</code></pre>
     <h3>Remove</h3>
     <p>To remove the plugin:</p>
     <pre><code>omarchy plugin remove omarcraft.productivity</code></pre>

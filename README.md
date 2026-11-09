@@ -81,16 +81,26 @@ and writes no configuration; nothing happens until you pick something in the pan
 "omarchy-shell is not responding", the shell was still reloading; `omarchy plugin enable
 omarcraft.productivity` finishes the placement.
 
-To upgrade from an earlier version, update the plugin and answer yes when it asks, then restart the shell
-so the panel loads the new code. Your apps are not touched and nothing new is installed:
+To upgrade from any earlier version, update the plugin, then restart the shell so the panel loads the new
+code. Your apps are not touched and nothing new is installed:
 
 ```bash
-omarchy plugin update omarcraft.productivity
+omarchy plugin update omarcraft.productivity --yes
 omarchy restart shell
+grep '"version"' ~/.config/omarchy/plugins/omarcraft.productivity/manifest.json   # the latest release
 ```
 
-If the update says *cannot fast-forward* or *not a git checkout*, remove the plugin and add it again as
-above; your apps stay installed.
+Every release upgrades this way, 0.1.0 included: the history only moves forward, and
+`tests/upgrade-paths.sh` upgrades each earlier release before a new one ships. The update refuses, with
+*cannot fast-forward* or *local changes*, only when files in the plugin folder were edited or copied over
+(for example with `rsync`), and with *not a git checkout* when the folder is not a clone. Then reinstall
+the plugin; your apps and their files stay:
+
+```bash
+omarchy plugin remove omarcraft.productivity --yes
+omarchy plugin add https://github.com/dreamsgarage/OmarCraft.git --enable --yes
+omarchy restart shell
+```
 
 ## The panel
 
@@ -300,10 +310,15 @@ success from an exit code; it re-reads the package database.
 ## Development
 
 ```bash
-bash tests/run.sh
+bash tests/run.sh                  # offline
+bash tests/upgrade-paths.sh "$PWD" # every earlier release upgrades to this HEAD (network)
 omarchy plugin validate .
-rsync -a --delete --exclude .git ./ ~/.config/omarchy/plugins/omarcraft.productivity/   # or push + omarchy plugin update
+# Try a commit in the installed plugin without editing its folder (an edited or copied-over folder blocks
+# every later `omarchy plugin update`):
+git -C ~/.config/omarchy/plugins/omarcraft.productivity fetch "$PWD" HEAD
+git -C ~/.config/omarchy/plugins/omarcraft.productivity checkout --detach FETCH_HEAD
 omarchy restart shell        # after changing a .qml (never "refresh shell": that resets shell.json)
+# Back to the release: git -C ~/.config/omarchy/plugins/omarcraft.productivity checkout main
 ```
 
 Manual test plan: [docs/Testing.md](docs/Testing.md). Shell log: `journalctl --user _COMM=quickshell`.

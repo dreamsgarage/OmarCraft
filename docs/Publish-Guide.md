@@ -70,7 +70,8 @@ way for every tool added.
 
 ## Release procedure
 
-1. Tests green: `bash tests/run.sh`.
+1. Tests green: `bash tests/run.sh`, and every earlier release upgrades to this commit:
+   `bash tests/upgrade-paths.sh "$PWD"` (network; see `docs/Testing.md`).
 2. Bump `version` in `manifest.json` (semver) and add the CHANGELOG entry.
 3. Validate a clean export, not the working folder:
 
@@ -84,7 +85,8 @@ way for every tool added.
 5. Confirm the update path on a git-managed install: `omarchy plugin update omarcraft.productivity`, then
    `omarchy restart shell` if a QML file changed.
 6. Optionally `gh release create v0.1.0 --generate-notes`.
-7. If listed, open a Plugin verification issue for the new commit SHA
+7. If listed, open a Plugin verification issue for the new commit SHA, with update notes in a comment;
+   any later commit on `main` supersedes it, so batch changes and keep `main` frozen until it is approved
    (<https://github.com/omacom/omarchy-plugin-marketplace/issues/new?template=verify-plugin.yml>).
 
 ## Submission, when ready
