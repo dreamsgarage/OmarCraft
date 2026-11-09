@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.6 — unreleased
+## 0.5.6 — 2026-11-09
 
 Apps from a package repo show their updates, and apps from Omarchy's repo update alone. The review and the
 decisions are in `docs/v0.5.6-plan.md`.
