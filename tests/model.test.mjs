@@ -57,20 +57,20 @@ const apps = [
 
 // --- categories ---------------------------------------------------------------------------------
 const cats = M.categories(apps, []);
-eq("three categories, in order", cats.map((c) => c.id), ["creative", "3d", "office"]);
-eq("their labels and keys", cats.map((c) => c.label + ":" + c.key), ["Creative:c", "3D Art:3", "Office:o"]);
-eq("Creative holds its eight", cats[0].apps.map((a) => a.id),
+eq("three categories, Office first (the author's order)", cats.map((c) => c.id), ["office", "creative", "3d"]);
+eq("their labels and keys", cats.map((c) => c.label + ":" + c.key), ["Office:o", "Creative:c", "3D Art:3"]);
+eq("Creative holds its eight", cats[1].apps.map((a) => a.id),
   ["photocraft", "vectorcraft", "filmcraft", "lightcraft", "effectcraft", "designcraft", "figcraft", "soundcraft"]);
-eq("3D Art holds CAD, Texture, Material and Solid", cats[1].apps.map((a) => a.id), ["cadcraft", "texturecraft", "materialcraft", "solidcraft"]);
-eq("Office holds its seven, Memospot and Planify included", cats[2].apps.length, 7);
-eq("header counts: installed of total", cats.map((c) => c.installed + " of " + c.total), ["8 of 8", "1 of 4", "7 of 7"]);
-eq("the update dot", cats.map((c) => c.updates), [1, 0, 1]);
-eq("New only where an unseen app is not installed", cats.map((c) => c.hasNew), [false, true, false]);
-eq("what is missing, for the install key", cats[1].missing, ["texturecraft", "materialcraft", "solidcraft"]);
+eq("3D Art holds CAD, Texture, Material and Solid", cats[2].apps.map((a) => a.id), ["cadcraft", "texturecraft", "materialcraft", "solidcraft"]);
+eq("Office holds its seven, Memospot and Planify included", cats[0].apps.length, 7);
+eq("header counts: installed of total", cats.map((c) => c.installed + " of " + c.total), ["7 of 7", "8 of 8", "1 of 4"]);
+eq("the update dot", cats.map((c) => c.updates), [1, 1, 0]);
+eq("New only where an unseen app is not installed", cats.map((c) => c.hasNew), [false, false, true]);
+eq("what is missing, for the install key", cats[2].missing, ["texturecraft", "materialcraft", "solidcraft"]);
 eq("an installed app still flagged new does not mark its category New",
   M.categories([app("cadcraft", "CADCraft", "3d", inst({ new: true }))], [])[0].hasNew, false);
 eq("all closed on the first run", cats.map((c) => c.open), [false, false, false]);
-eq("open as the settings say", M.categories(apps, ["3d"]).map((c) => c.open), [false, true, false]);
+eq("open as the settings say", M.categories(apps, ["3d"]).map((c) => c.open), [false, false, true]);
 eq("Craft Anything is the footer, in no category", M.footerApps(apps).map((a) => a.id), ["craft-anything"]);
 truthy("and not inside any category", !cats.some((c) => c.apps.some((a) => a.id === "craft-anything")));
 eq("an app of an unknown group is Creative", M.categories([app("brushcraft", "BrushCraft", "suite")], [])[0].id, "creative");
@@ -86,16 +86,16 @@ eq("kept as a plain string", M.openString(["office", "3d"]), "office,3d");
 eq("the categories with new apps open themselves", M.newCategoryIds(apps), ["3d"]);
 
 // --- the cursor walk ------------------------------------------------------------------------------
-eq("all closed: headers, then the footer", M.cursorKeys(apps, []), ["cat:creative", "cat:3d", "cat:office", "app:craft-anything"]);
+eq("all closed: headers, then the footer", M.cursorKeys(apps, []), ["cat:office", "cat:creative", "cat:3d", "app:craft-anything"]);
 const keys = M.cursorKeys(apps, ["3d"]);
 eq("an open category's apps follow its header", keys,
-  ["cat:creative", "cat:3d", "app:cadcraft", "app:texturecraft", "app:materialcraft", "app:solidcraft", "cat:office", "app:craft-anything"]);
-eq("down from a header to the next key", M.gridMove(keys, apps, ["3d"], 1, 0, 1, true), 2);
-eq("down a line of tiles within the category", M.gridMove(keys, apps, ["3d"], 2, 0, 1, true), 5);
-eq("down past the category's tiles leaves it", M.gridMove(keys, apps, ["3d"], 4, 0, 1, true), 6);
-eq("up from the first line goes to the header", M.gridMove(keys, apps, ["3d"], 3, 0, -1, true), 1);
-eq("right steps one key", M.gridMove(keys, apps, ["3d"], 2, 1, 0, true), 3);
-eq("in rows every move is one key", M.gridMove(keys, apps, ["3d"], 2, 0, 1, false), 3);
+  ["cat:office", "cat:creative", "cat:3d", "app:cadcraft", "app:texturecraft", "app:materialcraft", "app:solidcraft", "app:craft-anything"]);
+eq("down from a header to the next key", M.gridMove(keys, apps, ["3d"], 2, 0, 1, true), 3);
+eq("down a line of tiles within the category", M.gridMove(keys, apps, ["3d"], 3, 0, 1, true), 6);
+eq("down past the category's tiles leaves it (to the footer)", M.gridMove(keys, apps, ["3d"], 5, 0, 1, true), 7);
+eq("up from the first line goes to the header", M.gridMove(keys, apps, ["3d"], 4, 0, -1, true), 2);
+eq("right steps one key", M.gridMove(keys, apps, ["3d"], 3, 1, 0, true), 4);
+eq("in rows every move is one key", M.gridMove(keys, apps, ["3d"], 3, 0, 1, false), 4);
 eq("never past the last key", M.gridMove(keys, apps, ["3d"], 7, 0, 1, true), 7);
 
 // --- badges, strip, summary -------------------------------------------------------------------------
@@ -131,6 +131,8 @@ eq("the install subtext", M.subtext(apps[13], craft), "New · install · prebuil
 // --- unchanged -----------------------------------------------------------------------------------
 eq("Update all: the apps that update alone", M.updateAllPlan(apps), { kind: "update", ids: ["photocraft", "wordcraft"] });
 eq("the hero", M.metaLine(craft) + " " + M.metaUpdates(craft), "16 of 20 installed · 2 updates");
+eq("an app nobody packaged yet is not counted in the hero",
+  M.metaLine({ ...craft, apps: apps.concat([app("mailcraft", "MailCraft", "suite", { aurVersion: "" })]) }), "16 of 20 installed");
 
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed === 0 ? 0 : 1);

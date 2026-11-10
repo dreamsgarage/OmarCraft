@@ -571,6 +571,19 @@ Panel {
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
         interactive: contentHeight > height
+
+        // Scrolling the way Omarchy's own menu does (plugins/menu/Menu.qml): a trackpad moves the content
+        // by exactly the distance it reports, a mouse wheel by a fixed step per notch. Flickable's own wheel
+        // handling turned trackpad scrolling into short flicks, which felt sluggish.
+        WheelHandler {
+          target: null
+          onWheel: function(event) {
+            var delta = event.pixelDelta.y || event.angleDelta.y / 120 * Style.space(60)
+            var bottom = Math.max(0, panelFlick.contentHeight - panelFlick.height)
+            panelFlick.contentY = Math.max(0, Math.min(bottom, panelFlick.contentY - delta))
+            event.accepted = true
+          }
+        }
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
         Column {

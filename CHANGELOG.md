@@ -12,7 +12,7 @@ ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and d
 - **New apps:** SolidCraft (Tangency Labs, a community app in ArtCraft's list), TextureCraft and
   MaterialCraft in the new **3D Art** category with CADCraft, and Craft Anything, ArtCraft's AI coding agent
   (early alpha), on its own line at the bottom of the panel. Twenty tools in all.
-- **Categories instead of status sections:** Creative, 3D Art and Office (Notes merged into Office), each
+- **Categories instead of status sections:** Office, Creative and 3D Art (Notes merged into Office), each
   one header line that opens and closes with Enter and is remembered; a category opens by itself when it
   gets a new app. Keys `c`, `3` and `o` install what a category is missing (`n` is gone; `install-group
   notes` still works, as Office).
@@ -21,6 +21,8 @@ ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and d
   (`list`, `check`) still shows versions.
 - The UPDATES strip names the apps; the apps stay in their category with their badge.
 - Cache format 6: the first read after the update fetches the list at once.
+- Trackpad scrolling follows the fingers, the way Omarchy's own menu scrolls; it was sluggish.
+- MailCraft, which ArtCraft added on 2026-11-10, is placed in Office; it shows once it has a package.
 
 ## 0.5.7 — unreleased
 

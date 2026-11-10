@@ -307,6 +307,16 @@
     <p class="sub">ArtCraft's own list of apps, seventeen in November 2026, plus three tools that do what ArtCraft does not. Each tile carries the app's own glyph in its own colour; an app ArtCraft adds shows up without a new OmarCraft.</p>
     <div class="groups">
       <div class="group">
+        <div class="group-head"><span class="name">Office</span><span class="key">o</span></div>
+        <div class="tool"><span class="d" style="color:#3f5fe0"></span><span class="tn">WordCraft</span><span class="tag">writing</span></div>
+        <div class="tool"><span class="d" style="color:#1f9d55"></span><span class="tn">GridCraft</span><span class="tag">spreadsheets</span></div>
+        <div class="tool"><span class="d" style="color:#f07a1e"></span><span class="tn">DeckCraft</span><span class="tag">slides</span></div>
+        <div class="tool"><span class="d" style="color:#e8204f"></span><span class="tn">PdfCraft</span><span class="tag">PDFs</span></div>
+        <div class="tool"><span class="d" style="color:#239dad"></span><span class="tn">Typesetter</span><span class="tag">Typst</span></div>
+        <div class="tool"><span class="d" style="color:#f6b028"></span><span class="tn">Memospot</span><span class="tag">memos, journal</span></div>
+        <div class="tool"><span class="d" style="color:#3571e4"></span><span class="tn">Planify</span><span class="tag">tasks, kanban</span></div>
+      </div>
+      <div class="group">
         <div class="group-head"><span class="name">Creative</span><span class="key">c</span></div>
         <div class="tool"><span class="d" style="color:#2f7bf5"></span><span class="tn">PhotoCraft</span><span class="tag">image editing</span></div>
         <div class="tool"><span class="d" style="color:#e8573f"></span><span class="tn">VectorCraft</span><span class="tag">vector art</span></div>
@@ -323,16 +333,6 @@
         <div class="tool new"><span class="d" style="color:#46a1fb"></span><span class="tn">SolidCraft</span><span class="tag">parametric CAD</span></div>
         <div class="tool new"><span class="d" style="color:#c2672b"></span><span class="tn">TextureCraft</span><span class="tag">texture painting</span></div>
         <div class="tool new"><span class="d" style="color:#178a9c"></span><span class="tn">MaterialCraft</span><span class="tag">materials</span></div>
-      </div>
-      <div class="group">
-        <div class="group-head"><span class="name">Office</span><span class="key">o</span></div>
-        <div class="tool"><span class="d" style="color:#3f5fe0"></span><span class="tn">WordCraft</span><span class="tag">writing</span></div>
-        <div class="tool"><span class="d" style="color:#1f9d55"></span><span class="tn">GridCraft</span><span class="tag">spreadsheets</span></div>
-        <div class="tool"><span class="d" style="color:#f07a1e"></span><span class="tn">DeckCraft</span><span class="tag">slides</span></div>
-        <div class="tool"><span class="d" style="color:#e8204f"></span><span class="tn">PdfCraft</span><span class="tag">PDFs</span></div>
-        <div class="tool"><span class="d" style="color:#239dad"></span><span class="tn">Typesetter</span><span class="tag">Typst</span></div>
-        <div class="tool"><span class="d" style="color:#f6b028"></span><span class="tn">Memospot</span><span class="tag">memos, journal</span></div>
-        <div class="tool"><span class="d" style="color:#3571e4"></span><span class="tn">Planify</span><span class="tag">tasks, kanban</span></div>
       </div>
       <div class="group">
         <div class="group-head"><span class="name">On its own line</span></div>
@@ -424,7 +424,7 @@
       <li><strong>Hero.</strong> The rocket logo, then the one-line situation: <code>16 OF 20 INSTALLED · 2 UPDATES</code>, <code>INSTALLING WORDCRAFT…</code>, <code>OFFLINE · CACHED LIST</code>, <code>LAST JOB FAILED</code>. The arrow at the right checks the AUR now.</li>
       <li><strong>After an update</strong>, one line: <code>✓ Updated PhotoCraft and WordCraft</code>, gone on the next key.</li>
       <li><strong>UPDATES · N.</strong> The apps' names and <em>Update all</em>; the apps stay in their category with an <em>Update</em> badge.</li>
-      <li><strong>Categories</strong>: Creative, 3D Art and Office, one header line each (<code>3 of 4</code>, an update dot, <em>New</em>, its key). <kbd>Enter</kbd> opens or closes one and the panel remembers; a category opens by itself when it gets a new app. Inside, <strong>tiles</strong> (three per line, the app's own colour) or <strong>rows</strong>, switched with <kbd>t</kbd>. <kbd>Enter</kbd> launches an installed app, or opens a one-line confirm to install one; a terminal opens and asks for your password.</li>
+      <li><strong>Categories</strong>: Office, Creative and 3D Art, one header line each (<code>3 of 4</code>, an update dot, <em>New</em>, its key). <kbd>Enter</kbd> opens or closes one and the panel remembers; a category opens by itself when it gets a new app. Inside, <strong>tiles</strong> (three per line, the app's own colour) or <strong>rows</strong>, switched with <kbd>t</kbd>. <kbd>Enter</kbd> launches an installed app, or opens a one-line confirm to install one; a terminal opens and asks for your password.</li>
       <li><strong>Craft Anything</strong>, alone on the last line, never collapsed.</li>
       <li><strong>Remove.</strong> Right-click a tile or press <kbd>x</kbd>: one terminal runs Omarchy's package drop; your files stay.</li>
     </ul>
@@ -434,7 +434,7 @@
       <li><span class="kcell"><kbd>Enter</kbd></span><span class="kd">open a category · launch / update / install</span></li>
       <li><span class="kcell"><kbd>u</kbd></span><span class="kd">update all</span></li>
       <li><span class="kcell"><kbd>x</kbd></span><span class="kd">remove under cursor</span></li>
-      <li><span class="kcell"><kbd>c</kbd><kbd>3</kbd><kbd>o</kbd></span><span class="kd">install a category</span></li>
+      <li><span class="kcell"><kbd>o</kbd><kbd>c</kbd><kbd>3</kbd></span><span class="kd">install a category</span></li>
       <li><span class="kcell"><kbd>r</kbd></span><span class="kd">check the AUR</span></li>
       <li><span class="kcell"><kbd>t</kbd></span><span class="kd">switch layout</span></li>
       <li><span class="kcell"><kbd>Esc</kbd></span><span class="kd">cancel / close</span></li>

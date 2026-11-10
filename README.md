@@ -13,10 +13,11 @@ installed through Omarchy's own package commands, so pacman owns it and nothing 
 It carries the apps in [ArtCraft](https://getartcraft.com)'s own list, seventeen in November 2026, plus three
 tools that do what ArtCraft does not (see *Beyond ArtCraft*), in three categories:
 
+- **Office:** WordCraft, GridCraft, DeckCraft, PdfCraft, Typesetter, Memospot, Planify, and MailCraft (a
+  community app ArtCraft added on 2026-11-10) once it has a package
 - **Creative:** PhotoCraft, VectorCraft, LightCraft, DesignCraft, FigCraft, FilmCraft, EffectCraft, SoundCraft
 - **3D Art:** CADCraft, SolidCraft (a community app by Tangency Labs, in ArtCraft's list), TextureCraft,
   MaterialCraft
-- **Office:** WordCraft, GridCraft, DeckCraft, PdfCraft, Typesetter, Memospot, Planify
 
 and, on its own line at the bottom of the panel, **Craft Anything**, ArtCraft's AI coding agent (early
 alpha). The list comes from ArtCraft's launcher, so an app ArtCraft adds shows up without a new OmarCraft;
@@ -123,7 +124,7 @@ update or it does not (the command line still shows versions, see below).
 - **UPDATES · N.** Shown only when newer builds exist: the apps' names and an *Update all · u* button.
   The apps stay in their category with an **Update** badge; `Enter` on one asks: *Update ⏎* (that
   package), *Launch instead*, *Cancel*.
-- **Categories.** Creative, 3D Art and Office, each one header line: its name, `3 of 4` installed, a dot
+- **Categories.** Office, Creative and 3D Art, in that order, each one header line: its name, `3 of 4` installed, a dot
   while an app in it has an update, *New* while it has an app you have not seen, and its key while
   something in it is missing. `Enter` or a click on the header opens or closes it, and the panel remembers.
   A category opens by itself when it gets a new app. Inside, the apps show as **tiles** (default: three per
@@ -143,8 +144,8 @@ is greyed out, and the terminal is the place to type your password. When the ter
 re-reads the package database: what you see is what is installed, never what a click intended.
 
 **Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` open or close a category, or launch,
-update or install an app · `u` Update all · `x` remove the app under the cursor · `c` / `3` / `o` install
-the missing Creative / 3D Art / Office tools · `r` check the AUR · `t` switch layout ·
+update or install an app · `u` Update all · `x` remove the app under the cursor · `o` / `c` / `3` install
+the missing Office / Creative / 3D Art tools · `r` check the AUR · `t` switch layout ·
 `Tab` neighbouring panel · `Esc` cancel or close.
 
 **Bar icon:** a rocket (󰓄), left = panel · right = check the AUR now · middle = switch layout. It turns to
@@ -244,8 +245,8 @@ o.bind("SUPER + ALT + A", "OmarCraft", "omarchy-shell omarcraft.productivity tog
 
 An ArtCraft section in the Omarchy menu (`Super + Alt + Space` root and *Install → ArtCraft*), opt-in and
 reversible: `$P setup-menu` / `$P remove-menu`. It writes one marked block into
-`~/.config/omarchy/extensions/omarchy-menu.jsonc` and nothing else. Since 0.5.8 its install entries are Creative, 3D Art
-and Office; a section written by an earlier version still works (its *Install Notes* now installs what
+`~/.config/omarchy/extensions/omarchy-menu.jsonc` and nothing else. Since 0.5.8 its install entries are Office, Creative
+and 3D Art; a section written by an earlier version still works (its *Install Notes* now installs what
 Office is missing), and `$P setup-menu` again brings the new entries.
 
 ## Remove

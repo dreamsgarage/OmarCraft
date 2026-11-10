@@ -79,13 +79,14 @@ REFRESH_RETRY_MINUTES=10        # after a failed check the panel retries on its 
 # Install groups: the panel's three categories, plus all. notes is the Notes group of 0.2 to 0.5.7, merged
 # into Office in 0.5.8; it stays as another name for office, so an Omarchy menu entry written earlier works.
 GROUPS_RE='^(all|creative|3d|office|notes)$'
-# Panel categories (0.5.8, the author's choice): Creative, 3D Art and Office; Craft Anything stands alone
-# in the panel's footer (solo). Craft apps not listed here are Creative, so a new ArtCraft app shows up
-# without a release of OmarCraft.
+# Panel categories (0.5.8, the author's choice), shown in this order: Office, Creative and 3D Art; Craft
+# Anything stands alone in the panel's footer (solo). Craft apps not listed here are Creative, so a new
+# ArtCraft app shows up without a release of OmarCraft. MailCraft (a community app ArtCraft added on
+# 2026-11-10, not packaged yet) is Office.
 declare -A GROUP_OF=(
-  [cadcraft]=3d [solidcraft]=3d [texturecraft]=3d [materialcraft]=3d
   [wordcraft]=office [gridcraft]=office [deckcraft]=office [pdfcraft]=office [typesetter]=office
-  [memospot]=office [planify]=office
+  [memospot]=office [planify]=office [mailcraft]=office
+  [cadcraft]=3d [solidcraft]=3d [texturecraft]=3d [materialcraft]=3d
   [craft-anything]=solo
 )
 
@@ -1338,12 +1339,12 @@ menu_block() {
   json_entry "omarcraft.browse" "$ICON_ARTCRAFT" "All tools" "$open" "" "Launch, install, update or remove any tool"
   json_entry "omarcraft.update" "$ICON_UPDATE" "Update all" "$self update" "$self check" "Newer builds of your tools"
   json_entry "omarcraft.install-all" "$ICON_GROUP" "Install all" "$self install-group all" "$self missing all" "Every tool"
+  json_entry "omarcraft.install-office" "$ICON_GROUP" "Install Office" "$self install-group office" "$self missing office" \
+    "Word, Grid, Deck, PdfCraft, Typesetter, Memospot, Planify"
   json_entry "omarcraft.install-creative" "$ICON_GROUP" "Install Creative" "$self install-group creative" "$self missing creative" \
     "Photo, Vector, Light, Design, Fig, Film, Effect, SoundCraft"
   json_entry "omarcraft.install-3d" "$ICON_GROUP" "Install 3D Art" "$self install-group 3d" "$self missing 3d" \
     "CAD, Solid, Texture, MaterialCraft"
-  json_entry "omarcraft.install-office" "$ICON_GROUP" "Install Office" "$self install-group office" "$self missing office" \
-    "Word, Grid, Deck, PdfCraft, Typesetter, Memospot, Planify"
   json_entry "install.omarcraft" "$ICON_ARTCRAFT" "OmarCraft" "$open" "" "Craft apps and more"
   echo "  // <<< omarcraft"
 }

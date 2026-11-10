@@ -4,13 +4,13 @@
 var SUITE_SIZE = 20
 var COLUMNS = 3
 
-// The panel's categories (0.5.8, the author's choice), in order, each with the key that installs what is
+// The panel's categories (0.5.8, the author's choice), in the order shown, each with the key that installs what is
 // missing in it. An app's group comes from bin/omarcraft (GROUP_OF); a group not listed here is Creative,
 // like there. Craft Anything's group, "solo", is the footer, outside every category.
 var CATEGORIES = [
+  { id: "office", label: "Office", key: "o" },
   { id: "creative", label: "Creative", key: "c" },
-  { id: "3d", label: "3D Art", key: "3" },
-  { id: "office", label: "Office", key: "o" }
+  { id: "3d", label: "3D Art", key: "3" }
 ]
 var FOOTER_GROUP = "solo"
 
@@ -269,7 +269,11 @@ function ageText(seconds) {
 // The hero's uppercase line, first part. Short: it shares the line with the updates part.
 function metaLine(craft) {
   var c = craft.counts || {}
-  var total = (craft.apps || []).length || SUITE_SIZE
+  // The tools the panel shows: an app in ArtCraft's list that nobody packaged yet (MailCraft, 2026-11-10)
+  // is not counted.
+  var total = 0
+  for (var t = 0; t < (craft.apps || []).length; t++) if (shown(craft.apps[t])) total++
+  if (total === 0) total = SUITE_SIZE
   if (craft.job) {
     var ids = craft.job.ids || []
     var verb = verbFor(craft.job.verb)

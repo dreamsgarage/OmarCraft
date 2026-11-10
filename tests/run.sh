@@ -238,6 +238,7 @@ expect_eq "office group" "$(for i in wordcraft deckcraft gridcraft pdfcraft phot
 expect_eq "Memospot is in Office now (Notes merged)" "$(group_for memospot)" "office"
 expect_eq "3D Art group" "$(for i in cadcraft solidcraft texturecraft materialcraft; do group_for $i; echo; done | tr '\n' ' ')" "3d 3d 3d 3d "
 expect_eq "Craft Anything stands alone" "$(group_for craft-anything)" "solo"
+expect_eq "MailCraft is Office (the author, 2026-11-10)" "$(group_for mailcraft)" "office"
 expect_eq "a Craft app no list names is Creative" "$(group_for brushcraft)" "creative"
 expect_eq "desktop ids of the new apps (SolidCraft has its own publisher)" \
   "$(for i in solidcraft texturecraft materialcraft craft-anything; do desktop_id_for $i; echo; done | tr '\n' ' ')" \
