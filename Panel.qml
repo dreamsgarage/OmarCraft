@@ -401,8 +401,9 @@ Panel {
     }
   }
 
-  // A category's header line: chevron and name, then an update dot, New, "3 of 4" and the install key while
-  // something in it is missing. Enter or a click opens or closes it.
+  // A category's header line: chevron and name, then an update dot, New, "3 of 4" and, while something in
+  // it is missing, an Install N button carrying the category's key. Enter or a click on the line opens or
+  // closes the category; the button installs.
   component CategoryHeader: CursorSurface {
     id: hdr
     property var cat: ({})
@@ -474,23 +475,22 @@ Panel {
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
       }
-      Rectangle {
-        visible: (hdr.cat.missing || []).length > 0 && !hdr.cat.open
+      // Install what the category is missing: always in sight while something is missing, open or closed
+      // (the author, 2026-11-09: the key alone, and a button only inside an open category, were not found).
+      Button {
+        visible: (hdr.cat.missing || []).length > 0
         anchors.verticalCenter: parent.verticalCenter
-        width: keyChip.implicitWidth + Style.space(8)
-        height: keyChip.implicitHeight + Style.space(2)
-        radius: Style.space(3)
-        color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.16)
-        Text {
-          id: keyChip
-          anchors.centerIn: parent
-          textFormat: Text.PlainText
-          text: hdr.cat.key || ""
-          color: root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
-          font.bold: true
-        }
+        iconText: hdr.cat.key || ""
+        iconSize: Style.font.caption
+        text: "Install " + (hdr.cat.missing || []).length
+        bordered: true
+        fontSize: Style.font.caption
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.jobRunning
+        opacity: enabled ? 1.0 : 0.45
+        tooltipText: "Install " + Model.joinNames(Model.namesFor(craft.apps, hdr.cat.missing || []))
+        onClicked: root.confirmGroup(hdr.cat.missing || [], hdr.cat.id)
       }
     }
 
@@ -762,26 +762,6 @@ Panel {
               CategoryHeader { cat: catBlock.modelData }
               TileGrid { visible: root.tiles && catBlock.modelData.open; apps: root.tiles && catBlock.modelData.open ? catBlock.modelData.apps : [] }
               RowList { visible: !root.tiles && catBlock.modelData.open; apps: !root.tiles && catBlock.modelData.open ? catBlock.modelData.apps : [] }
-              Item {
-                visible: catBlock.modelData.open && catBlock.modelData.missing.length > 0
-                width: parent.width
-                implicitHeight: installMissing.implicitHeight
-                Button {
-                  id: installMissing
-                  anchors.right: parent.right
-                  iconText: catBlock.modelData.key
-                  iconSize: Style.font.bodySmall
-                  text: "Install " + catBlock.modelData.missing.length
-                  bordered: true
-                  fontSize: Style.font.bodySmall
-                  foreground: root.foreground
-                  fontFamily: root.fontFamily
-                  enabled: !root.jobRunning
-                  opacity: enabled ? 1.0 : 0.45
-                  tooltipText: Model.namesFor(craft.apps, catBlock.modelData.missing).join(", ")
-                  onClicked: root.confirmGroup(catBlock.modelData.missing, catBlock.modelData.id)
-                }
-              }
               Loader {
                 width: parent.width
                 active: root.confirmOpen && root.confirmAt === "group:" + catBlock.modelData.id

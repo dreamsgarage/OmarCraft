@@ -28,7 +28,7 @@ audio, monitor, power. Nothing installed, nothing written under `~/.config`. If 
 |---|---|
 | Left-click the icon | Panel under the icon within a second: rocket logo, `OmarCraft`, `N OF 20 INSTALLED`; no line under the hero unless something is happening; three category headers (Creative, 3D Art, Office) and the Craft Anything line at the bottom |
 | Make an app new: remove CADCraft first if it is installed, then `sed -i '/cadcraft/d' ~/.local/state/omarchy/omarcraft/seen` and right-click the icon | Bar icon in the urgent colour; open the panel: 3D Art has opened by itself, its header says *New*, CADCraft carries a *New* badge; close the panel: icon back to normal, `cadcraft` back in the seen file |
-| `Enter` on a category header | It opens: installed tiles in each app's colour, the missing ones outlined and dimmed, then *Install N* with the category's key; `Enter` again closes it. No version number anywhere |
+| `Enter` on a category header | It opens: installed tiles in each app's colour, the missing ones outlined and dimmed, and the header carries *Install N* with the category's key while apps are missing, open or closed; `Enter` again closes it. No version number anywhere |
 | `t` | Inside each open category, rows instead of tiles (`Installed`, `Install · prebuilt, no compiling`, no versions); `t` again returns to tiles |
 | `omarchy restart shell`, open the panel | The categories that were open are open again |
 | `j` four times | First press activates the cursor on the first header, then it moves down one key per press (a header, a line of tiles, the Craft Anything line); the list scrolls to keep it in view |
@@ -55,7 +55,7 @@ the app launcher.
 
 ## 4. Group install
 
-`o` (or *Install N* in the open Office category; `c` and `3` for Creative and 3D Art). Expect the confirm
+`o` (or *Install N* on the Office header; `c` and `3` for Creative and 3D Art). Expect the confirm
 listing every missing office app by name, one terminal, one password prompt, one command with all
 packages. Afterwards the header's key is gone and the apps read Installed. No launch.
 

@@ -125,15 +125,15 @@ update or it does not (the command line still shows versions, see below).
   The apps stay in their category with an **Update** badge; `Enter` on one asks: *Update ⏎* (that
   package), *Launch instead*, *Cancel*.
 - **Categories.** Office, Creative and 3D Art, in that order, each one header line: its name, `3 of 4` installed, a dot
-  while an app in it has an update, *New* while it has an app you have not seen, and its key while
-  something in it is missing. `Enter` or a click on the header opens or closes it, and the panel remembers.
+  while an app in it has an update, *New* while it has an app you have not seen, and, while something in
+  it is missing, an *Install N* button with the category's key (`o`, `c`, `3`), open or closed. `Enter` or a click on the header opens or closes it, and the panel remembers.
   A category opens by itself when it gets a new app. Inside, the apps show as **tiles** (default: three per
   line, each the app's glyph in its own ArtCraft colour over its name; installed ones tinted, the others
   outlined) or **rows** (one per line with a caption), switched live with `t` or
   `omarchy bar set omarcraft.productivity layout tiles|rows`. `Enter` or a click launches an installed app
   (or focuses its window) and opens a one-line confirm for one that is not (`Install PhotoCraft · a
-  terminal will open and ask for your password`); `Enter` again runs it, `Esc` cancels. An open category
-  with apps missing ends with *Install N*, the same as its key: one confirm, one terminal, one run.
+  terminal will open and ask for your password`); `Enter` again runs it, `Esc` cancels. *Install N* on the header, or its key, installs everything the
+  category is missing: one confirm naming the apps, one terminal, one run.
 - **Craft Anything**, alone on the last line, never collapsed: `Enter` installs, launches or updates it.
 - **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft · a
   terminal will open and ask for your password · your files stay`, then *Remove ⏎* or *Cancel*. The job
