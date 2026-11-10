@@ -2,8 +2,13 @@
 
 ## 0.5.7 — unreleased
 
-WordCraft and GridCraft come from the AUR again, so OmarCraft offers ArtCraft's releases within hours. The
-decision and its cases are in `docs/v0.5.7-plan.md`.
+WordCraft and GridCraft come from the AUR again, so OmarCraft offers ArtCraft's releases within hours, and
+every network check has a deadline. The decisions and their cases are in `docs/v0.5.7-plan.md`.
+
+- **Fixed: a slow package mirror could hold the update check for hours** (the marketplace review of 0.5.6,
+  omacom/omarchy-plugin-marketplace#14528). `checkupdates` now stops after 2 minutes in all, a background
+  check after 5 minutes as a whole, and the panel ends any check or catalog refresh still running after 5
+  minutes. A check cut short counts as failed: the previous answer is kept and the next check runs on time.
 
 - **Changed: Craft apps that Omarchy's repo also ships follow the AUR.** On 2026-11-09 WordCraft 0.16.0
   offered its own update to 0.17.0 while OmarCraft and Omarchy showed none: ArtCraft and the AUR had

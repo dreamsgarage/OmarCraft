@@ -27,6 +27,13 @@ Item {
   property bool rerun: false
   property double startedAt: 0
   readonly property int stallMs: 10000
+  // The watchdog for the two network runs (the review of 0.5.6, omacom/omarchy-plugin-marketplace#14528):
+  // a check or a catalog refresh still running after watchdogMs is ended, so it cannot hold back the
+  // next one. The script bounds its own parts (curl --max-time, checkupdates REPO_CHECK_SECONDS); this is
+  // the panel's backstop for the whole run.
+  readonly property int watchdogMs: 300000
+  property double catalogStartedAt: 0
+  property double checkStartedAt: 0
 
   function refresh() {
     if (stateProc.running) {
@@ -48,12 +55,16 @@ Item {
 
   // A detached catalog refresh, then a re-read when it pokes the panel back.
   function refreshCatalog() {
-    if (!catalogProc.running) catalogProc.running = true
+    if (catalogProc.running) return
+    catalogStartedAt = Date.now()
+    catalogProc.running = true
   }
 
   // The six-hourly check: notifies once per new set of updates, then re-reads.
   function check() {
-    if (!checkProc.running) checkProc.running = true
+    if (checkProc.running) return
+    checkStartedAt = Date.now()
+    checkProc.running = true
   }
 
   // Marks every catalog app as seen (the panel was open), then re-reads so `new` clears.
@@ -132,6 +143,16 @@ Item {
     onLoadFailed: root.refreshSoon()
   }
 
+  Timer {
+    interval: 30000
+    repeat: true
+    running: catalogProc.running || checkProc.running
+    onTriggered: {
+      var now = Date.now()
+      if (catalogProc.running && now - root.catalogStartedAt > root.watchdogMs) catalogProc.running = false
+      if (checkProc.running && now - root.checkStartedAt > root.watchdogMs) checkProc.running = false
+    }
+  }
   Timer {
     id: refreshTimer
     interval: 150

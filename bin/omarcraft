@@ -72,6 +72,12 @@ COLOR_RE='^#[0-9a-f]{6}$'
 IPC_TARGET="omarcraft.productivity"
 CATALOG_MAX_AGE_MINUTES=360    # a check every six hours, like the panel's own timer (Service.qml)
 REFRESH_RETRY_MINUTES=10        # after a failed check the panel retries on its own at most this often
+# Deadlines (the marketplace review of 0.5.6, omacom/omarchy-plugin-marketplace#14528): a mirror that keeps
+# sending just above pacman's low-speed limit could hold checkupdates, and with it the background check and
+# its lock, for hours. checkupdates gets a total deadline; a background refresh as a whole gets another.
+# Either way the previous answer is kept and the next check runs on time.
+REPO_CHECK_SECONDS=120          # checkupdates, the whole run
+REFRESH_DEADLINE_SECONDS=300    # a detached refresh: the list, the AUR and the repos together
 GROUPS_RE='^(all|creative|office|notes)$'
 # Panel groups. Craft apps not listed here are Creative.
 declare -A GROUP_OF=(
@@ -336,8 +342,9 @@ repo_check() {
   done <"$CATALOG"
   (( ${#pkgs[@]} > 0 )) || return 0
   mkdir -p "$REPO_DB"
-  # 0: updates listed, 2: none; anything else means the copy was not refreshed.
-  CHECKUPDATES_DB="$REPO_DB" checkupdates --nocolor >/dev/null 2>&1 || rc=$?
+  # 0: updates listed, 2: none; anything else means the copy was not refreshed. timeout signals the whole
+  # process group, so pacman's download stops with checkupdates (124 or 137 when the deadline hits).
+  CHECKUPDATES_DB="$REPO_DB" timeout --kill-after=10 "$REPO_CHECK_SECONDS" checkupdates --nocolor >/dev/null 2>&1 || rc=$?
   (( rc == 0 || rc == 2 )) || return 1
   table=$(sync_table --dbpath "$REPO_DB" "${pkgs[@]}") || return 1
   tmp=$(mktemp "$REPO_LATEST.XXXXXX")
@@ -731,7 +738,9 @@ refresh() {
   fi
 }
 
-# A refresh in the background, at most one at a time; the panel is poked when it ends.
+# A refresh in the background, at most one at a time, never longer than REFRESH_DEADLINE_SECONDS; the panel
+# is poked when it ends. The lock holds the wrapper's pid, so the deadline also bounds how long it can stop
+# the next refresh.
 refresh_detached() {
   local pid
   if [[ -f $REFRESH_LOCK ]]; then
@@ -741,10 +750,10 @@ refresh_detached() {
   (
     setsid bash -c '
       printf "%s" "$$" >"$1"
-      "$2" refresh "$3" >/dev/null 2>&1
+      timeout --kill-after=10 "$4" "$2" refresh "$3" >/dev/null 2>&1
       rm -f "$1"
       "$2" poke
-    ' _ "$REFRESH_LOCK" "$SELF" "${1:-}" >/dev/null 2>&1 </dev/null &
+    ' _ "$REFRESH_LOCK" "$SELF" "${1:-}" "$REFRESH_DEADLINE_SECONDS" >/dev/null 2>&1 </dev/null &
   )
 }
 
