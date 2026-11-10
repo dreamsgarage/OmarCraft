@@ -213,9 +213,9 @@ expect_eq "a multi-line record (Craft Anything, an id with a hyphen)" "$(grep '^
 expect_eq "the community app inside its CraftApp block (SolidCraft)" "$(grep '^solidcraft' <<<"$parsed" | cut -f1,2,4)" \
   $'solidcraft\tSolidCraft\tcommunity'
 expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
-expect_eq "brackets inside a quoted string do not end a record" \
-  "$(printf 'pub const SUITE: [CraftApp; 1] = [\n    app("x-craft", "X (beta)", "Tags (and more)", [[0x01, 0x02, 0x03], [0x04, 0x05, 0x06], [0x07, 0x08, 0x09]], "a/b"),\n];\n' | parse_upstream_catalog | cut -f1-4)" \
-  $'x-craft\tX (beta)\tTags (and more)\tsuite'
+expect_eq "brackets inside a quoted string do not end a record, unbalanced ones included" \
+  "$(printf 'pub const SUITE: [CraftApp; 1] = [\n    app(\n        "x-craft",\n        "X (beta)",\n        "Smiles :) all round",\n        [[0x01, 0x02, 0x03], [0x04, 0x05, 0x06], [0x07, 0x08, 0x09]],\n        "a/b",\n    ),\n];\n' | parse_upstream_catalog | cut -f1-5)" \
+  $'x-craft\tX (beta)\tSmiles :) all round\tsuite\t#010203'
 expect_eq "a record with fewer than nine colour bytes is refused" \
   "$(printf 'pub const SUITE: [CraftApp; 1] = [\n    app("y-craft", "Y", "Tag", [[0x01, 0x02, 0x03]], "a/b"),\n];\n' | parse_upstream_catalog | wc -l)" "0"
 
