@@ -119,6 +119,9 @@ CursorSurface {
       font.pixelSize: Style.font.subtitle
       font.weight: tile.isCursor ? Font.Bold : Font.DemiBold
       horizontalAlignment: Text.AlignHCenter
+      // A long name (MaterialCraft, Craft Anything) shrinks a little to fit before it is cut.
+      fontSizeMode: Text.HorizontalFit
+      minimumPixelSize: Style.font.caption
       elide: Text.ElideRight
     }
   }

@@ -157,7 +157,7 @@ declare -A APP_ICON=(
   [designcraft]=$'\U000f03d8' [wordcraft]=$'\U000f0219' [deckcraft]=$'\U000f0429'
   [gridcraft]=$'\U000f04eb' [cadcraft]=$'\U000f0eec' [soundcraft]=$'\U000f075a'
   [figcraft]=$'\U000f0001' [memospot]=$'\U000f11d7' [typesetter]=$'\U000f0284'
-  [planify]=$'\U000f0576' [solidcraft]=$'\U000f01a7' [texturecraft]=$'\U000f025b'
+  [planify]=$'\U000f0576' [solidcraft]=$'\U000f01a7' [texturecraft]=$'\U000f00e3'
   [materialcraft]=$'\U000f1954' [craft-anything]=$'\U000f167a'
 )
 app_icon() {
