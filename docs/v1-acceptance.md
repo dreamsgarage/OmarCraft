@@ -171,3 +171,5 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 76 | 0.5.8 · A list that parses to 0 apps: `check` says so, the panel keeps the built-in list | | pending | |
 | 77 | 0.5.8 · Upgrade from every earlier release, back online with every tool | | pending | |
 | 78 | 0.5.8 · The other machines after the release | | pending | |
+| 79 | 0.5.7 · The review of 0.5.6 (#14528): a mirror that never finishes cannot hold a check: `checkupdates` stops at 2 minutes, a background refresh at 5, the panel ends a run still going after 5; the previous answer is kept | | PASS | 2026-11-10, offline tests (a never-ending fake mirror cut off in 1 s, no process left), three breaks caught. Rows 68–78 are 0.5.8's |
+| 80 | 0.5.7 · On the author's machine after the fix: a normal check still completes (online, the lists read, the badges right) | | pending | |

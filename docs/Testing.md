@@ -195,7 +195,7 @@ version:
 ```bash
 omarchy plugin update omarcraft.productivity --yes && omarchy restart shell
 grep '"version"' ~/.config/omarchy/plugins/omarcraft.productivity/manifest.json   # the new version
-git -C ~/.config/omarchy/plugins/omarcraft.productivity status --short --branch     # "## main...origin/main", nothing else
+git -C ~/.config/omarchy/plugins/omarcraft.productivity status --short --branch     # "## main...origin/main" (an "[ahead N]" after it is harmless), and no file listed below it
 ```
 
 If the update refuses (*cannot fast-forward*, *local changes*, *not a git checkout*), the plugin folder

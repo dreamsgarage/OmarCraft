@@ -282,8 +282,11 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   OmarCraft checks the package's declared dependencies: if one is neither installed nor in the Arch repos,
   the AUR helper would compile it, so the job stops before anything is installed and says which one.
 - Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
-  from the AUR RPC, every six hours, with bounded timeouts; the package lists of the configured repos through `checkupdates`, into a private copy. A failed check keeps the old list and says `OFFLINE`, never "up to date". The panel
-  itself never waits on the network.
+  from the AUR RPC, every six hours, with bounded timeouts; the package lists of the configured repos through `checkupdates`, into a private copy. Every part
+  has a deadline: the downloads 10 and 15 seconds, `checkupdates` 2 minutes in all (a slow mirror cannot
+  hold it longer), a background check 5 minutes as a whole, and the panel ends any check still running
+  after 5 minutes, so one stuck check never holds back the next. A failed check keeps the old list and
+  says `OFFLINE`, never "up to date". The panel itself never waits on the network.
 - What comes from the network is untrusted and bounded: a download stops at a size (256 KB for the
   catalog, 1 MB for an AUR answer; a longer one is refused whole), and only well-formed records are kept
   (a plain id, a name of at most 48 characters and a tagline of at most 96 without control characters,

@@ -131,6 +131,8 @@ cat >"$TMP/bin/checkupdates" <<STUB
 printf '%s|%s\n' "\$*" "\${CHECKUPDATES_DB:-}" >>"$TMP/log/checkupdates"
 # A failed refresh can leave the copy broken: here it is emptied, so whatever reads it after a failure
 # reads nothing.
+# A mirror that keeps a transfer alive for ever ($TMP/checkupdates-slow): the run only ends when stopped.
+[[ -f "$TMP/checkupdates-slow" ]] && sleep 60
 [[ -f "$TMP/checkupdates-fail" ]] && { [[ -d \${CHECKUPDATES_DB:-/nonexistent} ]] && : >"\$CHECKUPDATES_DB/fake-sync-db"; exit 1; }
 mkdir -p "\$CHECKUPDATES_DB" && cp "$TMP/fresh-db" "\$CHECKUPDATES_DB/fake-sync-db" || exit 1
 n=0
@@ -1128,6 +1130,29 @@ stub curl 7
 for f in installed sync-db fresh-db; do cp "$TMP/$f.before058" "$TMP/$f"; done
 cp "$TMP/catalog.before058" "$CATALOG"; INSTALLED_LOADED=0; INSTALLED=(); resync_memo; AUR_LOADED=0; AUR_OF=()
 rm -f "$NOTIFIED" "$PARSE_FAILED" "$REFRESH_FAILED" "$TMP/upstream.rs"
+
+# --- 0.5.7: deadlines (the marketplace review of 0.5.6, #14528) ---------------------------------------
+
+cp "$REPO_LATEST" "$TMP/repo-latest.before-deadline" 2>/dev/null || : >"$TMP/repo-latest.before-deadline"
+touch "$TMP/checkupdates-slow"
+saved_deadline=$REPO_CHECK_SECONDS; REPO_CHECK_SECONDS=1
+started=$SECONDS
+repo_check; rc=$?
+elapsed=$(( SECONDS - started ))
+REPO_CHECK_SECONDS=$saved_deadline
+rm -f "$TMP/checkupdates-slow"
+expect_eq "0.5.7: a checkupdates run that never ends is stopped at its deadline and counts as a failed check" "$rc" "1"
+expect_true "0.5.7: and within seconds, not when the mirror stops ($elapsed s)" "(( $elapsed <= 4 ))"
+expect_true "0.5.7: the previous answer is kept" "cmp -s '$TMP/repo-latest.before-deadline' '$REPO_LATEST' || [[ ! -s '$TMP/repo-latest.before-deadline' && ! -s '$REPO_LATEST' ]]"
+expect_true "0.5.7: no checkupdates is left running" "! pgrep -f -- '$TMP/bin/checkupdates' >/dev/null"
+expect_true "0.5.7: checkupdates has a total deadline in the script" "grep -q 'timeout --kill-after=10 \"\$REPO_CHECK_SECONDS\" checkupdates' '$ROOT/bin/omarcraft'"
+reset_log setsid; rm -f "$REFRESH_LOCK"
+refresh_detached
+for _ in $(seq 40); do calls setsid | grep -q ' poke' && break; read -rt 0.05 <> <(:) || true; done   # it starts in the background
+expect_true "0.5.7: a background refresh runs under its own deadline" \
+  "calls setsid | grep -q 'timeout --kill-after=10' && calls setsid | grep -q ' $REFRESH_DEADLINE_SECONDS'"
+expect_true "0.5.7: the panel ends a check or a catalog refresh that outlives its watchdog" \
+  "grep -q 'catalogProc.running && now - root.catalogStartedAt > root.watchdogMs) catalogProc.running = false' '$ROOT/Service.qml' && grep -q 'checkProc.running && now - root.checkStartedAt > root.watchdogMs) checkProc.running = false' '$ROOT/Service.qml'"
 
 # --- hygiene -----------------------------------------------------------------------------------
 
