@@ -9,6 +9,9 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# The real node binary, found before HOME and the XDG dirs point at the test folder: on Omarchy `node` is a
+# mise shim, which refuses to run without the user's mise trust records (2026-11-10).
+NODE_BIN=$(mise which node 2>/dev/null || command -v node 2>/dev/null || true)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home" XDG_CACHE_HOME="$TMP/cache" XDG_STATE_HOME="$TMP/state" XDG_DATA_HOME="$TMP/data"
@@ -1153,8 +1156,8 @@ cmp -s "$MENU_FILE" "$TMP/original.jsonc" && ok "remove-menu restores the file" 
 
 # --- the panel's logic (Model.js), in Node -------------------------------------------------------
 
-if command -v node >/dev/null; then
-  if out=$(node "$ROOT/tests/model.test.mjs" 2>&1); then ok "panel logic: $(tail -1 <<<"$out")"
+if [[ -n $NODE_BIN && -x $NODE_BIN ]]; then
+  if out=$("$NODE_BIN" "$ROOT/tests/model.test.mjs" 2>&1); then ok "panel logic: $(tail -1 <<<"$out")"
   else fail "panel logic (tests/model.test.mjs)" "$(grep '^FAIL' <<<"$out" | head -5 | tr '\n' ' ')"; fi
 else
   fail "panel logic" "node is needed for tests/model.test.mjs"
