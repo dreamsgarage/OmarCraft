@@ -59,6 +59,10 @@ Panel {
     : Model.standingLine(craft)
 
   property bool cursorActive: false
+  // True while the list scrolls and for a moment after (see the Flickable).
+  property bool scrolling: false
+  Timer { id: scrollQuiet; interval: 300; onTriggered: root.scrolling = false }
+  function hoverTo(key) { if (!root.scrolling) root.setCursorTo(key) }
   property int cursor: 0
   readonly property string cursorKey: cursorKeys.length > 0 ? cursorKeys[Math.max(0, Math.min(cursor, cursorKeys.length - 1))] : ""
 
@@ -384,12 +388,12 @@ Panel {
         failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
         actionsEnabled: modelData.installed || !root.jobRunning
         isCursor: root.cursorActive && root.cursorKey === key
-        tooltipText: Model.tileTip(modelData, craft)
+        tooltipText: root.scrolling ? "" : Model.tileTip(modelData, craft)
         foreground: root.foreground
         urgent: root.urgent
         accent: root.accent
         fontFamily: root.fontFamily
-        onHovered: root.setCursorTo(key)
+        onHovered: root.hoverTo(key)
         onActivated: { root.setCursorTo(key); root.primary(key) }
         onSecondary: root.confirmRemove(key)
         Component.onCompleted: root.registerRow(key, this)
@@ -414,7 +418,7 @@ Panel {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onContainsMouseChanged: if (containsMouse) root.setCursorTo(hdr.key)
+      onContainsMouseChanged: if (containsMouse) root.hoverTo(hdr.key)
       onClicked: { root.setCursorTo(hdr.key); root.toggleCategory(hdr.cat.id) }
     }
 
@@ -508,7 +512,7 @@ Panel {
         name: modelData.name
         subtext: Model.subtext(modelData, craft)
         actionIcon: Model.actionIcon(modelData)
-        actionTip: Model.actionTip(modelData)
+        actionTip: root.scrolling ? "" : Model.actionTip(modelData)
         dimmed: !modelData.installed
         busy: Model.jobCovers(craft.job, modelData.id)
         failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
@@ -518,7 +522,7 @@ Panel {
         urgent: root.urgent
         fontFamily: root.fontFamily
         extra: root.confirmAt === key ? confirmLine : null
-        onHovered: root.setCursorTo(key)
+        onHovered: root.hoverTo(key)
         onActivated: { root.setCursorTo(key); root.primary(key) }
         onSecondary: root.confirmRemove(key)
         Component.onCompleted: root.registerRow(key, this)
@@ -572,18 +576,11 @@ Panel {
         flickableDirection: Flickable.VerticalFlick
         interactive: contentHeight > height
 
-        // Scrolling the way Omarchy's own menu does (plugins/menu/Menu.qml): a trackpad moves the content
-        // by exactly the distance it reports, a mouse wheel by a fixed step per notch. Flickable's own wheel
-        // handling turned trackpad scrolling into short flicks, which felt sluggish.
-        WheelHandler {
-          target: null
-          onWheel: function(event) {
-            var delta = event.pixelDelta.y || event.angleDelta.y / 120 * Style.space(60)
-            var bottom = Math.max(0, panelFlick.contentHeight - panelFlick.height)
-            panelFlick.contentY = Math.max(0, Math.min(bottom, panelFlick.contentY - delta))
-            event.accepted = true
-          }
-        }
+        // While it scrolls, and a moment after, hovering does nothing: no cursor jump, no tooltip. With a
+        // trackpad the pointer stays put while the tiles slide under it, and every tile it crossed moved
+        // the cursor and started a tooltip; scrolling ran in bursts, about two a second (measured
+        // 2026-11-09). The trackpad itself scrolls 1:1 through Flickable.
+        onContentYChanged: { root.scrolling = true; scrollQuiet.restart() }
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
         Column {

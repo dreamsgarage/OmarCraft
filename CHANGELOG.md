@@ -21,7 +21,9 @@ ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and d
   (`list`, `check`) still shows versions.
 - The UPDATES strip names the apps; the apps stay in their category with their badge.
 - Cache format 6: the first read after the update fetches the list at once.
-- Trackpad scrolling follows the fingers, the way Omarchy's own menu scrolls; it was sluggish.
+- **Fixed: trackpad scrolling ran in bursts.** With the pointer resting on the panel, every tile that slid
+  under it moved the cursor and started its tooltip, and the list moved about twice a second (measured).
+  While the list scrolls, and a moment after, hovering now does nothing.
 - MailCraft, which ArtCraft added on 2026-11-10, is placed in Office; it shows once it has a package.
 
 ## 0.5.7 — unreleased
