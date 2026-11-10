@@ -15,7 +15,8 @@ CursorSurface {
   property bool installed: false
   property bool busy: false
   property bool failed: false
-  property string badge: ""          // "↑ 0.8.0" on a tile with a newer build
+  property string badge: ""          // "Update" on a tile with a newer build, "New" on one not seen yet
+  property color badgeColor: urgent
   property bool actionsEnabled: true
   property bool isCursor: false
   property color urgent: Color.urgent
@@ -57,7 +58,7 @@ CursorSurface {
     onClicked: function(mouse) { if (mouse.button === Qt.RightButton) tile.secondary(); else tile.activated() }
   }
 
-  // The update badge, the urgent colour, top-right like the bar count.
+  // The badge, top-right like the bar count: Update in the urgent colour, New in the accent.
   Rectangle {
     visible: tile.badge !== "" && !tile.busy
     anchors.top: parent.top
@@ -66,7 +67,7 @@ CursorSurface {
     width: badgeText.implicitWidth + Style.space(10)
     height: badgeText.implicitHeight + Style.space(3)
     radius: height / 2
-    color: tile.urgent
+    color: tile.badgeColor
 
     Text {
       id: badgeText

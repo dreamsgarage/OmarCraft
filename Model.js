@@ -1,8 +1,18 @@
 // Pure helpers for the OmarCraft panel. No QML, no I/O: everything here is a function of the
 // state JSON that bin/omarcraft prints, so it can be read, and tested, without the shell.
 
-var SUITE_SIZE = 16
+var SUITE_SIZE = 20
 var COLUMNS = 3
+
+// The panel's categories (0.5.8, the author's choice), in order, each with the key that installs what is
+// missing in it. An app's group comes from bin/omarcraft (GROUP_OF); a group not listed here is Creative,
+// like there. Craft Anything's group, "solo", is the footer, outside every category.
+var CATEGORIES = [
+  { id: "creative", label: "Creative", key: "c" },
+  { id: "3d", label: "3D Art", key: "3" },
+  { id: "office", label: "Office", key: "o" }
+]
+var FOOTER_GROUP = "solo"
 
 function urlToPath(url) {
   var s = String(url || "")
@@ -23,28 +33,120 @@ function sections(apps) {
   return { updates: updates, installed: installed, available: available }
 }
 
-// The ordered keys the cursor walks: updates, installed, available.
-function cursorKeys(apps) {
-  var s = sections(apps), keys = []
-  var all = s.updates.concat(s.installed, s.available)
-  for (var i = 0; i < all.length; i++) keys.push("app:" + all[i].id)
+// An app the panel can show: installed, or with a build to install.
+function shown(app) {
+  return !!app && (app.installed || !!app.aurVersion)
+}
+
+function categoryOf(app) {
+  var g = app ? app.group : ""
+  if (g === FOOTER_GROUP) return FOOTER_GROUP
+  for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === g) return g
+  return "creative"
+}
+
+// The open categories, kept in the widget's settings as "creative,3d" (a string survives every settings
+// store). Unknown ids are dropped; nothing kept means all closed (the first run).
+function parseOpen(value) {
+  var out = []
+  var parts = String(value || "").split(",")
+  for (var i = 0; i < parts.length; i++) {
+    var id = parts[i].trim()
+    for (var k = 0; k < CATEGORIES.length; k++) if (CATEGORIES[k].id === id && out.indexOf(id) < 0) out.push(id)
+  }
+  return out
+}
+
+function openString(list) {
+  return parseOpen((list || []).join(",")).join(",")
+}
+
+function toggled(openIds, id) {
+  var list = parseOpen((openIds || []).join(","))
+  var at = list.indexOf(id)
+  if (at >= 0) list.splice(at, 1)
+  else list.push(id)
+  return parseOpen(list.join(","))
+}
+
+// The categories as the panel draws them, each with what its header shows. Empty ones are left out.
+function categories(apps, openIds) {
+  var open = openIds || []
+  var out = []
+  for (var k = 0; k < CATEGORIES.length; k++) {
+    var c = CATEGORIES[k]
+    var list = [], missing = [], installed = 0, updates = 0, fresh = false
+    for (var i = 0; i < (apps || []).length; i++) {
+      var a = apps[i]
+      if (!shown(a) || categoryOf(a) !== c.id) continue
+      list.push(a)
+      if (a.installed) installed++
+      else missing.push(a.id)
+      if (a.updateReady) updates++
+      if (a.new && !a.installed) fresh = true
+    }
+    if (list.length === 0) continue
+    out.push({ id: c.id, label: c.label, key: c.key, apps: list, installed: installed, total: list.length,
+               updates: updates, hasNew: fresh, missing: missing, open: open.indexOf(c.id) >= 0 })
+  }
+  return out
+}
+
+// Craft Anything: the footer line, never collapsed.
+function footerApps(apps) {
+  var out = []
+  for (var i = 0; i < (apps || []).length; i++) if (shown(apps[i]) && categoryOf(apps[i]) === FOOTER_GROUP) out.push(apps[i])
+  return out
+}
+
+// The categories that have an app the user has not seen. The panel opens each of them once per opening;
+// after that it stays as the user leaves it (the new flag clears when the panel closes).
+function newCategoryIds(apps) {
+  var out = []
+  var cats = categories(apps, [])
+  for (var i = 0; i < cats.length; i++) if (cats[i].hasNew) out.push(cats[i].id)
+  return out
+}
+
+// The ordered keys the cursor walks: each category's header, its apps while it is open, then the footer.
+function cursorKeys(apps, openIds) {
+  var keys = []
+  var cats = categories(apps, openIds)
+  for (var k = 0; k < cats.length; k++) {
+    keys.push("cat:" + cats[k].id)
+    if (cats[k].open) for (var i = 0; i < cats[k].apps.length; i++) keys.push("app:" + cats[k].apps[i].id)
+  }
+  var foot = footerApps(apps)
+  for (var j = 0; j < foot.length; j++) keys.push("app:" + foot[j].id)
   return keys
 }
 
-// In the grid, j/k jump a whole line within the same section and stop at its edge; h/l step one tile.
-function gridMove(keys, apps, cursor, dx, dy) {
+// The cursor's spans: a header alone, an open category's tiles, the footer. In tiles, j/k jump a whole line
+// within a category's tiles and leave it at its edge; h/l step one key; everything else moves one key.
+function spans(apps, openIds) {
+  var out = [], at = 0
+  var cats = categories(apps, openIds)
+  for (var k = 0; k < cats.length; k++) {
+    out.push({ lo: at, hi: at + 1, grid: false }); at++
+    if (cats[k].open && cats[k].apps.length > 0) { out.push({ lo: at, hi: at + cats[k].apps.length, grid: true }); at += cats[k].apps.length }
+  }
+  var foot = footerApps(apps).length
+  if (foot > 0) out.push({ lo: at, hi: at + foot, grid: false })
+  return out
+}
+
+function gridMove(keys, apps, openIds, cursor, dx, dy, tiles) {
   var n = keys.length
   if (n === 0) return 0
   if (dx !== 0) return Math.max(0, Math.min(n - 1, cursor + dx))
-  var s = sections(apps)
-  var a = s.updates.length, b = a + s.installed.length, c = b + s.available.length
-  var bounds = [[0, a], [a, b], [b, c]]
-  for (var k = 0; k < bounds.length; k++) {
-    var lo = bounds[k][0], hi = bounds[k][1]
+  if (!tiles) return Math.max(0, Math.min(n - 1, cursor + dy))
+  var list = spans(apps, openIds)
+  for (var k = 0; k < list.length; k++) {
+    var lo = list[k].lo, hi = list[k].hi
     if (cursor < lo || cursor >= hi) continue
+    if (!list[k].grid) return Math.max(0, Math.min(n - 1, cursor + dy))
     var target = cursor + dy * COLUMNS
     if (target >= lo && target < hi) return target
-    // Past the section edge: land on the first tile of the next section, or the last of the previous.
     if (dy > 0) return Math.min(n - 1, hi)
     return Math.max(0, lo - 1)
   }
@@ -87,10 +189,42 @@ function updateAllPlan(apps) {
   return one.length > 0 ? { kind: "update", ids: one } : { kind: "system-update", ids: sys }
 }
 
-// The tile badge: "↑ 0.9.0" for an AUR build, "↑ system" for a repo app behind the sync database.
+// The tile badge, never a version (0.5.8): "Update" for a newer build, "New" for an app not seen yet.
 function badgeFor(app) {
-  if (!app || !app.updateReady) return ""
-  return app.source === "repo" ? "↑ system" : "↑ " + shortVersion(app.aurVersion)
+  if (!app) return ""
+  if (app.installed && app.updateReady) return "Update"
+  if (app.new && !app.installed && app.aurVersion) return "New"
+  return ""
+}
+
+function badgeIsUpdate(app) {
+  return !!app && app.installed && app.updateReady
+}
+
+// "A", "A and B", "A, B and C", "A, B, C and 2 more".
+function joinNames(names) {
+  var n = names.length
+  if (n === 0) return ""
+  if (n === 1) return names[0]
+  if (n <= 3) return names.slice(0, n - 1).join(", ") + " and " + names[n - 1]
+  return names.slice(0, 3).join(", ") + " and " + (n - 3) + " more"
+}
+
+// The apps with an update, by name, for the UPDATES strip.
+function updateNames(apps) {
+  var names = []
+  for (var i = 0; i < (apps || []).length; i++) if (apps[i].installed && apps[i].updateReady) names.push(apps[i].name)
+  return names.join(" · ")
+}
+
+// After a successful update, one line naming what was updated, until it is seen (0.5.8).
+function summaryLine(craft) {
+  var lj = craft ? craft.lastJob : null
+  if (!lj || craft.job || lj.seen || Number(lj.exit) !== 0) return ""
+  if (lj.verb !== "update" && lj.verb !== "system-update") return ""
+  var ids = Array.isArray(lj.ids) ? lj.ids : []
+  if (ids.length === 0) return ""
+  return "Updated " + joinNames(namesFor(craft.apps, ids))
 }
 
 function verbFor(kind) {
@@ -121,11 +255,6 @@ function tintFor(app, darkBackground) {
   var c = darkBackground ? app.inkDark : app.inkLight
   if (!c) c = app.color
   return c || ""
-}
-
-// "0.8.0-1" → "0.8.0": the pkgrel means nothing to a person reading a badge.
-function shortVersion(v) {
-  return String(v || "").replace(/-\d+$/, "")
 }
 
 function ageText(seconds) {
@@ -186,13 +315,13 @@ function subtext(app, craft) {
   if (jobCovers(craft.job, app.id)) return verbFor(craft.job.verb).replace(/: $/, "").trim() + "…"
   if (app.installed) {
     if (app.source === "source") return "Source build · updates via omarchy update"
-    if (app.updateReady && app.source === "repo") return "Update with the system " + app.installedVersion + " → " + app.aurVersion
-    if (app.updateReady) return "Update ready " + app.installedVersion + " → " + app.aurVersion
-    return app.installedVersion
+    if (app.updateReady && app.source === "repo") return "Update with the system"
+    if (app.updateReady) return "Update ready"
+    return "Installed"
   }
   var where = app.kind === "repo" ? " · from " + repoName(app.repo) : " · prebuilt, no compiling"
-  if (app.new) return "New · install " + app.aurVersion + where
-  return "Install " + app.aurVersion + where
+  if (app.new) return "New · install" + where
+  return "Install" + where
 }
 
 // The repo a repo tool installs from, as a person names it.
@@ -215,38 +344,21 @@ function actionIcon(app) {
 }
 
 function actionTip(app) {
-  if (!app.installed) return "Install " + app.name + " " + app.aurVersion
-  if (app.updateReady && app.source === "repo") return app.name + " " + app.aurVersion + " comes with the system update"
-  if (app.updateReady) return "Update " + app.name + " to " + app.aurVersion
+  if (!app.installed) return "Install " + app.name
+  if (app.updateReady && app.source === "repo") return app.name + "'s update comes with the system update"
+  if (app.updateReady) return "Update " + app.name
   return "Launch " + app.name
 }
 
-// "Install PhotoCraft 0.9.0 · a terminal will open and ask for your password"
-// "Remove PhotoCraft 0.9.0 · a terminal will open and ask for your password · your files stay"
-// "Typesetter 0.15.2 → 0.16 comes with the system update · a terminal will run Omarchy's update"
+// "Install PhotoCraft · a terminal will open and ask for your password"
+// "Remove PhotoCraft · a terminal will open and ask for your password · your files stay"
+// "Typesetter comes with the system update · a terminal will run Omarchy's update and ask for your password"
+// Names only: a version means nothing to a person deciding (0.5.8).
 function confirmText(kind, apps, ids) {
-  if (kind === "system-update") {
-    var those = []
-    for (var j = 0; j < ids.length; j++) {
-      var s = appById(apps, ids[j])
-      those.push(s ? s.name + " " + shortVersion(s.installedVersion) + " → " + shortVersion(s.aurVersion) : ids[j])
-    }
-    var what = ids.length <= 3 ? those.join(", ") : ids.length + " apps"
+  var names = namesFor(apps, ids)
+  var what = ids.length <= 3 ? joinNames(names) : ids.length + " apps"
+  if (kind === "system-update")
     return what + (ids.length === 1 ? " comes" : " come") + " with the system update · a terminal will run Omarchy's update and ask for your password"
-  }
-  var parts = []
-  for (var i = 0; i < ids.length; i++) {
-    var a = appById(apps, ids[i])
-    var name = a ? a.name : ids[i]
-    if (kind === "update" && a) parts.push(name + " " + shortVersion(a.installedVersion) + " → " + shortVersion(a.aurVersion))
-    else if (kind === "remove" && a) parts.push(name + (a.installedVersion ? " " + shortVersion(a.installedVersion) : ""))
-    else parts.push(name + (a && a.aurVersion ? " " + shortVersion(a.aurVersion) : ""))
-  }
   var verb = kind === "update" ? "Update " : kind === "remove" ? "Remove " : "Install "
-  var head = verb + (ids.length <= 3 ? parts.join(", ") : ids.length + " apps")
-  return head + " · a terminal will open and ask for your password" + (kind === "remove" ? " · your files stay" : "")
-}
-
-function chipLabel(label, count) {
-  return label + " · " + count
+  return verb + what + " · a terminal will open and ask for your password" + (kind === "remove" ? " · your files stay" : "")
 }

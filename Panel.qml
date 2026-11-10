@@ -6,10 +6,13 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 
-// OmarCraft: the ArtCraft Craft apps from the bar. Bar icon + native KeyboardPanel, data from
+// OmarCraft: the ArtCraft Craft apps and more from the bar. Bar icon + native KeyboardPanel, data from
 // Service.qml, every mutation delegated to bin/omarcraft in a floating Omarchy terminal.
-// Two layouts under evaluation, switched with `omarchy bar set omarcraft.productivity layout tiles|rows`
-// or the `t` key: "tiles" (three per line, the app's own colour) and "rows" (one per line with a caption).
+// 0.5.8 (docs/v0.5.8-plan.md, design Round 7): three categories, Creative, 3D Art and Office, each an
+// accordion whose open state the widget's settings keep (openCategories); Craft Anything alone in a
+// footer; no version numbers anywhere in the panel. Inside an open category the apps show as tiles (three
+// per line, the app's own colour) or rows, switched with `t` or
+// `omarchy bar set omarcraft.productivity layout tiles|rows`.
 Panel {
   id: root
   moduleName: "omarcraft.productivity"
@@ -31,8 +34,11 @@ Panel {
   readonly property bool tiles: layout === "tiles"
   readonly property real tileWidth: (column.width - Style.space(6) * (Model.COLUMNS - 1)) / Model.COLUMNS
 
-  readonly property var sections: Model.sections(craft.apps)
-  readonly property var cursorKeys: Model.cursorKeys(craft.apps)
+  readonly property var openIds: Model.parseOpen(setting("openCategories", ""))
+  readonly property var categories: Model.categories(craft.apps, openIds)
+  readonly property var footerApps: Model.footerApps(craft.apps)
+  readonly property var cursorKeys: Model.cursorKeys(craft.apps, openIds)
+  readonly property string updateNames: Model.updateNames(craft.apps)
   readonly property int pending: craft.counts.updates || 0
   readonly property bool jobRunning: !!craft.job
   readonly property bool jobFailed: Model.jobFailed(craft)
@@ -40,10 +46,14 @@ Panel {
   // The bar icon turns urgent for pending updates, for Craft apps that appeared since the panel was
   // last open, and after a failed job.
   readonly property bool attention: pending > 0 || newApps > 0 || jobFailed
-  readonly property var missingAll: Model.missingIds(craft.apps, "all")
   readonly property var missingCreative: Model.missingIds(craft.apps, "creative")
+  readonly property var missing3d: Model.missingIds(craft.apps, "3d")
   readonly property var missingOffice: Model.missingIds(craft.apps, "office")
-  readonly property var missingNotes: Model.missingIds(craft.apps, "notes")
+  // After a successful update, one line naming what was updated: until the next key, eight seconds, or
+  // the panel closing (which marks the job seen).
+  property string dismissedSummary: ""
+  readonly property string summaryRaw: Model.summaryLine(craft)
+  readonly property string summaryText: summaryRaw !== "" && craft.lastJob && String(craft.lastJob.endedAt) === dismissedSummary ? "" : summaryRaw
   readonly property string statusLine: craft.actionStatus !== "" ? craft.actionStatus
     : craft.lastError !== "" ? craft.lastError
     : Model.standingLine(craft)
@@ -75,8 +85,7 @@ Panel {
   function moveCursor(dx, dy) {
     if (cursorKeys.length === 0) return
     if (!cursorActive) { cursorActive = true; return }
-    cursor = root.tiles ? Model.gridMove(cursorKeys, craft.apps, cursor, dx, dy)
-                        : Math.max(0, Math.min(cursorKeys.length - 1, cursor + dy))
+    cursor = Model.gridMove(cursorKeys, craft.apps, root.openIds, cursor, dx, dy, root.tiles)
     cancelConfirm()
     Qt.callLater(ensureCursorVisible)
   }
@@ -131,6 +140,7 @@ Panel {
   // Enter, click or the row action. Installed: launch, or ask to update when a newer build exists.
   // Available: ask to install (Enter again runs it).
   function primary(key) {
+    if (key.indexOf("cat:") === 0) { toggleCategory(key.slice(4)); return }
     if (key.indexOf("app:") !== 0) return
     var id = key.slice(4)
     var app = Model.appById(craft.apps, id)
@@ -156,9 +166,42 @@ Panel {
     openConfirm("remove", [id], placementFor(key))
   }
 
-  function confirmGroup(ids) {
+  function confirmGroup(ids, category) {
     if (ids.length === 0) { craft.flash("Nothing to install"); return }
-    openConfirm("install", ids, root.tiles ? "strip" : "group")
+    openConfirm("install", ids, root.tiles ? "strip" : "group:" + (category || ""))
+  }
+
+  // Open or close a category; the widget's settings keep it, like the layout.
+  function setOpen(list) {
+    var next = Model.openString(list)
+    if (next === Model.openString(root.openIds)) return
+    root.settings = Object.assign({}, root.settings, { openCategories: next })
+    if (root.bar && root.bar.shell) root.bar.shell.updateEntryInline(root.moduleName, root.settings)
+  }
+
+  function toggleCategory(id) {
+    cancelConfirm()
+    setOpen(Model.toggled(root.openIds, id))
+    Qt.callLater(function() { root.setCursorTo("cat:" + id); root.ensureCursorVisible() })
+  }
+
+  // A category with an app the user has not seen opens itself, once per opening of the panel; after that
+  // it stays as the user leaves it, even if a refresh arrives while the panel is open.
+  property var autoOpened: []
+  function openNewCategories() {
+    var ids = Model.newCategoryIds(craft.apps)
+    var list = root.openIds.slice(), seen = root.autoOpened.slice(), changed = false
+    for (var i = 0; i < ids.length; i++) {
+      if (seen.indexOf(ids[i]) >= 0) continue
+      seen.push(ids[i])
+      if (list.indexOf(ids[i]) < 0) { list.push(ids[i]); changed = true }
+    }
+    root.autoOpened = seen
+    if (changed) setOpen(list)
+  }
+
+  function dismissSummary() {
+    if (root.summaryText !== "" && craft.lastJob) root.dismissedSummary = String(craft.lastJob.endedAt)
   }
 
   // Update all: every pending app. With an app from a package repo among them, Omarchy's update brings
@@ -259,13 +302,23 @@ Panel {
       cursorActive = false
       cursor = 0
       craft.refresh()
+      autoOpened = []
+      openNewCategories()
       if (panelFlick) panelFlick.contentY = 0
-    } else if (root.newApps > 0 || root.jobFailed) {
-      // Closing the panel counts as having seen the new apps and a failed job: the bar stops asking for
-      // attention.
+    } else if (root.newApps > 0 || root.jobFailed || root.summaryRaw !== "") {
+      // Closing the panel counts as having seen the new apps and the last job: the bar stops asking for
+      // attention and the summary line goes.
       craft.markSeen()
     }
   }
+
+  // New apps can arrive while the panel is open (a check finishing): their category opens then too.
+  Connections {
+    target: craft
+    function onAppsChanged() { if (root.opened) root.openNewCategories() }
+  }
+
+  Timer { interval: 8000; running: root.opened && root.summaryText !== ""; onTriggered: root.dismissSummary() }
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -326,6 +379,7 @@ Panel {
         tint: root.tintFor(modelData)
         installed: modelData.installed
         badge: Model.badgeFor(modelData)
+        badgeColor: Model.badgeIsUpdate(modelData) ? root.urgent : root.accent
         busy: Model.jobCovers(craft.job, modelData.id)
         failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
         actionsEnabled: modelData.installed || !root.jobRunning
@@ -343,10 +397,105 @@ Panel {
     }
   }
 
+  // A category's header line: chevron and name, then an update dot, New, "3 of 4" and the install key while
+  // something in it is missing. Enter or a click opens or closes it.
+  component CategoryHeader: CursorSurface {
+    id: hdr
+    property var cat: ({})
+    readonly property string key: "cat:" + (cat.id || "")
+    readonly property bool isCursor: root.cursorActive && root.cursorKey === key
+    hasCursor: isCursor
+    foreground: root.foreground
+    accent: root.accent
+    width: column.width
+    implicitHeight: Math.max(hdrLeft.implicitHeight, hdrRight.implicitHeight) + Style.space(8)
+
+    MouseArea {
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onContainsMouseChanged: if (containsMouse) root.setCursorTo(hdr.key)
+      onClicked: { root.setCursorTo(hdr.key); root.toggleCategory(hdr.cat.id) }
+    }
+
+    Row {
+      id: hdrLeft
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(4)
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(6)
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: hdr.cat.open ? "\u{F0140}" : "\u{F0142}"
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+      }
+      SectionLabel {
+        anchors.verticalCenter: parent.verticalCenter
+        topPadding: 0
+        text: String(hdr.cat.label || "").toUpperCase()
+        tone: hdr.isCursor ? root.foreground : root.dim
+      }
+    }
+
+    Row {
+      id: hdrRight
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(8)
+      Rectangle {
+        visible: (hdr.cat.updates || 0) > 0
+        anchors.verticalCenter: parent.verticalCenter
+        width: Style.space(7); height: width; radius: width / 2
+        color: root.urgent
+      }
+      Text {
+        visible: !!hdr.cat.hasNew
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: "New"
+        color: root.accent
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+      }
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: (hdr.cat.installed || 0) + " of " + (hdr.cat.total || 0)
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+      Rectangle {
+        visible: (hdr.cat.missing || []).length > 0 && !hdr.cat.open
+        anchors.verticalCenter: parent.verticalCenter
+        width: keyChip.implicitWidth + Style.space(8)
+        height: keyChip.implicitHeight + Style.space(2)
+        radius: Style.space(3)
+        color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.16)
+        Text {
+          id: keyChip
+          anchors.centerIn: parent
+          textFormat: Text.PlainText
+          text: hdr.cat.key || ""
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+      }
+    }
+
+    Component.onCompleted: root.registerRow(key, this)
+  }
+
   // Rows of one section, one per line with a caption.
   component RowList: Column {
     property var apps: []
-    property bool dimRows: false
     width: column.width
     spacing: Style.space(2)
     Repeater {
@@ -360,7 +509,7 @@ Panel {
         subtext: Model.subtext(modelData, craft)
         actionIcon: Model.actionIcon(modelData)
         actionTip: Model.actionTip(modelData)
-        dimmed: parent.dimRows
+        dimmed: !modelData.installed
         busy: Model.jobCovers(craft.job, modelData.id)
         failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
         actionsEnabled: modelData.installed || !root.jobRunning
@@ -391,8 +540,9 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
 
-      onMoveRequested: function(dx, dy) { root.moveCursor(dx, dy) }
+      onMoveRequested: function(dx, dy) { root.dismissSummary(); root.moveCursor(dx, dy) }
       onActivateRequested: {
+        root.dismissSummary()
         if (root.confirmOpen) root.runConfirm()
         else if (root.cursorActive) root.primary(root.cursorKey)
         else root.cursorActive = true
@@ -401,12 +551,13 @@ Panel {
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onDeleteRequested: if (root.cursorActive) root.confirmRemove(root.cursorKey)
       onTextKey: function(t) {
+        root.dismissSummary()
         var k = t.toLowerCase()
         if (k === "u") root.confirmUpdateAll()
         else if (k === "x" && root.cursorActive) root.confirmRemove(root.cursorKey)
-        else if (k === "c") root.confirmGroup(root.missingCreative)
-        else if (k === "o") root.confirmGroup(root.missingOffice)
-        else if (k === "n") root.confirmGroup(root.missingNotes)
+        else if (k === "c") root.confirmGroup(root.missingCreative, "creative")
+        else if (k === "3") root.confirmGroup(root.missing3d, "3d")
+        else if (k === "o") root.confirmGroup(root.missingOffice, "office")
         else if (k === "r") root.refreshNow()
         else if (k === "t") root.toggleLayout()
       }
@@ -498,6 +649,30 @@ Panel {
             }
           }
 
+          // After a successful update: "✓ Updated PhotoCraft and WordCraft".
+          Row {
+            visible: root.summaryText !== ""
+            width: parent.width
+            spacing: Style.space(6)
+            Text {
+              textFormat: Text.PlainText
+              text: "\u{F012C}"
+              color: root.accent
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              font.bold: true
+            }
+            Text {
+              width: parent.width - Style.space(24)
+              textFormat: Text.PlainText
+              text: root.summaryText
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
+            }
+          }
+
           // Only while something needs saying: a flash, an error, a running or failed job, offline.
           Text {
             visible: root.statusLine !== ""
@@ -520,18 +695,32 @@ Panel {
 
           PanelSeparator { width: parent.width; foreground: root.foreground }
 
-          // ---------- Updates ----------
+          // ---------- Updates: the names and Update all; the tiles stay in their category ----------
           Item {
-            visible: root.sections.updates.length > 0
+            visible: root.pending > 0
             width: parent.width
-            implicitHeight: Math.max(updatesLabel.implicitHeight, updateAll.implicitHeight)
+            implicitHeight: Math.max(updatesText.implicitHeight, updateAll.implicitHeight)
 
-            SectionLabel {
-              id: updatesLabel
+            Column {
+              id: updatesText
               anchors.left: parent.left
+              anchors.right: updateAll.left
+              anchors.rightMargin: Style.space(8)
               anchors.verticalCenter: parent.verticalCenter
-              text: "UPDATES · " + root.sections.updates.length
-              tone: root.urgent
+              spacing: Style.space(2)
+              SectionLabel {
+                text: "UPDATES · " + root.pending
+                tone: root.urgent
+              }
+              Text {
+                width: parent.width
+                textFormat: Text.PlainText
+                text: root.updateNames
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
             }
             Button {
               id: updateAll
@@ -549,81 +738,56 @@ Panel {
               onClicked: root.confirmUpdateAll()
             }
           }
-          TileGrid { visible: root.tiles && root.sections.updates.length > 0; apps: root.tiles ? root.sections.updates : [] }
-          RowList { visible: !root.tiles && root.sections.updates.length > 0; apps: root.tiles ? [] : root.sections.updates }
-          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.sections.updates.length > 0 }
+          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.pending > 0 }
 
-          // ---------- Installed ----------
-          SectionLabel { visible: root.sections.installed.length > 0; text: "INSTALLED · " + root.sections.installed.length }
-          TileGrid { visible: root.tiles && root.sections.installed.length > 0; apps: root.tiles ? root.sections.installed : [] }
-          RowList { visible: !root.tiles && root.sections.installed.length > 0; apps: root.tiles ? [] : root.sections.installed }
-          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.sections.installed.length > 0 && root.sections.available.length > 0 }
+          // ---------- Categories: one header line each, opened with Enter ----------
+          Repeater {
+            model: root.categories
+            delegate: Column {
+              id: catBlock
+              required property var modelData
+              width: column.width
+              spacing: Style.space(6)
 
-          // ---------- Available ----------
-          SectionLabel { visible: root.sections.available.length > 0; text: "AVAILABLE · " + root.sections.available.length }
-          TileGrid { visible: root.tiles && root.sections.available.length > 0; apps: root.tiles ? root.sections.available : [] }
-          RowList { visible: !root.tiles && root.sections.available.length > 0; apps: root.tiles ? [] : root.sections.available; dimRows: true }
-
-          // ---------- Group chips, each with its key ----------
-          Flow {
-            width: parent.width
-            spacing: Style.space(6)
-            visible: root.missingAll.length > 0 && root.sections.available.length > 0
-
-            Button {
-              visible: root.missingCreative.length > 0
-              iconText: "c"
-              iconSize: Style.font.bodySmall
-              text: Model.chipLabel("Creative", root.missingCreative.length)
-              bordered: true
-              fontSize: Style.font.bodySmall
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              enabled: !root.jobRunning
-              opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Photo, Vector, Film, Light, Effect, Design, CAD, Sound, FigCraft"
-              onClicked: root.confirmGroup(root.missingCreative)
-            }
-            Button {
-              visible: root.missingOffice.length > 0
-              iconText: "o"
-              iconSize: Style.font.bodySmall
-              text: Model.chipLabel("Office", root.missingOffice.length)
-              bordered: true
-              fontSize: Style.font.bodySmall
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              enabled: !root.jobRunning
-              opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Word, Deck, Grid, PdfCraft, Typesetter"
-              onClicked: root.confirmGroup(root.missingOffice)
-            }
-            Button {
-              visible: root.missingNotes.length > 0
-              iconText: "n"
-              iconSize: Style.font.bodySmall
-              text: Model.chipLabel("Notes", root.missingNotes.length)
-              bordered: true
-              fontSize: Style.font.bodySmall
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-              enabled: !root.jobRunning
-              opacity: enabled ? 1.0 : 0.45
-              tooltipText: "Memospot, Planify"
-              onClicked: root.confirmGroup(root.missingNotes)
+              CategoryHeader { cat: catBlock.modelData }
+              TileGrid { visible: root.tiles && catBlock.modelData.open; apps: root.tiles && catBlock.modelData.open ? catBlock.modelData.apps : [] }
+              RowList { visible: !root.tiles && catBlock.modelData.open; apps: !root.tiles && catBlock.modelData.open ? catBlock.modelData.apps : [] }
+              Item {
+                visible: catBlock.modelData.open && catBlock.modelData.missing.length > 0
+                width: parent.width
+                implicitHeight: installMissing.implicitHeight
+                Button {
+                  id: installMissing
+                  anchors.right: parent.right
+                  iconText: catBlock.modelData.key
+                  iconSize: Style.font.bodySmall
+                  text: "Install " + catBlock.modelData.missing.length
+                  bordered: true
+                  fontSize: Style.font.bodySmall
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  enabled: !root.jobRunning
+                  opacity: enabled ? 1.0 : 0.45
+                  tooltipText: Model.namesFor(craft.apps, catBlock.modelData.missing).join(", ")
+                  onClicked: root.confirmGroup(catBlock.modelData.missing, catBlock.modelData.id)
+                }
+              }
+              Loader {
+                width: parent.width
+                active: root.confirmOpen && root.confirmAt === "group:" + catBlock.modelData.id
+                visible: active
+                sourceComponent: confirmLine
+              }
             }
           }
 
-          Loader {
-            width: parent.width
-            active: root.confirmOpen && root.confirmAt === "group"
-            visible: active
-            sourceComponent: confirmLine
-          }
+          // ---------- Footer: Craft Anything, alone, never collapsed ----------
+          PanelSeparator { width: parent.width; foreground: root.foreground; visible: root.footerApps.length > 0 }
+          RowList { visible: root.footerApps.length > 0; apps: root.footerApps }
 
           // ---------- Empty / loading ----------
           Text {
-            visible: craft.loaded && root.cursorKeys.length === 0
+            visible: craft.loaded && root.categories.length === 0 && root.footerApps.length === 0
             width: parent.width
             textFormat: Text.PlainText
             text: craft.refreshing ? "Checking the AUR for the Craft apps…" : "No Craft app has an AUR build yet."

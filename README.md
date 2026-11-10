@@ -10,10 +10,17 @@ is not, what has a newer build, and one action per tool to launch, install, upda
 a prebuilt package, from a package repo (Omarchy's own or the Arch repos) or a `-bin` from the AUR,
 installed through Omarchy's own package commands, so pacman owns it and nothing is ever compiled.
 
-It carries the thirteen [ArtCraft](https://getartcraft.com) Craft apps (PhotoCraft, VectorCraft, FilmCraft,
-LightCraft, PdfCraft, EffectCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, CADCraft, SoundCraft,
-FigCraft) in the groups Creative and Office, plus three tools that do what ArtCraft does not (see *Beyond
-ArtCraft*), sixteen in all.
+It carries the apps in [ArtCraft](https://getartcraft.com)'s own list, seventeen in November 2026, plus three
+tools that do what ArtCraft does not (see *Beyond ArtCraft*), in three categories:
+
+- **Creative:** PhotoCraft, VectorCraft, LightCraft, DesignCraft, FigCraft, FilmCraft, EffectCraft, SoundCraft
+- **3D Art:** CADCraft, SolidCraft (a community app by Tangency Labs, in ArtCraft's list), TextureCraft,
+  MaterialCraft
+- **Office:** WordCraft, GridCraft, DeckCraft, PdfCraft, Typesetter, Memospot, Planify
+
+and, on its own line at the bottom of the panel, **Craft Anything**, ArtCraft's AI coding agent (early
+alpha). The list comes from ArtCraft's launcher, so an app ArtCraft adds shows up without a new OmarCraft;
+one OmarCraft has no category for yet lands in Creative.
 
 Plugin id `omarcraft.productivity`. MIT licensed. **Unofficial**: OmarCraft is not made by or affiliated with
 Storyteller, the makers of ArtCraft, nor with the projects behind the other tools. The names are theirs.
@@ -37,8 +44,8 @@ one app. A tool that adds a capability ArtCraft lacks may exceed item 4; its row
 | Tool | Group | Package | What it is | Idle memory (measured) |
 |---|---|---|---|---|
 | [Typesetter](https://codeberg.org/haydn/typesetter) | Office | `typesetter` (Arch repos) | A focused [Typst](https://typst.app) editor with a live preview | 57 MiB, 1 process |
-| [Memospot](https://memospot.github.io) | Notes | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
-| [Planify](https://useplanify.com) | Notes | `planify` (Arch repos) | Tasks and projects, each one a list or a kanban board, kept on your computer (Todoist, Nextcloud or CalDAV sync optional) | 153 MiB, 1 process |
+| [Memospot](https://memospot.github.io) | Office | `memospot-bin` | [Memos](https://usememos.com), the notes and journal service, as a desktop app | 371 MiB, 4 processes · **exception**: web-based |
+| [Planify](https://useplanify.com) | Office | `planify` (Arch repos) | Tasks and projects, each one a list or a kanban board, kept on your computer (Todoist, Nextcloud or CalDAV sync optional) | 153 MiB, 1 process |
 
 Typesetter and Planify come from the Arch repos: they install with Omarchy's repo command and update with
 the system (see *Updates*).
@@ -104,44 +111,40 @@ omarchy restart shell
 
 ## The panel
 
-Left-click the icon (or `Tab` from a neighbouring panel). Two layouts, switched live with `t` or
-`omarchy bar set omarcraft.productivity layout tiles|rows`:
+Left-click the icon (or `Tab` from a neighbouring panel). No version numbers anywhere: an app has an
+update or it does not (the command line still shows versions, see below).
 
-- **Tiles** (default): three apps per line, each tile the app's glyph in its own ArtCraft colour over its
-  name. Installed tiles have a tinted fill, available ones only an outline; the name stays readable in
-  both. Hover for the version and state. The tile under the cursor takes the accent outline and fill.
-- **Rows**: one app per line with a caption (`0.7.0-1`, `Update ready 0.7.0-1 → 0.8.0-1`, `Install
-  0.9.0-1 · prebuilt, no compiling`) and one action at the right edge.
-
-In both:
-
-- **Hero.** The rocket logo, then the one-line situation: `4 OF 16 INSTALLED · 2 UPDATES` (the
+- **Hero.** The rocket logo, then the one-line situation: `16 OF 20 INSTALLED · 2 UPDATES` (the
   updates part in the urgent colour), `INSTALLING WORDCRAFT…`, `NOTHING INSTALLED YET`, `OFFLINE · CACHED
   LIST`, `LAST JOB FAILED`. The circular arrow at the right checks the AUR now; its tooltip says how old
   the list is. A line under the hero appears only while something needs saying (a job, an error, offline).
-- **UPDATES · N.** Shown only when newer builds exist: those apps move here from INSTALLED, each with an
-  `↑ 0.8.0` badge, next to an *Update all · u* button. `Enter` on one asks: *Update ⏎* (that package),
-  *Launch instead*, *Cancel*.
-- **INSTALLED · N.** Your apps that are up to date. `Enter` or a click launches one; if its window is
-  already open it is focused instead.
-- **AVAILABLE · N.** The rest. `Enter` or a click opens a one-line confirm under the hero (`Install
-  PhotoCraft 0.9.0 · a terminal will open and ask for your password`); `Enter` again runs it, `Esc`
-  cancels. In the rows layout the confirm sits under the row and a newly added Craft app shows `New`.
-- **Group chips** under the available apps, each with its key: *c Creative · N*, *o Office · N*
-  (Office = WordCraft, DeckCraft, GridCraft, PdfCraft, Typesetter), *n Notes · N* (Memospot, Planify),
-  counting the apps you don't have. Same confirm, naming every app; one terminal, one run. A chip
-  disappears when its group is complete.
-- **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft 0.9.0 ·
-  a terminal will open and ask for your password · your files stay`, then *Remove ⏎* or *Cancel*. The job
-  is Omarchy's `omarchy pkg drop photocraft-bin`; when the terminal closes the tile is back under
-  AVAILABLE. Apps installed some other way are not offered.
+- **After an update**, one line: `✓ Updated PhotoCraft and WordCraft`. It goes on the next key, after a
+  few seconds, or when the panel closes.
+- **UPDATES · N.** Shown only when newer builds exist: the apps' names and an *Update all · u* button.
+  The apps stay in their category with an **Update** badge; `Enter` on one asks: *Update ⏎* (that
+  package), *Launch instead*, *Cancel*.
+- **Categories.** Creative, 3D Art and Office, each one header line: its name, `3 of 4` installed, a dot
+  while an app in it has an update, *New* while it has an app you have not seen, and its key while
+  something in it is missing. `Enter` or a click on the header opens or closes it, and the panel remembers.
+  A category opens by itself when it gets a new app. Inside, the apps show as **tiles** (default: three per
+  line, each the app's glyph in its own ArtCraft colour over its name; installed ones tinted, the others
+  outlined) or **rows** (one per line with a caption), switched live with `t` or
+  `omarchy bar set omarcraft.productivity layout tiles|rows`. `Enter` or a click launches an installed app
+  (or focuses its window) and opens a one-line confirm for one that is not (`Install PhotoCraft · a
+  terminal will open and ask for your password`); `Enter` again runs it, `Esc` cancels. An open category
+  with apps missing ends with *Install N*, the same as its key: one confirm, one terminal, one run.
+- **Craft Anything**, alone on the last line, never collapsed: `Enter` installs, launches or updates it.
+- **Remove.** Right-click an installed tile, or press `x` with the cursor on it: `Remove PhotoCraft · a
+  terminal will open and ask for your password · your files stay`, then *Remove ⏎* or *Cancel*. The job
+  is Omarchy's `omarchy pkg drop photocraft-bin`. Apps installed some other way are not offered.
+
 While a job runs the row shows a spinner and `Installing…`, the hero says what runs, every install action
 is greyed out, and the terminal is the place to type your password. When the terminal finishes the panel
 re-reads the package database: what you see is what is installed, never what a click intended.
 
-**Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` launch, update or install · `u` Update
-all · `x` remove the app under the cursor · `c` / `o` / `n` install the missing Creative / Office / Notes
-tools · `r` check the AUR · `t` switch layout ·
+**Keys:** `h`/`l` `j`/`k` move (tiles: one tile, one line) · `Enter` open or close a category, or launch,
+update or install an app · `u` Update all · `x` remove the app under the cursor · `c` / `3` / `o` install
+the missing Creative / 3D Art / Office tools · `r` check the AUR · `t` switch layout ·
 `Tab` neighbouring panel · `Esc` cancel or close.
 
 **Bar icon:** a rocket (󰓄), left = panel · right = check the AUR now · middle = switch layout. It turns to
@@ -162,7 +165,7 @@ AUR build exists, which can trail an ArtCraft release by a day or so.
 **Craft apps that Omarchy's repo also ships.** Omarchy's own repo ships WordCraft and GridCraft under
 their AUR names (`wordcraft-bin`, `gridcraft-bin`), but its builds can trail ArtCraft's releases, while the
 AUR's `-bin` packages download ArtCraft's own release files within hours. Since 0.5.7 OmarCraft takes these
-apps from the AUR, like every other Craft app: the badge shows the AUR's version, and installs and updates
+apps from the AUR, like every other Craft app: their update badge follows the AUR's build, and installs and updates
 name the AUR explicitly (`yay -S aur/wordcraft-bin`), since pacman and the AUR helper otherwise take a
 package from a repo when one ships it. There is only ever one copy: both builds use the same package name,
 so the AUR build replaces Omarchy's in place, documents and settings untouched. Omarchy's update never
@@ -176,7 +179,7 @@ switched off, until Omarchy answers [omacom/omarchy-pkgs#2390](https://github.co
 with Omarchy's `omarchy-pkg-add`. Each check reads the repos as they are now, the way Omarchy's own update
 check does: `checkupdates` refreshes a private copy of the package lists (about 9 MB in
 `~/.cache/omarchy/omarcraft/checkup-db`) without a password and without touching the system's, which are
-only as new as its last update. Their badge reads `↑ system` and opens Omarchy's update, because updating
+only as new as its last update. Their *Update* badge opens Omarchy's update instead (the confirm says so), because updating
 one of those packages on its own is a partial upgrade; *Update all* runs Omarchy's update when only these
 are pending.
 
@@ -213,10 +216,12 @@ $P state                      # the JSON the panel reads (local files only)
 $P list                       # catalog with install state
 $P launch <id>                # e.g. photocraft
 $P install <id>...            # floating terminal, one run
-$P install-group all|creative|office|notes
+$P install-group all|creative|3d|office   # notes: office, as before 0.5.8
 $P remove <id>...             # floating terminal, Omarchy's pkg drop; your files stay
 $P update [id...]             # the named apps, or every app with a newer build; floating terminal
 $P check [--notify]           # pending updates; exit 0 if any
+                              # list and check show versions; while ArtCraft's list cannot be read
+                              # (its layout changed), both say so on stderr
 $P refresh [-f]               # fetch catalog and AUR versions now
 ```
 
@@ -239,7 +244,9 @@ o.bind("SUPER + ALT + A", "OmarCraft", "omarchy-shell omarcraft.productivity tog
 
 An ArtCraft section in the Omarchy menu (`Super + Alt + Space` root and *Install → ArtCraft*), opt-in and
 reversible: `$P setup-menu` / `$P remove-menu`. It writes one marked block into
-`~/.config/omarchy/extensions/omarchy-menu.jsonc` and nothing else.
+`~/.config/omarchy/extensions/omarchy-menu.jsonc` and nothing else. Since 0.5.8 its install entries are Creative, 3D Art
+and Office; a section written by an earlier version still works (its *Install Notes* now installs what
+Office is missing), and `$P setup-menu` again brings the new entries.
 
 ## Remove
 

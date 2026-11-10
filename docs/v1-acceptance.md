@@ -160,3 +160,14 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 65 | 0.5.7 · Switch on (`FOLLOW_APP_REPOS=1`): every 0.5.6 test passes unchanged | aa6fca6 | PASS | 2026-11-09, the 267 earlier tests run with it on; 20 new tests with it off; ten breaks, each caught |
 | 66 | 0.5.7 · Upgrade from every earlier release (`tests/upgrade-paths.sh`), back online with every tool | aa6fca6 | PASS | 2026-11-09, against the local branch: 0.1.0, 0.2.0, 0.5.0, 0.5.1, 0.5.2, 0.5.3, 0.5.4, 0.5.5 and 0.5.6 all `ok`, online, 16 tools, 7 updates (WordCraft and GridCraft among them) |
 | 67 | 0.5.7 · The other machines, after the release: `omarchy plugin update`, the two badges, Enter, rows 59 and 61 on each | | pending | |
+| 68 | 0.5.8 · The live `catalog.rs` gives 17 apps; the panel shows 20 tools (17 + Typesetter, Memospot, Planify) | | pending | |
+| 69 | 0.5.8 · Three categories with the decided members; Craft Anything alone in the footer | | pending | |
+| 70 | 0.5.8 · Accordion: Enter opens and closes a category; the state survives a shell restart; 3D Art opens by itself once for the new apps | | pending | |
+| 71 | 0.5.8 · No version number anywhere in the panel: badges, confirms, rows, subtexts | | pending | |
+| 72 | 0.5.8 · Update all with two apps pending: one job, then `✓ Updated A and B`, gone on the next key | | pending | |
+| 73 | 0.5.8 · Install SolidCraft, TextureCraft and MaterialCraft with `3` (one job), launch each from its tile, remove one | | pending | |
+| 74 | 0.5.8 · Install and launch Craft Anything from the footer | | pending | |
+| 75 | 0.5.8 · An old menu entry `install-group notes` still installs Office's missing apps | | pending | |
+| 76 | 0.5.8 · A list that parses to 0 apps: `check` says so, the panel keeps the built-in list | | pending | |
+| 77 | 0.5.8 · Upgrade from every earlier release, back online with every tool | | pending | |
+| 78 | 0.5.8 · The other machines after the release | | pending | |

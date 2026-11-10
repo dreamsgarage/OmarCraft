@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.8 — unreleased
+
+ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and decisions in
+`docs/v0.5.8-plan.md`; design Round 7 on the design canvas.
+
+- **Fixed: ArtCraft's app list was no longer read.** ArtCraft changed its layout on 2026-11-06/07 and
+  OmarCraft quietly fell back to its built-in thirteen apps. Both layouts are read now, within the same
+  bounds as before, and a list that downloads but holds no readable app is reported by `omarcraft check`
+  and `list` instead of going unnoticed.
+- **New apps:** SolidCraft (Tangency Labs, a community app in ArtCraft's list), TextureCraft and
+  MaterialCraft in the new **3D Art** category with CADCraft, and Craft Anything, ArtCraft's AI coding agent
+  (early alpha), on its own line at the bottom of the panel. Twenty tools in all.
+- **Categories instead of status sections:** Creative, 3D Art and Office (Notes merged into Office), each
+  one header line that opens and closes with Enter and is remembered; a category opens by itself when it
+  gets a new app. Keys `c`, `3` and `o` install what a category is missing (`n` is gone; `install-group
+  notes` still works, as Office).
+- **No version numbers in the panel:** badges read *Update* or *New*, confirms name the apps only, and the
+  update notification lists names. After an update, one line names what was updated. The command line
+  (`list`, `check`) still shows versions.
+- The UPDATES strip names the apps; the apps stay in their category with their badge.
+- Cache format 6: the first read after the update fetches the list at once.
+
 ## 0.5.7 — unreleased
 
 WordCraft and GridCraft come from the AUR again, so OmarCraft offers ArtCraft's releases within hours. The

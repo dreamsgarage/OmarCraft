@@ -179,7 +179,7 @@ FOLLOW_APP_REPOS=1
 # Nothing the script touches may be real: every path it writes or deletes must point into the test
 # folder, or the suite stops before any test.
 for var in CACHE_DIR STATE_DIR DATA_HOME MENU_FILE LEGACY_VIKUNJA_DIR LEGACY_VIKUNJA_ENTRY LEGACY_VIKUNJA_PID \
-  SYNC_CACHE CATALOG_FORMAT_FILE PACMAN_SYNC_DIR PACMAN_CONF REPO_DB REPO_LATEST; do
+  SYNC_CACHE CATALOG_FORMAT_FILE PACMAN_SYNC_DIR PACMAN_CONF REPO_DB REPO_LATEST PARSE_FAILED; do
   [[ ${!var} == "$TMP"/* ]] || { echo "refusing to run: $var=${!var} is outside $TMP" >&2; exit 2; }
 done
 set +e
@@ -203,14 +203,28 @@ expect_eq "parser reads the first app with its colours" "$(head -1 <<<"$parsed")
   $'photocraft\tPhotoCraft\tImage editing\tclassic\t#2f7bf5\t#1a5bc4\t#7fb0ff'
 expect_eq "parser handles the struct-update form (pdfcraft)" \
   "$(grep '^pdfcraft' <<<"$parsed")" $'pdfcraft\tPdfCraft\tReading, organizing and protecting PDFs\tclassic\t#12a58a\t#0a7563\t#3fd6b8'
+# The layout of 2026-11-06 on: one-line app(...) records, no group, a community app in a CraftApp block.
+parsed=$(parse_upstream_catalog <"$ROOT/tests/fixtures/catalog-2026-11-09.rs")
+expect_eq "parser reads the 2026-11 layout: all 17 apps" "$(wc -l <<<"$parsed")" "17"
+expect_eq "a one-line record with its colours, group suite" "$(head -1 <<<"$parsed")" \
+  $'photocraft\tPhotoCraft\tImage editing\tsuite\t#2f7bf5\t#1a5bc4\t#7fb0ff'
+expect_eq "a multi-line record (Craft Anything, an id with a hyphen)" "$(grep '^craft-anything' <<<"$parsed")" \
+  $'craft-anything\tCraft Anything\tFind out how any software works, then craft your own\tsuite\t#4e7bfb\t#1659c4\t#74aaff'
+expect_eq "the community app inside its CraftApp block (SolidCraft)" "$(grep '^solidcraft' <<<"$parsed" | cut -f1,2,4)" \
+  $'solidcraft\tSolidCraft\tcommunity'
 expect_eq "parser matches the built-in catalog" "$parsed" "$BUILTIN_CATALOG"
+expect_eq "brackets inside a quoted string do not end a record" \
+  "$(printf 'pub const SUITE: [CraftApp; 1] = [\n    app("x-craft", "X (beta)", "Tags (and more)", [[0x01, 0x02, 0x03], [0x04, 0x05, 0x06], [0x07, 0x08, 0x09]], "a/b"),\n];\n' | parse_upstream_catalog | cut -f1-4)" \
+  $'x-craft\tX (beta)\tTags (and more)\tsuite'
+expect_eq "a record with fewer than nine colour bytes is refused" \
+  "$(printf 'pub const SUITE: [CraftApp; 1] = [\n    app("y-craft", "Y", "Tag", [[0x01, 0x02, 0x03]], "a/b"),\n];\n' | parse_upstream_catalog | wc -l)" "0"
 
 # --- first run: no cache, no network ------------------------------------------------------------
 
 ensure_cache
 expect_true "first run writes the built-in catalog without versions" "[[ \$(cut -f5 '$CATALOG' | sort -u) == '' ]]"
 expect_eq "cache has the full column set" "$(awk -F'\t' '{print NF}' "$CATALOG" | sort -u)" "8"
-expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "16"
+expect_eq "first run marks every app as seen" "$(wc -l <"$SEEN")" "20"
 expect_true "built-in catalog carries the extras" "grep -q '^memospot' \"$CATALOG\""
 expect_eq "first run made no network call" "$(calls curl | wc -l)" "0"
 catalog_fresh && fail "first-run cache is stale so versions are fetched at once" || ok "first-run cache is stale so versions are fetched at once"
@@ -221,7 +235,13 @@ expect_eq "first-run state carries the colours" "$(state | jq -r '.apps[] | sele
 # --- groups and ids ----------------------------------------------------------------------------
 
 expect_eq "office group" "$(for i in wordcraft deckcraft gridcraft pdfcraft photocraft; do group_for $i; echo; done | tr '\n' ' ')" "office office office office creative "
-expect_eq "notes group" "$(group_for memospot)" "notes"
+expect_eq "Memospot is in Office now (Notes merged)" "$(group_for memospot)" "office"
+expect_eq "3D Art group" "$(for i in cadcraft solidcraft texturecraft materialcraft; do group_for $i; echo; done | tr '\n' ' ')" "3d 3d 3d 3d "
+expect_eq "Craft Anything stands alone" "$(group_for craft-anything)" "solo"
+expect_eq "a Craft app no list names is Creative" "$(group_for brushcraft)" "creative"
+expect_eq "desktop ids of the new apps (SolidCraft has its own publisher)" \
+  "$(for i in solidcraft texturecraft materialcraft craft-anything; do desktop_id_for $i; echo; done | tr '\n' ' ')" \
+  "io.tangencylabs.solidcraft ai.storyteller.texturecraft ai.storyteller.materialcraft ai.storyteller.craft-anything "
 ( valid_id "photocraft" ) 2>/dev/null && ok "valid id accepted" || fail "valid id accepted"
 ( valid_id 'x;rm -rf' ) 2>/dev/null && fail "unsafe id rejected" || ok "unsafe id rejected"
 ( known_id 'photocraft-git' ) 2>/dev/null && fail "id outside the catalog rejected" || ok "id outside the catalog rejected"
@@ -265,10 +285,11 @@ done < <(builtin_rows) >"$CATALOG"
 printf 'unpackaged\tUnpackaged\tNo AUR build yet\tnew\t\t\t\t\n' >>"$CATALOG"
 touch "$CATALOG"
 
-expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "16"
-expect_eq "group notes" "$(group_ids notes | tr '\n' ' ')" "memospot planify "
-expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft typesetter "
-expect_eq "group creative" "$(group_ids creative | wc -l)" "9"
+expect_eq "group all skips apps without an AUR build" "$(group_ids all | wc -l)" "20"
+expect_eq "group office" "$(group_ids office | tr '\n' ' ')" "pdfcraft wordcraft deckcraft gridcraft memospot typesetter planify "
+expect_eq "group notes is another name for office (an older menu entry)" "$(group_ids notes | tr '\n' ' ')" "$(group_ids office | tr '\n' ' ')"
+expect_eq "group 3d" "$(group_ids 3d | tr '\n' ' ')" "cadcraft texturecraft materialcraft solidcraft "
+expect_eq "group creative" "$(group_ids creative | wc -l)" "8"
 
 # --- installed state (pacman stubbed) -----------------------------------------------------------
 
@@ -279,8 +300,8 @@ is_installed gridcraft && fail "missing app is not installed" || ok "missing app
 expect_eq "install source bin / source / none" "$(install_source photocraft)/$(install_source filmcraft)/$(install_source gridcraft)" "bin/source/"
 expect_eq "installed version through a subshell" "$(installed_version photocraft)" "0.8.0-1"
 expect_eq "outdated: only older -bin builds" "$(outdated_ids)" "photocraft"
-expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "3"
-expect_eq "missing notes" "$(missing_ids notes | tr '\n' ' ')" "memospot planify "
+expect_eq "missing office excludes installed apps" "$(missing_ids office | wc -l)" "5"
+expect_eq "missing notes is missing office" "$(missing_ids notes | tr '\n' ' ')" "pdfcraft deckcraft gridcraft memospot planify "
 ( resync_memo; load_sync )
 reset_log pacman
 ( INSTALLED_LOADED=0; load_installed; load_installed; resync_memo; load_sync; load_sync )
@@ -336,19 +357,19 @@ reset_log curl
 reset_log curl
 st=$(state)
 jq -e . <<<"$st" >/dev/null && ok "state is valid JSON" || fail "state is valid JSON"
-expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":12,"updates":2,"unpackaged":1}'
+expect_eq "state counts" "$(jq -c .counts <<<"$st")" '{"installed":4,"available":16,"updates":2,"unpackaged":1}'
 expect_eq "state: a repo tool" "$(jq -c '.apps[] | select(.id=="typesetter") | [.group,.kind,.source,.installedVersion,.updateReady,.desktopId]' <<<"$st")" \
   '["office","repo","repo","0.15.2-1",true,"net.trowell.typesetter"]'
 jq -e '.apps[] | select(.id=="vikunja")' <<<"$st" >/dev/null && fail "no app is Vikunja any more" || ok "no app is Vikunja any more"
-expect_eq "state: Planify is a Notes tool from the Arch repos, with its own desktop id and colours" "$(jq -c '.apps[] | select(.id=="planify") | [.group,.upstreamGroup,.kind,.installed,.desktopId,.color,.inkLight,.inkDark]' <<<"$st")" \
-  '["notes","extra","repo",false,"io.github.alainm23.planify","#3571e4","#2968e0","#7aa8ff"]'
+expect_eq "state: Planify is an Office tool from the Arch repos, with its own desktop id and colours" "$(jq -c '.apps[] | select(.id=="planify") | [.group,.upstreamGroup,.kind,.installed,.desktopId,.color,.inkLight,.inkDark]' <<<"$st")" \
+  '["office","extra","repo",false,"io.github.alainm23.planify","#3571e4","#2968e0","#7aa8ff"]'
 expect_eq "Planify installs as the repo package planify" "$(pkgs_for planify)" "planify"
 expect_eq "state app shape" "$(jq -c '.apps[] | select(.id=="photocraft") | [.group,.upstreamGroup,.installed,.source,.installedVersion,.aurVersion,.updateReady,.new,.desktopId]' <<<"$st")" \
-  '["creative","classic",true,"bin","0.8.0-1","1.0.0-1",true,false,"ai.storyteller.photocraft"]'
-expect_eq "state carries the extra tool with its own group, glyph and desktop id" "$(jq -c '.apps[] | select(.id=="memospot") | [.group,.upstreamGroup,.installed,.aurVersion,.desktopId,.color]' <<<"$st")" '["notes","extra",false,"1.0.0-1","memospot","#f6b028"]'
+  '["creative","suite",true,"bin","0.8.0-1","1.0.0-1",true,false,"ai.storyteller.photocraft"]'
+expect_eq "state carries the extra tool with its own group, glyph and desktop id" "$(jq -c '.apps[] | select(.id=="memospot") | [.group,.upstreamGroup,.installed,.aurVersion,.desktopId,.color]' <<<"$st")" '["office","extra",false,"1.0.0-1","memospot","#f6b028"]'
 expect_eq "state: source build is installed, never update-ready" "$(jq -c '.apps[] | select(.id=="filmcraft") | [.installed,.source,.updateReady]' <<<"$st")" '[true,"source",false]'
 expect_eq "state: unpackaged app has null source and no version" "$(jq -c '.apps[] | select(.id=="unpackaged") | [.installed,.source,.aurVersion]' <<<"$st")" '[false,null,""]'
-expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft","typesetter"]'
+expect_eq "state office group list" "$(jq -c .groups.office <<<"$st")" '["pdfcraft","wordcraft","deckcraft","gridcraft","memospot","typesetter","planify"]'
 expect_eq "state: no job, no last job" "$(jq -c '[.job,.lastJob,.offline,.refreshing]' <<<"$st")" '[null,null,false,false]'
 expect_eq "state carries the brand colours" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.color,.inkLight,.inkDark]' <<<"$st")" '["#3f5fe0","#2a44b8","#8ea2ff"]'
 expect_eq "state: wordcraft-bin comes from Omarchy's repo and updates alone" "$(jq -c '.apps[] | select(.id=="wordcraft") | [.group,.kind,.repo,.source,.installedVersion,.updateReady]' <<<"$st")" \
@@ -523,7 +544,7 @@ expect_eq "the next failure is flagged again" "$(state | jq -c '(.lastJob.seen /
 stub omarchy-pkg-aur-add 0
 ( job install gridcraft ) >/dev/null 2>&1
 mark_all_seen
-expect_eq "a successful job is never marked" "$(jq -c 'has("seen")' "$LAST_JOB_FILE")" 'false'
+expect_eq "a successful job is acknowledged too (0.5.8: the panel's summary line goes)" "$(jq -c '[.exit, .seen]' "$LAST_JOB_FILE")" '[0,true]'
 
 # A job whose process died without end_job (terminal killed) is reported as interrupted, not running.
 jq -nc '{verb:"install", ids:["soundcraft"], startedAt:"x", pid: 2147483000}' >"$JOB_FILE"
@@ -552,7 +573,7 @@ expect_true "group install lists only the missing apps" "[[ '$term' == *'job ins
 reset_log omarchy-launch-floating-terminal-with-presentation
 ( install_group notes ) >/dev/null 2>&1
 term=$(calls omarchy-launch-floating-terminal-with-presentation)
-expect_true "notes group installs memospot and planify through the same job" "[[ '$term' == *'job install memospot planify'* ]]"
+expect_true "an older menu entry for notes installs Office's missing apps in one job" "[[ '$term' == *'job install pdfcraft deckcraft gridcraft memospot planify'* ]]"
 reset_log setsid
 ( install_apps photocraft ) >/dev/null 2>&1
 expect_true "installing an installed app launches it instead" "calls setsid | grep -q 'gtk-launch ai.storyteller.photocraft'"
@@ -765,7 +786,7 @@ rm -f "$CATALOG_FORMAT_FILE"; touch "$CATALOG"; now_iso >"$REFRESH_FAILED"
 ensure_cache
 catalog_fresh && fail "a cache an older version wrote is refreshed at once" || ok "a cache an older version wrote is refreshed at once"
 expect_true "the old failure's retry wait goes with it" "[[ ! -f '$REFRESH_FAILED' ]]"
-expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "5"
+expect_eq "this version's format is recorded" "$(cat "$CATALOG_FORMAT_FILE")" "6"
 touch "$CATALOG"; ensure_cache
 expect_true "once: the next read leaves a fresh cache fresh" "catalog_fresh"
 
@@ -818,7 +839,7 @@ printf '{"Name":"vectorcraft-bin","Version":"9.0.0-1; rm -rf x"},{"Name":"filmcr
 STUB
 chmod +x "$TMP/bin/curl"; rm -f "$REFRESH_FAILED"
 refresh -f >/dev/null 2>&1
-expect_eq "a 30 MB catalog download falls back to the built-in list, and the check succeeds" "$?|$(wc -l <"$CATALOG")" "0|16"
+expect_eq "a 30 MB catalog download falls back to the built-in list, and the check succeeds" "$?|$(wc -l <"$CATALOG")" "0|20"
 expect_eq "a well-formed AUR version is kept, a malformed or overlong one is not" \
   "$(awk -F'\t' '$1 == "photocraft" || $1 == "vectorcraft" || $1 == "filmcraft" { print $1 "=" $5 }' "$CATALOG" | tr '\n' ' ')" \
   "photocraft=9.0.0-1 vectorcraft= filmcraft= "
@@ -1068,6 +1089,42 @@ for f in installed sync-db fresh-db; do cp "$TMP/$f.before057" "$TMP/$f"; done
 cp "$TMP/catalog.before057" "$CATALOG"; INSTALLED_LOADED=0; INSTALLED=(); resync_memo; AUR_LOADED=0; AUR_OF=()
 rm -f "$REPO_LATEST"
 
+# --- 0.5.8: ArtCraft's list unreadable; names only in the notification ----------------------------
+
+for f in installed sync-db fresh-db; do cp "$TMP/$f" "$TMP/$f.before058"; done
+cp "$CATALOG" "$TMP/catalog.before058"
+cat >"$TMP/bin/curl" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$TMP/log/curl"
+if [[ "\$*" == *raw.githubusercontent.com* ]]; then cat "$TMP/upstream.rs"; exit 0; fi
+printf '{"version":5,"type":"multiinfo","results":[{"Name":"photocraft-bin","Version":"2.0.0-1"}]}\n'
+STUB
+chmod +x "$TMP/bin/curl"
+printf 'pub const SUITE: [Thing; 1] = [\n    Thing::new("photocraft"),\n];\n' >"$TMP/upstream.rs"
+rm -f "$PARSE_FAILED" "$REFRESH_FAILED"
+refresh -f >/dev/null 2>&1
+expect_true "0.5.8: a list that downloads but holds no readable app is recorded" "[[ -s '$PARSE_FAILED' ]]"
+expect_eq "0.5.8: the built-in list is used meanwhile" "$(wc -l <"$CATALOG")" "20"
+expect_true "0.5.8: list says so, on stderr" "list 2>&1 >/dev/null | grep -q 'could not be read'"
+expect_true "0.5.8: and so does check" "check 2>&1 >/dev/null | grep -q 'could not be read'"
+cp "$ROOT/tests/fixtures/catalog-2026-11-09.rs" "$TMP/upstream.rs"
+refresh -f >/dev/null 2>&1
+expect_true "0.5.8: a readable list clears it" "[[ ! -e '$PARSE_FAILED' ]]"
+expect_eq "0.5.8: and nothing is said any more" "$(list 2>&1 >/dev/null | wc -c)" "0"
+expect_eq "0.5.8: the four new apps come from the list" "$(cut -f1 "$CATALOG" | grep -c -E '^(texturecraft|materialcraft|craft-anything|solidcraft)$')" "4"
+
+installed_now "photocraft-bin 1.0.0-1"
+rm -f "$NOTIFIED"; reset_log omarchy-notification-send
+out=$(check --notify 2>/dev/null)
+expect_eq "0.5.8: check still prints the versions" "$out" "PhotoCraft 1.0.0-1 → 2.0.0-1"
+expect_true "0.5.8: the notification names the app, without versions" \
+  "calls omarchy-notification-send | grep -q PhotoCraft && ! calls omarchy-notification-send | grep -q '→'"
+
+stub curl 7
+for f in installed sync-db fresh-db; do cp "$TMP/$f.before058" "$TMP/$f"; done
+cp "$TMP/catalog.before058" "$CATALOG"; INSTALLED_LOADED=0; INSTALLED=(); resync_memo; AUR_LOADED=0; AUR_OF=()
+rm -f "$NOTIFIED" "$PARSE_FAILED" "$REFRESH_FAILED" "$TMP/upstream.rs"
+
 # --- hygiene -----------------------------------------------------------------------------------
 
 expect_eq "no privilege strings in the script" \
@@ -1092,6 +1149,15 @@ setup_menu >/dev/null
 cmp -s "$MENU_FILE" "$TMP/once.jsonc" && ok "setup-menu is idempotent" || fail "setup-menu is idempotent"
 remove_menu
 cmp -s "$MENU_FILE" "$TMP/original.jsonc" && ok "remove-menu restores the file" || fail "remove-menu restores the file"
+
+# --- the panel's logic (Model.js), in Node -------------------------------------------------------
+
+if command -v node >/dev/null; then
+  if out=$(node "$ROOT/tests/model.test.mjs" 2>&1); then ok "panel logic: $(tail -1 <<<"$out")"
+  else fail "panel logic (tests/model.test.mjs)" "$(grep '^FAIL' <<<"$out" | head -5 | tr '\n' ' ')"; fi
+else
+  fail "panel logic" "node is needed for tests/model.test.mjs"
+fi
 
 echo
 echo "$passed passed, $failed failed"

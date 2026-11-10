@@ -26,11 +26,12 @@ audio, monitor, power. Nothing installed, nothing written under `~/.config`. If 
 
 | Do | Expect |
 |---|---|
-| Left-click the icon | Panel under the icon within a second: rocket logo, `OmarCraft`, `N OF 13 INSTALLED`; no line under the hero unless something is happening |
-| Make an app new: `sed -i '/cadcraft/d' ~/.local/state/omarchy/omarcraft/seen`, then right-click the icon | Bar icon in the urgent colour (rows layout: `New · install …` on CADCraft); open and close the panel: icon back to normal, `cadcraft` back in the seen file |
-| Read the sections (tiles) | INSTALLED tiles in each app's colour, AVAILABLE tiles dimmed, chips `c Creative · N` `o Office · N`; hover a tile for its version |
-| `t` | Rows: INSTALLED (version, ▶), AVAILABLE (dimmed, `Install x.y.z · prebuilt, no compiling`, download glyph); `t` again returns to tiles |
-| `j` four times | First press activates the cursor on the first row, then it moves down one row per press; the list scrolls to keep it in view |
+| Left-click the icon | Panel under the icon within a second: rocket logo, `OmarCraft`, `N OF 20 INSTALLED`; no line under the hero unless something is happening; three category headers (Creative, 3D Art, Office) and the Craft Anything line at the bottom |
+| Make an app new: remove CADCraft first if it is installed, then `sed -i '/cadcraft/d' ~/.local/state/omarchy/omarcraft/seen` and right-click the icon | Bar icon in the urgent colour; open the panel: 3D Art has opened by itself, its header says *New*, CADCraft carries a *New* badge; close the panel: icon back to normal, `cadcraft` back in the seen file |
+| `Enter` on a category header | It opens: installed tiles in each app's colour, the missing ones outlined and dimmed, then *Install N* with the category's key; `Enter` again closes it. No version number anywhere |
+| `t` | Inside each open category, rows instead of tiles (`Installed`, `Install · prebuilt, no compiling`, no versions); `t` again returns to tiles |
+| `omarchy restart shell`, open the panel | The categories that were open are open again |
+| `j` four times | First press activates the cursor on the first header, then it moves down one key per press (a header, a line of tiles, the Craft Anything line); the list scrolls to keep it in view |
 | `Tab` | The neighbouring bar panel opens instead |
 | `Esc` | Panel closes; a click outside closes it too |
 | `$P/bin/omarcraft list` | Same apps and states as the panel |
@@ -54,9 +55,9 @@ the app launcher.
 
 ## 4. Group install
 
-`o` (or the *Office · N* chip). Expect the confirm line under the chips listing every missing office
-package, one terminal, one password prompt, one command with all packages. Afterwards the chip is gone
-and the apps read Installed. No launch.
+`o` (or *Install N* in the open Office category; `c` and `3` for Creative and 3D Art). Expect the confirm
+listing every missing office app by name, one terminal, one password prompt, one command with all
+packages. Afterwards the header's key is gone and the apps read Installed. No launch.
 
 ## 5. Bar clicks
 
@@ -79,13 +80,13 @@ omarchy-shell omarcraft.productivity refresh
 | Do | Expect |
 |---|---|
 | Look at the bar | Rocket and a `1` before it, both in the urgent colour |
-| Open the panel | Hero `N OF 13 INSTALLED · 1 UPDATE`; an UPDATES · 1 section at the top with the FigCraft tile carrying `↑ 99.0.0` and an *Update all · u* button; FigCraft gone from INSTALLED |
-| `Enter` on the tile | Confirm line `Update FigCraft 0.x.y → 99.0.0 · a terminal will open and ask for your password` with *Update ⏎*, *Launch instead*, *Cancel*; `Esc` cancels (don't run it: 99.0.0 does not exist) |
+| Open the panel | Hero `N OF 20 INSTALLED · 1 UPDATE`; an UPDATES · 1 strip naming FigCraft, with an *Update all · u* button; Creative's header has the update dot, and inside it FigCraft carries an *Update* badge |
+| `Enter` on the tile | Confirm line `Update FigCraft · a terminal will open and ask for your password` with *Update ⏎*, *Launch instead*, *Cancel*; `Esc` cancels (don't run it: 99.0.0 does not exist) |
 | `u` or *Update all* | The same confirm naming every app with a newer build |
-| `$P/bin/omarcraft check --notify` twice | One notification "ArtCraft updates available" the first time, none the second. The panel runs this check at shell start and every six hours; a manual refresh (`r`, right-click) only shows the badge |
+| `$P/bin/omarcraft check --notify` twice | One notification "OmarCraft updates available" naming FigCraft (no version) the first time, none the second. The panel runs this check at shell start and every six hours; a manual refresh (`r`, right-click) only shows the badge |
 
 Restore: `$P/bin/omarcraft refresh -f` then `omarchy-shell omarcraft.productivity refresh`. Expect the
-icon back to normal and the tile back in INSTALLED.
+icon back to normal and the badge gone.
 
 ## 7. Failure and interruption
 
@@ -102,7 +103,7 @@ hero: while offline the panel retries the AUR at most every ten minutes (before 
 
 ## 9. Remove an app
 
-Right-click an installed tile (or `x` with the cursor on it). Expect the confirm line `Remove <App> x.y.z ·
+Right-click an installed tile (or `x` with the cursor on it). Expect the confirm line `Remove <App> ·
 a terminal will open and ask for your password · your files stay` with *Remove ⏎* in the urgent colour and
 *Cancel*. `Enter`: one terminal titled `Removing <App>...` running Omarchy's `omarchy-pkg-drop <id>-bin`, one
 password prompt; when it closes the tile is back under AVAILABLE and `pacman -Q <id>-bin` says it is not
@@ -247,3 +248,19 @@ $P/bin/omarcraft list | grep -E 'wordcraft|gridcraft|typesetter'
 
 Rows 42–47 of `v1-acceptance.md`. Row 46 removes and reinstalls GridCraft from its tile: the install line
 must say *from Omarchy's repo* and the terminal must run `omarchy-pkg-add gridcraft-bin`, not the AUR helper.
+
+## 0.5.8: categories, the new apps, no versions
+
+Rows 68–78 of `v1-acceptance.md`. After `omarchy plugin update` (or, before the release, the branch as in
+the README's development steps) and `omarchy restart shell`:
+
+| Do | Expect |
+|---|---|
+| Open the panel | `16 OF 20 INSTALLED` on a machine with the 16 earlier tools; 3D Art open by itself with *New* (SolidCraft, TextureCraft, MaterialCraft); Craft Anything on the last line with *New*; no version number anywhere |
+| `$P/bin/omarcraft list \| wc -l` | 20 lines; `list 2>&1 >/dev/null` prints nothing (ArtCraft's list was read) |
+| `3` | One confirm, `Install SolidCraft, TextureCraft and MaterialCraft · a terminal will open…`; run it, then launch each from its tile and remove one (`x`) |
+| `Enter` on Craft Anything | Install confirm; then it launches from the same line |
+| Close a category, `omarchy restart shell`, reopen | It stays closed |
+| *Update all* with two updates pending | One job; afterwards `✓ Updated A and B` under the hero, gone on the next key |
+| An opted-in menu from 0.5.7: its *Install Notes* entry | Installs what Office is missing; `$P/bin/omarcraft setup-menu` replaces it with *Install 3D Art* |
+
