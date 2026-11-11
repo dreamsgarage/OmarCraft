@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.8 — unreleased
+## 0.5.8 — 2026-11-11
 
 ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and decisions in
 `docs/v0.5.8-plan.md`; design Round 7 on the design canvas.
@@ -22,12 +22,14 @@ ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and d
   (`list`, `check`) still shows versions.
 - The UPDATES strip names the apps; the apps stay in their category with their badge.
 - Cache format 6: the first read after the update fetches the list at once.
-- **Fixed: trackpad scrolling ran in bursts.** With the pointer resting on the panel, every tile that slid
-  under it moved the cursor and started its tooltip, and the list moved about twice a second (measured).
-  While the list scrolls, and a moment after, hovering now does nothing.
+- New `preview.png`: the 0.5.8 panel.
+- **Fixed: two-finger scrolling on a trackpad was unusable.** The list moved in bursts about twice a second
+  (measured), while touch and drag were smooth. A layer on top of the list now takes the trackpad's scroll
+  and moves the list by exactly the distance the fingers move; while the list scrolls, hovering does
+  nothing, so tiles passing under the pointer no longer start tooltips.
 - MailCraft, which ArtCraft added on 2026-11-10, is placed in Office; it shows once it has a package.
 
-## 0.5.7 — unreleased
+## 0.5.7 — not released on its own: everything below is in 0.5.8
 
 WordCraft and GridCraft come from the AUR again, so OmarCraft offers ArtCraft's releases within hours, and
 every network check has a deadline. The decisions and their cases are in `docs/v0.5.7-plan.md`.

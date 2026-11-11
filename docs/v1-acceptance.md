@@ -160,16 +160,16 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 65 | 0.5.7 · Switch on (`FOLLOW_APP_REPOS=1`): every 0.5.6 test passes unchanged | aa6fca6 | PASS | 2026-11-09, the 267 earlier tests run with it on; 20 new tests with it off; ten breaks, each caught |
 | 66 | 0.5.7 · Upgrade from every earlier release (`tests/upgrade-paths.sh`), back online with every tool | aa6fca6 | PASS | 2026-11-09, against the local branch: 0.1.0, 0.2.0, 0.5.0, 0.5.1, 0.5.2, 0.5.3, 0.5.4, 0.5.5 and 0.5.6 all `ok`, online, 16 tools, 7 updates (WordCraft and GridCraft among them) |
 | 67 | 0.5.7 · The other machines, after the release: `omarchy plugin update`, the two badges, Enter, rows 59 and 61 on each | | pending | |
-| 68 | 0.5.8 · The live `catalog.rs` gives 17 apps; the panel shows 20 tools (17 + Typesetter, Memospot, Planify) | | pending | |
-| 69 | 0.5.8 · Three categories with the decided members; Craft Anything alone in the footer | | pending | |
-| 70 | 0.5.8 · Accordion: Enter opens and closes a category; the state survives a shell restart; 3D Art opens by itself once for the new apps | | pending | |
-| 71 | 0.5.8 · No version number anywhere in the panel: badges, confirms, rows, subtexts | | pending | |
+| 68 | 0.5.8 · The live `catalog.rs` gives 17 apps; the panel shows 20 tools (17 + Typesetter, Memospot, Planify) | 7880687 | PASS (user) | 2026-11-10: the panel shows `20 OF 20 INSTALLED`; `list` 22 lines, AniCraft and MailCraft (added by ArtCraft on 2026-11-10) not packaged yet, so not shown |
+| 69 | 0.5.8 · Three categories with the decided members; Craft Anything alone in the footer | 7880687 | PASS (user) | 2026-11-10 screenshots: Office (7, Memospot and Planify included), Creative (8), 3D Art (4), Craft Anything alone at the bottom; order Office, Creative, 3D Art (the author, 2026-11-10) |
+| 70 | 0.5.8 · Accordion: Enter opens and closes a category; the state survives a shell restart; 3D Art opens by itself once for the new apps | 7880687 | PASS (user) | Open and closed categories kept across several shell restarts (`openCategories` in the shell settings); opening by itself for new apps: offline tests |
+| 71 | 0.5.8 · No version number anywhere in the panel: badges, confirms, rows, subtexts | 7880687 | PASS (user) | 2026-11-10 screenshots: badges read Update / New, no version anywhere in the panel; offline test over every panel text |
 | 72 | 0.5.8 · Update all with two apps pending: one job, then `✓ Updated A and B`, gone on the next key | | pending | |
-| 73 | 0.5.8 · Install SolidCraft, TextureCraft and MaterialCraft with `3` (one job), launch each from its tile, remove one | | pending | |
-| 74 | 0.5.8 · Install and launch Craft Anything from the footer | | pending | |
+| 73 | 0.5.8 · Install SolidCraft, TextureCraft and MaterialCraft with `3` (one job), launch each from its tile, remove one | 7880687 | PASS (user) | 2026-11-10 02:03: MaterialCraft and SolidCraft installed in one `pacman -U` (TextureCraft before, 22:38); 3D Art `4 of 4` |
+| 74 | 0.5.8 · Install and launch Craft Anything from the footer | 7880687 | PASS (user) | 2026-11-09 22:05: Craft Anything installed from the footer and launched (the author: "craft anything is amazing") |
 | 75 | 0.5.8 · An old menu entry `install-group notes` still installs Office's missing apps | | pending | |
-| 76 | 0.5.8 · A list that parses to 0 apps: `check` says so, the panel keeps the built-in list | | pending | |
+| 76 | 0.5.8 · A list that parses to 0 apps: `check` says so, the panel keeps the built-in list | 7880687 | PASS | Offline tests (a list with no readable app: `check` and `list` say so, the built-in list is used) |
 | 77 | 0.5.8 · Upgrade from every earlier release, back online with every tool | | pending | |
-| 78 | 0.5.8 · The other machines after the release | | pending | |
+| 78 | 0.5.8 · The other machines after the release |  | n/a | The author has no other machine (2026-11-10) |
 | 79 | 0.5.7 · The review of 0.5.6 (#14528): a mirror that never finishes cannot hold a check: `checkupdates` stops at 2 minutes, a background refresh at 5, the panel ends a run still going after 5; the previous answer is kept | | PASS | 2026-11-10, offline tests (a never-ending fake mirror cut off in 1 s, no process left), three breaks caught. Rows 68–78 are 0.5.8's |
 | 80 | 0.5.7 · On the author's machine after the fix: a normal check still completes (online, the lists read, the badges right) | 8c7a678 | PASS | 2026-11-10 02:30, on the author's machine with the same code merged into 0.5.8 (70e7d79): `refresh -f` completed in 5 s, the repo lists refreshed, the panel online, 22 tools listed (ArtCraft added AniCraft and MailCraft, both not packaged yet), no warning |
