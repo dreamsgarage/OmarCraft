@@ -336,7 +336,8 @@ Release and marketplace steps: [docs/Publish-Guide.md](docs/Publish-Guide.md). C
 
 ## Credits and license
 
-MIT, see [LICENSE](LICENSE). By Entangled Forge. The Craft apps and the app catalog are by
+MIT, see [LICENSE](LICENSE); the notices of the third-party files (Lucide icons in the HTML README, ArtCraft
+Launcher's catalog in the test fixtures) are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). By Entangled Forge. The Craft apps and the app catalog are by
 [Storyteller](https://github.com/storytold), as are the per-app colours, taken from their launcher's catalog;
 Memos is by [usememos](https://github.com/usememos/memos) and Memospot by
 [memospot](https://github.com/memospot/memospot) (colours from its icon), and Planify by
