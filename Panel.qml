@@ -788,6 +788,26 @@ Panel {
           }
         }
       }
+
+      // Two-finger scrolling (the author, 2026-11-10: unusable on the trackpad while dragging, with a finger
+      // or on the touch screen, was smooth). A trackpad's scroll arrives as a stream of wheel events, and
+      // Flickable's own wheel handling moved the list in bursts about twice a second (measured). This layer
+      // lies on top of the list and takes the wheel events first: the list moves by exactly the distance the
+      // trackpad reports (a mouse wheel by a fixed step per notch). It handles nothing else, so clicks, hover
+      // and touch reach the tiles beneath as before.
+      Item {
+        anchors.fill: panelFlick
+        z: 1
+        WheelHandler {
+          target: null
+          onWheel: function(event) {
+            var dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 120 * Style.space(60)
+            var bottom = Math.max(0, panelFlick.contentHeight - panelFlick.height)
+            panelFlick.contentY = Math.max(0, Math.min(bottom, panelFlick.contentY - dy))
+            event.accepted = true
+          }
+        }
+      }
     }
   }
 
