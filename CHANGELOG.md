@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.9 — unreleased
+
+The marketplace page says how to update an installed copy. The listing has no notes field, so the
+description carries the steps until Omarchy's plugin reload is fixed. Plan in `docs/v0.5.9-plan.md`.
+
+- **The update steps in the description:** `omarchy plugin update omarcraft.productivity`, then
+  `omarchy restart shell`. If the update refuses, the README has the reinstall steps. The restart is
+  needed until omacom/omarchy#17854 is fixed. Until then the running shell keeps the old panel after an
+  update. The sentence comes out again once Omarchy ships the fix.
+- Nothing else changes: not the panel, the scripts or the cache.
+
 ## 0.5.8 — 2026-11-11
 
 ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and decisions in
