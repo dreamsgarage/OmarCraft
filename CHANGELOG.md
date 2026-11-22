@@ -30,8 +30,12 @@ Opening an app opens it, and ArtCraft's list is read again. Plan in `docs/v0.5.9
 - **Fixed: `✓ Updated` trusted the job's exit status.** It names only the apps whose newer build is installed
   after the job, as the package database says; an update that left the old version (OmarCraft#1) names
   nothing, and its badge stays.
-- Tests: the fixtures of the old Rust list are replaced by a copy of `catalog.toml` (19 apps); 331 offline
-  tests (12 more than at the first 0.5.9 build) and 72 panel-logic tests (7 more).
+- **Fixed: an app ArtCraft listed before it had a package never showed as New.** It was hidden, yet recorded
+  as seen when the panel closed (MailCraft and AniCraft, listed on 2026-11-10, packaged on 11-11). Only apps
+  the panel shows are recorded and announced now, and the update to 0.5.9 forgets, once, the hidden ones
+  recorded before: both show as *New* and their categories open by themselves.
+- Tests: the fixtures of the old Rust list are replaced by a copy of `catalog.toml` (19 apps); 338 offline
+  tests (19 more than at the first 0.5.9 build) and 72 panel-logic tests (7 more).
 
 ## 0.5.8 — 2026-11-11
 

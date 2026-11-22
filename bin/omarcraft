@@ -680,6 +680,10 @@ ensure_cache() {
   touch -d '-2 days' "$CATALOG"
   rm -f "$REFRESH_FAILED"
   printf '%s\n' "$CATALOG_FORMAT" >"$CATALOG_FORMAT_FILE"
+  # An update (a first run has no format yet, and records every app as seen on purpose: see reconcile_cache).
+  # After the new format is recorded, so what it reads (load_sync) does not come back here.
+  [[ -n $format ]] && forget_unshown_seen
+  return 0
 }
 
 # First run, no network: the built-in list without versions, so state can answer at once. A cache from
@@ -779,9 +783,11 @@ refresh() {
   rm -f "$REFRESH_FAILED"
   repo_check || true
 
-  while IFS=$'\t' read -r id name _ _ _; do
+  # Only apps the panel shows (shown_id): one nobody packaged yet is announced once it can be installed.
+  while IFS=$'\037' read -r id name _ _ version _; do
+    shown_id "$id" "$version" || continue
     grep -qx "$id" "$SEEN" || new_names+=("$name")
-  done <"$CATALOG"
+  done < <(tr '\t' '\037' <"$CATALOG")
   if (( ${#new_names[@]} > 0 )); then
     notify -g "$ICON_NEW" "New in OmarCraft" "${new_names[*]}" --exec omarchy-shell "$IPC_TARGET" open
   fi
@@ -836,18 +842,47 @@ is_new() {
   [[ -f $SEEN ]] && ! grep -qx "$1" "$SEEN"
 }
 
+# Whether the panel shows the tool ($2: its version column in the cache): installed, or with a build to
+# install from its repo or the AUR. An app nobody packaged yet is hidden, so it is never marked seen and never
+# announced as new until it can be installed (0.5.9: MailCraft and AniCraft, listed on 2026-11-10 before
+# their packages, were marked seen unshown, and never showed as New).
+shown_id() {
+  is_installed "$1" && return 0
+  version_var "$1" "${2:-}"
+  [[ -n $VERSION ]]
+}
+
+# 0.5.9, once, on the update from an older cache format: forget the apps recorded as seen that the panel
+# does not show now (see shown_id), so each is New once it can be installed.
+forget_unshown_seen() {
+  local id version keep tmp
+  [[ -s $SEEN ]] || return 0
+  load_installed
+  load_sync
+  # if, not &&: a hidden last app would end the loop, and with it the script (set -e), with status 1.
+  keep=$(while IFS=$'\037' read -r id _ _ _ version _; do
+    if [[ -n $id ]] && shown_id "$id" "$version"; then printf '%s\n' "$id"; fi
+  done < <(tr '\t' '\037' <"$CATALOG"))
+  tmp=$(mktemp "$SEEN.XXXXXX")
+  # Kept: the ids the panel shows, and those no longer in the list at all (if it names them again, they were
+  # seen). Forgotten: the listed ones it hides.
+  awk 'FILENAME == ARGV[1] { keep[$0]; next } FILENAME == ARGV[2] { listed[$0]; next }
+       ($0 in keep) || !($0 in listed)' <(printf '%s\n' "$keep") <(cut -f1 "$CATALOG") "$SEEN" >"$tmp" \
+    && mv -f "$tmp" "$SEEN" || rm -f "$tmp"
+}
+
 mark_seen() {
   mkdir -p "$STATE_DIR"
   grep -qx "$1" "$SEEN" 2>/dev/null || echo "$1" >>"$SEEN"
 }
 
-# Every catalog id at once: the panel was open, so nothing in it is new any more.
+# Every app the panel shows, at once: the panel was open, so nothing in it is new any more. An app it hides
+# (nobody packaged it yet) is not recorded, so it is New once it can be installed (shown_id).
 mark_all_seen() {
-  local id tmp
-  ensure_cache
-  while read -r id; do
-    [[ -n $id ]] && mark_seen "$id"
-  done < <(cut -f1 "$CATALOG")
+  local id version tmp
+  while IFS=$'\037' read -r id _ _ _ version _; do
+    if [[ -n $id ]] && shown_id "$id" "$version"; then mark_seen "$id"; fi
+  done < <(catalog_rows)
   # The last job, shown in the panel that is now closing, is acknowledged: a failed one stops being
   # flagged by the panel and the bar icon, a successful update stops showing its summary line. The next
   # job is shown again (end_job writes a fresh record).

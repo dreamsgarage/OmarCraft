@@ -402,8 +402,37 @@ is_new figcraft && fail "mark_seen clears new" || ok "mark_seen clears new"
 grep -v -e figcraft -e cadcraft "$SEEN" >"$SEEN.tmp" && mv "$SEEN.tmp" "$SEEN"
 expect_eq "state reports the unseen packaged apps as new" "$(state | jq -r '[.apps[] | select(.new and .aurVersion != "")] | length')" "2"
 mark_all_seen
-expect_eq "seen clears every new mark" "$(state | jq -r '[.apps[] | select(.new)] | length')" "0"
+expect_eq "seen clears every new mark the panel shows" "$(state | jq -r '[.apps[] | select(.new and (.installed or .aurVersion != ""))] | length')" "0"
 expect_eq "seen does not duplicate ids" "$(sort "$SEEN" | uniq -d | wc -l)" "0"
+# 0.5.9: an app nobody packaged yet is hidden, so it is not recorded as seen (MailCraft and AniCraft were, on
+# 2026-11-10, and never showed as New). The command runs as the panel runs it, with set -e: the hidden app is
+# the last row of the list, which an && in the loop would have turned into a failed run.
+expect_eq "0.5.9: the hidden app is the list's last row (this test needs it there)" "$(tail -1 "$CATALOG" | cut -f1)" "unpackaged"
+"$ROOT/bin/omarcraft" seen >/dev/null 2>&1
+expect_eq "0.5.9: seen finishes when the last app is hidden" "$?" "0"
+expect_true "0.5.9: an app nobody packaged is not recorded as seen" "! grep -qx unpackaged '$SEEN' && is_new unpackaged"
+cp "$SEEN" "$TMP/seen.before059"
+printf 'unpackaged\nkolourpaint\n' >>"$SEEN"
+printf '6\n' >"$CATALOG_FORMAT_FILE"
+"$ROOT/bin/omarcraft" list >/dev/null 2>&1
+expect_eq "0.5.9: the update from an older format forgets the hidden app it had recorded, keeps the rest" \
+  "$(grep -c -x -e unpackaged -e kolourpaint "$SEEN")|$(grep -cx photocraft "$SEEN")|$(grep -cx kolourpaint "$SEEN")|$(cat "$CATALOG_FORMAT_FILE")" "1|1|1|7"
+printf 'unpackaged\n' >>"$SEEN"
+"$ROOT/bin/omarcraft" list >/dev/null 2>&1
+expect_eq "0.5.9: once only: the same format again leaves the record alone" "$(grep -cx unpackaged "$SEEN")" "1"
+# The author's machine, as 0.5.8 left it: the built-in list without MailCraft and AniCraft (ArtCraft's list
+# unread since 2026-11-11), both recorded as seen on 2026-11-10 while hidden.
+cp "$CATALOG" "$TMP/catalog.before059seen"
+grep -v -e '^mailcraft	' -e '^anicraft	' -e '^unpackaged	' "$TMP/catalog.before059seen" >"$CATALOG"
+printf 'mailcraft\nanicraft\n' >>"$SEEN"
+printf '6\n' >"$CATALOG_FORMAT_FILE"
+"$ROOT/bin/omarcraft" list >/dev/null 2>&1
+expect_eq "0.5.9: from 0.5.8, MailCraft and AniCraft (seen while hidden) are forgotten, the rest kept" \
+  "$(grep -c -x -e mailcraft -e anicraft "$SEEN")|$(grep -cx photocraft "$SEEN")" "0|1"
+expect_eq "0.5.9: and both are back in the list, without a version until the next check" \
+  "$(awk -F'\t' '$1 == "mailcraft" || $1 == "anicraft" { print $1 "=" $5 }' "$CATALOG" | sort | tr '\n' ' ')" "anicraft= mailcraft= "
+cp "$TMP/catalog.before059seen" "$CATALOG"
+cp "$TMP/seen.before059" "$SEEN"
 
 # --- refresh: failure keeps the old data -------------------------------------------------------
 
