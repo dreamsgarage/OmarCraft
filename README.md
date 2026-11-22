@@ -122,8 +122,8 @@ update or it does not (the command line still shows versions, see below).
 - **After an update**, one line: `✓ Updated PhotoCraft and WordCraft`. It goes on the next key, after a
   few seconds, or when the panel closes.
 - **UPDATES · N.** Shown only when newer builds exist: the apps' names and an *Update all · u* button.
-  The apps stay in their category with an **Update** badge; `Enter` on one asks: *Update ⏎* (that
-  package), *Launch instead*, *Cancel*.
+  The apps stay in their category with an **Update** badge. A click or `Enter` on one opens the version
+  you have, as on any installed app; only *Update all* or `u` updates (one question, then one terminal).
 - **Categories.** Office, Creative and 3D Art, in that order, each one header line: its name, `3 of 4` installed, a dot
   while an app in it has an update, *New* while it has an app you have not seen, and, while something in
   it is missing, an *Install N* button with the category's key (`o`, `c`, `3`), open or closed. `Enter` or a click on the header opens or closes it, and the panel remembers.

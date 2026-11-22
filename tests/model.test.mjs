@@ -1,4 +1,4 @@
-// Offline tests for Model.js, the panel's logic (0.5.8): categories, the accordion's open state, the
+// Offline tests for Model.js, the panel's logic (0.5.8, 0.5.9): categories, the accordion's open state, the
 // cursor walk, the footer, the summary line after an update, and no version number in any panel text.
 // Model.js is plain QML JavaScript with no exports, so it runs here in a sandbox of its own.
 //
@@ -127,6 +127,32 @@ const versioned = texts.filter((t) => /\d+\.\d+/.test(String(t)) || /1\.2\.3|1\.
 eq("no panel text carries a version", versioned, []);
 eq("the update confirm names the app", M.confirmText("update", apps, ["photocraft"]), "Update PhotoCraft · a terminal will open and ask for your password");
 eq("the install subtext", M.subtext(apps[13], craft), "New · install · prebuilt, no compiling");
+
+// --- a click opens the app, also with an update pending (the author's rule, 0.5.9) ------------------
+// SolidCraft, 2026-11-22: a click on a tile with an update asked Update / Launch instead / Cancel, a
+// second click ran the update. An installed app's click, Enter or row action only launches, whatever is open.
+const none = { kind: "", ids: [] };
+const repoUpd = app("typesetter", "Typesetter", "office", upd({ kind: "repo", repo: "extra", source: "repo" }));
+const sourceUpd = app("photocraft", "PhotoCraft", "creative", upd({ source: "source" }));
+eq("an installed app with an update launches", M.primaryAction(apps[0], none, null), "launch");
+eq("so does one whose update comes with the system", M.primaryAction(repoUpd, none, null), "launch");
+eq("and a source build with a newer AUR build", M.primaryAction(sourceUpd, none, null), "launch");
+eq("an installed app without an update launches", M.primaryAction(apps[1], none, null), "launch");
+eq("a click never runs an update question open for that app",
+  M.primaryAction(apps[0], { kind: "update", ids: ["photocraft"] }, null), "launch");
+eq("nor Omarchy's update", M.primaryAction(repoUpd, { kind: "system-update", ids: ["typesetter"] }, null), "launch");
+eq("nor the remove question (a left click after a right click used to remove the app)",
+  M.primaryAction(apps[1], { kind: "remove", ids: ["vectorcraft"] }, null), "launch");
+eq("another app's question does not stop the launch", M.primaryAction(apps[0], { kind: "install", ids: ["texturecraft"] }, null), "launch");
+eq("while a job works on the app, it waits", M.primaryAction(apps[0], none, { verb: "update", ids: ["photocraft", "wordcraft"] }), "wait");
+eq("a job on another app does not", M.primaryAction(apps[1], none, { verb: "update", ids: ["photocraft"] }), "launch");
+eq("an app that is not installed asks to install", M.primaryAction(apps[13], none, null), "ask-install");
+eq("and the same app again runs that question", M.primaryAction(apps[13], { kind: "install", ids: ["texturecraft"] }, null), "run-confirm");
+eq("but not a category's question", M.primaryAction(apps[13], { kind: "install", ids: ["texturecraft", "materialcraft"] }, null), "ask-install");
+eq("an unknown app does nothing", M.primaryAction(null, none, null), "none");
+eq("the row action is launch on an app with an update",
+  [M.actionIcon(apps[0]), M.actionTip(apps[0]), M.actionTip(repoUpd)], ["\u{F040A}", "Launch PhotoCraft", "Launch Typesetter"]);
+eq("and install on one that is not installed", [M.actionIcon(apps[13]), M.actionTip(apps[13])], ["\u{F01DA}", "Install TextureCraft"]);
 
 // --- unchanged -----------------------------------------------------------------------------------
 eq("Update all: the apps that update alone", M.updateAllPlan(apps), { kind: "update", ids: ["photocraft", "wordcraft"] });

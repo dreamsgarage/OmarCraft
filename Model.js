@@ -342,16 +342,25 @@ function tileTip(app, craft) {
   return tip
 }
 
+// The row action: launch for an installed app, also when it has a newer build (see primaryAction).
 function actionIcon(app) {
-  if (!app.installed) return "\u{F01DA}"
-  return app.updateReady ? "\u{F0450}" : "\u{F040A}"
+  return app.installed ? "\u{F040A}" : "\u{F01DA}"
 }
 
 function actionTip(app) {
-  if (!app.installed) return "Install " + app.name
-  if (app.updateReady && app.source === "repo") return app.name + "'s update comes with the system update"
-  if (app.updateReady) return "Update " + app.name
-  return "Launch " + app.name
+  return (app.installed ? "Launch " : "Install ") + app.name
+}
+
+// What a click, Enter or the row action does on an app. The author's rule (2026-11-22): an installed app
+// opens, always, also when a newer build exists, and nothing else happens; an open question is dropped,
+// never run. Updates go through Update all or `u` only. The one exception: while a job works on that very
+// app, it waits ("wait"). An app that is not installed asks to install it, and the same app again runs
+// that question ("run-confirm"). confirm is { kind, ids } of the open question ("" kind: none).
+function primaryAction(app, confirm, job) {
+  if (!app) return "none"
+  if (app.installed) return jobCovers(job, app.id) ? "wait" : "launch"
+  if (confirm && confirm.kind === "install" && (confirm.ids || []).length === 1 && confirm.ids[0] === app.id) return "run-confirm"
+  return "ask-install"
 }
 
 // "Install PhotoCraft · a terminal will open and ask for your password"

@@ -1188,6 +1188,15 @@ else
   fail "panel logic" "node is needed for tests/model.test.mjs"
 fi
 
+# --- 0.5.9: a click on an installed app opens it, also with an update pending (the author's rule) ----
+# Model.primaryAction holds the rule and model.test.mjs tests it; the panel must go through it and offer
+# no update from an app's own click.
+primary_body=$(sed -n '/^  function primary(key) {$/,/^  }$/p' "$ROOT/Panel.qml")
+expect_true "0.5.9: the panel's click goes through Model.primaryAction" "grep -q 'Model.primaryAction(' <<<\"\$primary_body\""
+expect_true "0.5.9: and opens nothing but an install question from it" \
+  "[[ \$(grep -o 'openConfirm([^,]*' <<<\"\$primary_body\" | tr '\n' '|') == 'openConfirm(\"install\"|' ]]"
+expect_true "0.5.9: no Launch instead button any more" "! grep -q 'Launch instead' '$ROOT/Panel.qml'"
+
 echo
 echo "$passed passed, $failed failed"
 (( failed == 0 ))

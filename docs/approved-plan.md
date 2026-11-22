@@ -191,6 +191,11 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
    > exactly those packages; clicking an installed app with a newer build asks to update that app.
    > Installs keep going through `omarchy-pkg-aur-add`. The marketplace outcome is therefore
    > `review-required` (`package-manager`), the path OmasteelRGB took and was approved on.
+
+   > **Amended 2026-11-22 (the author, 0.5.9):** a click, `Enter` or the row action on an installed app
+   > opens it, always, also when a newer build exists: *"only a launch action, even when there is an
+   > update pending"*. Clicking no longer asks to update; updates stay package-exact through *Update all*
+   > or `u`, and `omarcraft update <id>` on the command line.
 7. **Two layouts under evaluation, switchable** (added 2026-10-17): *tiles* (three per line, glyph in the
    app's own ArtCraft colour, name only; default) and *rows* (one per line with a caption).
    `omarchy bar set omarcraft.productivity layout tiles|rows`, the `t` key, or IPC `layout`. The loser is

@@ -81,8 +81,8 @@ omarchy-shell omarcraft.productivity refresh
 |---|---|
 | Look at the bar | Rocket and a `1` before it, both in the urgent colour |
 | Open the panel | Hero `N OF 20 INSTALLED · 1 UPDATE`; an UPDATES · 1 strip naming FigCraft, with an *Update all · u* button; Creative's header has the update dot, and inside it FigCraft carries an *Update* badge |
-| `Enter` on the tile | Confirm line `Update FigCraft · a terminal will open and ask for your password` with *Update ⏎*, *Launch instead*, *Cancel*; `Esc` cancels (don't run it: 99.0.0 does not exist) |
-| `u` or *Update all* | The same confirm naming every app with a newer build |
+| A click or `Enter` on the tile | FigCraft opens (or comes to the front): no question, no terminal; the badge stays (0.5.9) |
+| `u` or *Update all* | Confirm line `Update FigCraft · a terminal will open and ask for your password` with *Update ⏎* and *Cancel*; `Esc` cancels (don't run it: 99.0.0 does not exist) |
 | `$P/bin/omarcraft check --notify` twice | One notification "OmarCraft updates available" naming FigCraft (no version) the first time, none the second. The panel runs this check at shell start and every six hours; a manual refresh (`r`, right-click) only shows the badge |
 
 Restore: `$P/bin/omarcraft refresh -f` then `omarchy-shell omarcraft.productivity refresh`. Expect the

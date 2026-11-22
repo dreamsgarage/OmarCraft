@@ -57,9 +57,10 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
   afterwards.
 - With the FigCraft update fixture: meta reads `N OF 13 INSTALLED · 1 UPDATE`, the bar shows `1 󰔵` in
   the urgent colour, FigCraft sits in an UPDATES · 1 section with an `↑ 99.0.0` badge next to
-  *Update all · u* (row layout: `Update ready 0.6.0-1 → 99.0.0-1`); `Enter` on FigCraft opens a confirm
-  `Update FigCraft 0.6.0 → 99.0.0 · a terminal will open…` with *Update ⏎*, *Launch instead*, *Cancel*;
-  *Launch instead* launches; everything returns to normal after `bin/omarcraft refresh -f`.
+  *Update all · u* (row layout: `Update ready 0.6.0-1 → 99.0.0-1`); `Enter` or a click on FigCraft
+  opens FigCraft, no question (0.5.9; until 0.5.8 it asked *Update ⏎* / *Launch instead* / *Cancel*);
+  `u` opens a confirm `Update FigCraft · a terminal will open…` with *Update ⏎* and *Cancel*;
+  everything returns to normal after `bin/omarcraft refresh -f`.
 - `omarchy bar set omarcraft.productivity layout rows` and `… tiles`, and the `t` key, switch the layout
   live with the panel open; the cursor, confirm and job state survive the switch.
 - Opening the panel with the network down (`nmcli networking off`) shows the cached list, the meta
@@ -173,3 +174,8 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 78 | 0.5.8 · The other machines after the release |  | n/a | The author has no other machine (2026-11-10) |
 | 79 | 0.5.7 · The review of 0.5.6 (#14528): a mirror that never finishes cannot hold a check: `checkupdates` stops at 2 minutes, a background refresh at 5, the panel ends a run still going after 5; the previous answer is kept | | PASS | 2026-11-10, offline tests (a never-ending fake mirror cut off in 1 s, no process left), three breaks caught. Rows 68–78 are 0.5.8's |
 | 80 | 0.5.7 · On the author's machine after the fix: a normal check still completes (online, the lists read, the badges right) | 8c7a678 | PASS | 2026-11-10 02:30, on the author's machine with the same code merged into 0.5.8 (70e7d79): `refresh -f` completed in 5 s, the repo lists refreshed, the panel online, 22 tools listed (ArtCraft added AniCraft and MailCraft, both not packaged yet), no warning |
+| 81 | 0.5.9 · A click on an installed app with an update pending opens the version you have: no question, no terminal; the *Update* badge stays (SolidCraft, the author's report of 2026-11-22) | | pending | |
+| 82 | 0.5.9 · The same with `Enter` on the tile, and in the rows layout (`t`) with a click on the row and its ▶ (no update icon on the row any more) | | pending | |
+| 83 | 0.5.9 · *Update all · u* still updates: one question naming the apps with *Update ⏎* and *Cancel* (no *Launch instead*), the terminal updates exactly those packages, the badges clear | | pending | |
+| 84 | 0.5.9 · Right-click an installed app (*Remove* question), then left-click it: the app opens, the question closes, nothing is removed | | pending | |
+| 85 | 0.5.9 · Offline tests of the rule: a click on an installed app launches, whatever question is open, and waits only while a job works on that app; the panel goes through it and offers no *Launch instead* | | PASS | 2026-11-22, 319 offline tests (3 new) and 65 panel-logic tests (16 new); the 0.5.8 rule put back breaks 8 of the panel-logic tests, the 0.5.8 panel breaks all 3 new checks |

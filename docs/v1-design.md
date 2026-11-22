@@ -160,7 +160,8 @@ After using the tiles build the user asked for five changes, mocked up on the ca
 6. **Pending updates.** Apps with a newer build leave INSTALLED for an **UPDATES · N** section at the top,
    label in the urgent colour, each tile with an `↑ 0.8.0` badge (pkgrel stripped), and an
    *Update all · u* button in the section header. The hero reads `4 OF 13 INSTALLED · 2 UPDATES`, the
-   updates part in the urgent colour. `Enter` on such a tile asks *Update ⏎ / Launch instead / Cancel*.
+   updates part in the urgent colour. `Enter` or a click on such a tile opens the app, as on any
+   installed tile (0.5.9, the author's rule; until 0.5.8 it asked *Update ⏎ / Launch instead / Cancel*).
 
 7. **Remove** (Round 4, 2026-10-18, option A): right-click or `x` on an installed tile opens the confirm
    strip with *Remove ⏎* in the urgent colour, the one destructive action; the job is
@@ -216,8 +217,8 @@ is the first build. The research plan (§ F) decides which ships.
   `h`/`l` step one tile, `j`/`k` jump a line and stop at the section edge, then land on the next
   section's first tile.
 - Confirms are one **strip under the status line** (tiles have no room beneath them). Clicking an
-  installed tile with a newer build opens `wordcraft-bin 0.7.0-1 → 0.8.0-1 · via the AUR helper · a
-  terminal opens and asks your password` with *Update ⏎*, *Launch instead*, *Cancel esc*.
+  installed tile opens the app, also with a newer build (0.5.9); *Update all* or `u` opens `Update
+  WordCraft · a terminal will open and ask for your password` with *Update ⏎* and *Cancel esc*.
 
 ### Rows: one per line with a caption (the first build)
 

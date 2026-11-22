@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.9 — unreleased
+
+Opening an app opens it. Plan in `docs/v0.5.9-plan.md`.
+
+- **Fixed: a click on an app with an update did not open it.** It asked *Update ⏎ / Launch instead /
+  Cancel* in the strip at the top of the panel, far from the tile, and a second click on the tile ran the
+  update. A click, `Enter` or the rows' ▶ on an installed app now opens the version you have, always, also
+  with an update pending (the author's rule, 2026-11-22). Updates go through *Update all · u*, package-exact
+  as before, or `omarcraft update <id>` on the command line.
+- **Fixed: a left click after a right click started removing the app.** With the *Remove* question open, a
+  click on the same app ran it (a terminal asking for the password). A click on an installed app now only
+  opens it and closes any open question; `Enter` and the *Remove ⏎* button still remove.
+- While a job works on an app (its update, say), a click on it waits for the job instead of starting the
+  app half-replaced.
+- The *Launch instead* button is gone, and an app's row action is always launch (▶), never update.
+- Tests: the rule lives in `Model.primaryAction`, with 16 panel-logic tests and 3 checks that the panel
+  goes through it.
+
 ## 0.5.8 — 2026-11-11
 
 ArtCraft's new apps, and a panel that stays simple with twenty tools. Plan and decisions in

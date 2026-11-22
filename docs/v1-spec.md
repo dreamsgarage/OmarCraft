@@ -61,9 +61,11 @@ its row says `Source build · updates via omarchy update`.
    showing how many are missing; hidden when nothing is missing (*Install all* removed 2026-10-17 as
    redundant; a future category becomes another chip). Same inline confirm, listing the names.
    One job, every package on one `omarchy-pkg-aur-add` line, no launch afterwards.
-8. **Update** (amended 2026-10-17): package-exact. `Enter` or a click on an installed app with a newer
-   build asks to update that app (*Update ⏎* / *Launch instead* / *Cancel*); `u` or *Update all* asks
-   for every app with a newer build. The job runs `yay -S --noconfirm <id>-bin…`, the helper Omarchy
+8. **Update** (amended 2026-10-17 and 2026-11-22): package-exact. `Enter`, a click or the row action on
+   an installed app opens it, always, also when it has a newer build: opening an app never updates it
+   (the author, 2026-11-22; from 2026-10-17 to 0.5.8 it asked *Update ⏎* / *Launch instead* / *Cancel*).
+   `u` or *Update all* asks for every app with a newer build; `omarcraft update <id>` updates one app
+   from the command line. The job runs `yay -S --noconfirm <id>-bin…`, the helper Omarchy
    ships and uses itself, inside Omarchy's floating terminal. Installs still go through
    `omarchy-pkg-aur-add`. The plugin contains no `sudo` or `pkexec`.
    **Remove** (added 2026-10-18, user decision, canvas Round 4 option A): right-click an installed app

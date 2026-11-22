@@ -13,6 +13,8 @@ import "Model.js" as Model
 // footer; no version numbers anywhere in the panel. Inside an open category the apps show as tiles (three
 // per line, the app's own colour) or rows, switched with `t` or
 // `omarchy bar set omarcraft.productivity layout tiles|rows`.
+// 0.5.9 (docs/v0.5.9-plan.md): a click, Enter or the row action on an installed app opens it, always, also
+// with an update pending; updates go through Update all or `u`.
 Panel {
   id: root
   moduleName: "omarcraft.productivity"
@@ -127,13 +129,6 @@ Panel {
     cancelConfirm()
   }
 
-  function launchInstead() {
-    if ((confirmKind !== "update" && confirmKind !== "system-update") || confirmIds.length !== 1) return
-    var id = confirmIds[0]
-    cancelConfirm()
-    launch(id)
-  }
-
   function launch(id) {
     var app = Model.appById(craft.apps, id)
     if (!app) return
@@ -141,21 +136,19 @@ Panel {
     craft.flash("Launching " + app.name + "…")
   }
 
-  // Enter, click or the row action. Installed: launch, or ask to update when a newer build exists.
-  // Available: ask to install (Enter again runs it).
+  // Enter, a click or the row action (Model.primaryAction). Installed: launch, always, also when a newer
+  // build exists (the author's rule, 2026-11-22: opening an app never updates it; Update all or `u`
+  // updates). Available: ask to install (Enter or a click again runs it).
   function primary(key) {
     if (key.indexOf("cat:") === 0) { toggleCategory(key.slice(4)); return }
     if (key.indexOf("app:") !== 0) return
     var id = key.slice(4)
     var app = Model.appById(craft.apps, id)
-    if (!app) return
-    if (confirmOpen && confirmIds.length === 1 && confirmIds[0] === id) { runConfirm(); return }
-    if (app.installed) {
-      if (app.updateReady) openConfirm(app.source === "repo" ? "system-update" : "update", [id], placementFor(key))
-      else launch(id)
-      return
-    }
-    openConfirm("install", [id], placementFor(key))
+    var action = Model.primaryAction(app, { kind: confirmKind, ids: confirmIds }, craft.job)
+    if (action === "launch") { cancelConfirm(); launch(id) }
+    else if (action === "wait") craft.flash("Wait for the running job to finish")
+    else if (action === "run-confirm") runConfirm()
+    else if (action === "ask-install") openConfirm("install", [id], placementFor(key))
   }
 
   // x, Delete or a right click on an installed app: ask to remove its package. An app installed some
@@ -811,7 +804,7 @@ Panel {
     }
   }
 
-  // The confirm: one line naming what will happen, then Install/Update/Remove, Launch instead, Cancel.
+  // The confirm: one line naming what will happen, then Install/Update/Remove and Cancel.
   // Remove is the one destructive action, so its button takes the urgent colour.
   Component {
     id: confirmLine
@@ -839,14 +832,6 @@ Panel {
           accent: root.confirmKind === "remove" ? root.urgent : root.accent
           fontFamily: root.fontFamily
           onClicked: root.runConfirm()
-        }
-        Button {
-          visible: (root.confirmKind === "update" || root.confirmKind === "system-update") && root.confirmIds.length === 1
-          text: "Launch instead"
-          fontSize: Style.font.bodySmall
-          foreground: root.foreground
-          fontFamily: root.fontFamily
-          onClicked: root.launchInstead()
         }
         Button {
           text: "Cancel Esc"
