@@ -28,7 +28,7 @@ These words are used exactly like this everywhere (UI, docs, code):
 | **Not packaged yet** | in the catalog but no `<id>-bin` in the AUR | AUR RPC |
 | **New** | an id that was not in the catalog the last time the user looked | state file `seen` |
 | **Job** | one terminal run of `yay -S …` started by OmarCraft | `job.json` |
-| **Catalog** | the 13 apps: id, name, tagline, group | storytold/craft-launcher `catalog.rs`, cached 24 h, built-in fallback |
+| **Catalog** | the 13 apps: id, name, tagline, group | storytold/craft-launcher `catalog.rs` (since 2026-11-11 `crates/core/catalog.toml`, read from 0.5.9), cached 24 h, built-in fallback |
 | **Group** | Office = WordCraft, DeckCraft, GridCraft, PdfCraft; Creative = the other nine. Upstream's Classic/New kept as data, not shown | `Model.js` (to be confirmed by research) |
 
 A source build counts as installed and launches; it is never updated by OmarCraft (that would compile) and
@@ -157,7 +157,8 @@ Apps are listed in catalog order; the panel sorts them into sections.
 
 ## Amendment 2026-10-18: tools beyond ArtCraft (0.2.0)
 
-The catalog has two sources: the ArtCraft suite (upstream `catalog.rs`, built-in copy as fallback) and a
+The catalog has two sources: the ArtCraft suite (upstream `catalog.rs`; `catalog.toml` from 0.5.9, after
+ArtCraft moved its list on 2026-11-11; built-in copy as fallback, and the panel says when it is in use) and a
 built-in list of extra tools (`EXTRA_CATALOG`, upstream group `extra`), merged on every refresh and on
 first run. Groups come from `GROUP_OF` (Craft apps not listed are Creative); the panel shows a chip per
 group with missing tools: *c Creative*, *o Office*, *n Notes*. Everything else (versions from the AUR

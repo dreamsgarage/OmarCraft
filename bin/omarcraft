@@ -36,8 +36,9 @@ CATALOG="$CACHE_DIR/catalog.tsv"
 # a check also reads the repos as they are now (REPO_LATEST), so the first read after the update checks.
 # 5 (0.5.7): a Craft app a repo also ships compares with the AUR's version (FOLLOW_APP_REPOS), so the
 # badges for the newer AUR builds show at the first read instead of the next six-hourly check. 6 (0.5.8):
-# ArtCraft's list in its new layout (17 apps, kind instead of group), so the new apps show at once.
-CATALOG_FORMAT=6
+# ArtCraft's list in its new layout (17 apps, kind instead of group), so the new apps show at once. 7 (0.5.9):
+# ArtCraft's list moved to catalog.toml on 2026-11-11 and was not read since; MailCraft and AniCraft show at once.
+CATALOG_FORMAT=7
 CATALOG_FORMAT_FILE="$CACHE_DIR/catalog.format"
 SYNC_CACHE="$CACHE_DIR/sync.tsv"
 # The repos as they are now, not as of the last system update (see repo_check): a private copy of the
@@ -48,8 +49,9 @@ REPO_LATEST="$CACHE_DIR/repo-latest.tsv"
 PACMAN_CONF=/etc/pacman.conf
 PACMAN_SYNC_DIR=/var/lib/pacman/sync
 REFRESH_FAILED="$CACHE_DIR/refresh-failed"
-# Written when ArtCraft's list downloaded but no app in it could be read: its layout changed again. The
-# built-in list is used meanwhile; check and list say so, the panel stays as it is.
+# Written when ArtCraft's list downloaded but no app in it could be read: its layout changed again. It holds
+# the time of the first such check, until a list reads again. The built-in list is used meanwhile; check and
+# list say so, and so does the panel (0.5.9: on 2026-11-11 the list moved and nobody saw it for eleven days).
 PARSE_FAILED="$CACHE_DIR/catalog-parse-failed"
 REFRESH_LOCK="$STATE_DIR/refresh.lock"
 JOB_FILE="$STATE_DIR/job.json"
@@ -62,15 +64,17 @@ LEGACY_VIKUNJA_DIR="$DATA_HOME/omarcraft/vikunja"
 LEGACY_VIKUNJA_ENTRY="$DATA_HOME/applications/vikunja-desktop.desktop"
 LEGACY_VIKUNJA_PID="$STATE_DIR/vikunja-server.pid"
 MENU_FILE="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
-CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/src/catalog.rs"
+# ArtCraft's own list of its apps, the file the official launcher is built from (2026-11-11 on; before, the
+# same list was Rust code in crates/core/src/catalog.rs).
+CATALOG_URL="https://raw.githubusercontent.com/storytold/craft-launcher/main/crates/core/catalog.toml"
 AUR_RPC="https://aur.archlinux.org/rpc/v5/info"
 # Everything read from the network is untrusted and bounded, from the download to each field kept from it
 # (marketplace review of 0.5.4): a hostile or broken answer can neither fill memory nor reach the panel.
-CATALOG_MAX_BYTES=262144        # the upstream catalog; 19 KB in 2026-11
+CATALOG_MAX_BYTES=262144        # the upstream catalog; 45 KB on 2026-11-22
 AUR_MAX_BYTES=1048576           # one AUR answer for every tool; 10 KB in 2026-11
-MAX_APPS=64                     # apps kept from the upstream catalog; 13 in 2026-11
-NAME_MAX=48                     # characters in an app's name; the longest is 11
-TAGLINE_MAX=96                  # characters in its tagline; the longest is 41
+MAX_APPS=64                     # apps kept from the upstream catalog; 19 on 2026-11-22
+NAME_MAX=48                     # characters in an app's name; the longest is 14
+TAGLINE_MAX=96                  # characters in its tagline; the longest is 52
 VERSION_RE='^[A-Za-z0-9._:+~-]{1,64}$'
 COLOR_RE='^#[0-9a-f]{6}$'
 IPC_TARGET="omarcraft.productivity"
@@ -87,8 +91,8 @@ REFRESH_DEADLINE_SECONDS=300    # a detached refresh: the list, the AUR and the 
 GROUPS_RE='^(all|creative|3d|office|notes)$'
 # Panel categories (0.5.8, the author's choice), shown in this order: Office, Creative and 3D Art; Craft
 # Anything stands alone in the panel's footer (solo). Craft apps not listed here are Creative, so a new
-# ArtCraft app shows up without a release of OmarCraft. MailCraft (a community app ArtCraft added on
-# 2026-11-10, not packaged yet) is Office.
+# ArtCraft app shows up without a release of OmarCraft (AniCraft, 2026-11-10). MailCraft (a community app
+# ArtCraft added on 2026-11-10, mailcraft-bin since 2026-11-11) is Office.
 declare -A GROUP_OF=(
   [wordcraft]=office [gridcraft]=office [deckcraft]=office [pdfcraft]=office [typesetter]=office
   [memospot]=office [planify]=office [mailcraft]=office
@@ -115,11 +119,12 @@ FOLLOW_APP_REPOS=0
 KIND=""      # set by kind_var, the no-subshell form of kind_for
 VERSION=""   # set by version_var
 declare -A PKGS_OF=([typesetter]=typesetter [planify]=planify)
-# Desktop ids that are not ai.storyteller.<id>: the tools beyond ArtCraft, and SolidCraft, a community app
-# with its own publisher (its repo's assets/platforms/linux/io.tangencylabs.solidcraft.desktop).
+# Desktop ids that are not ai.storyteller.<id>: the tools beyond ArtCraft, and the community apps with their
+# own publishers: SolidCraft (its repo's assets/platforms/linux/io.tangencylabs.solidcraft.desktop) and
+# MailCraft (packaging/linux/io.github.billsecond.mailcraft.desktop, the file its release archive installs).
 declare -A DESKTOP_OF=(
   [memospot]=memospot [typesetter]=net.trowell.typesetter [planify]=io.github.alainm23.planify
-  [solidcraft]=io.tangencylabs.solidcraft
+  [solidcraft]=io.tangencylabs.solidcraft [mailcraft]=io.github.billsecond.mailcraft
 )
 
 # Glyphs (MDI range of the Nerd Font), checked by rendering; see docs/v1-design.md.
@@ -136,17 +141,19 @@ filmcraft	FilmCraft	Video editing, color and sound	suite	#8b5cf6	#6a3fd6	#b69cff
 lightcraft	LightCraft	Photo library and raw development	suite	#f2a516	#8a5800	#ffc14d
 pdfcraft	PdfCraft	Reading, organizing and protecting PDFs	suite	#e8204f	#b70228	#f23a62
 effectcraft	EffectCraft	Motion graphics and visual effects	suite	#e0368f	#b0206c	#ff7ab8
+anicraft	AniCraft	2D vector animation	suite	#dac604	#706500	#e8d84a
 designcraft	DesignCraft	Page layout and publishing	suite	#7bb51c	#457008	#a6e04a
 figcraft	FigCraft	Interface design and prototyping	suite	#02da96	#047a56	#4fe8b6
-wordcraft	WordCraft	Writing and document design	suite	#3f5fe0	#2a44b8	#8ea2ff
 soundcraft	SoundCraft	Recording, editing and mixing audio	suite	#1fa5c9	#0e7290	#5fd0ee
+wordcraft	WordCraft	Writing and document design	suite	#3f5fe0	#2a44b8	#8ea2ff
 deckcraft	DeckCraft	Presentations and slide shows	suite	#f07a1e	#a84f0a	#ffa060
 cadcraft	CADCraft	Computer-aided design and drafting	suite	#3ea6e8	#1a6fa8	#7cc8ff
 gridcraft	GridCraft	Spreadsheets and data	suite	#1f9d55	#12703a	#4fd68a
 texturecraft	TextureCraft	3D texture painting	suite	#c2672b	#9c4a15	#e58a4e
 materialcraft	MaterialCraft	Procedural material design	suite	#178a9c	#106573	#63c5d3
 craft-anything	Craft Anything	Find out how any software works, then craft your own	suite	#4e7bfb	#1659c4	#74aaff
-solidcraft	SolidCraft	Parametric 3D CAD	community	#46a1fb	#1653ae	#8cc4ff"
+solidcraft	SolidCraft	Parametric 3D CAD	community	#46a1fb	#1653ae	#8cc4ff
+mailcraft	MailCraft	Mail, calendar and contacts	community	#0f68f0	#0634c4	#8fbfff"
 # Tools beyond ArtCraft, same columns, upstream group "extra". A tool qualifies when it has a stable
 # desktop release, ships prebuilt (Arch repos or an AUR -bin) with a desktop entry, comes from a
 # maintained open-source upstream, stays near ~150 MiB idle in one native process unless it adds
@@ -165,7 +172,8 @@ declare -A APP_ICON=(
   [gridcraft]=$'\U000f04eb' [cadcraft]=$'\U000f0eec' [soundcraft]=$'\U000f075a'
   [figcraft]=$'\U000f0001' [memospot]=$'\U000f11d7' [typesetter]=$'\U000f0284'
   [planify]=$'\U000f0576' [solidcraft]=$'\U000f01a7' [texturecraft]=$'\U000f00e3'
-  [materialcraft]=$'\U000f1954' [craft-anything]=$'\U000f167a'
+  [materialcraft]=$'\U000f1954' [craft-anything]=$'\U000f167a' [anicraft]=$'\U000f0937'
+  [mailcraft]=$'\U000f01ee'
 )
 app_icon() {
   printf '%s' "${APP_ICON[$1]:-$ICON_ARTCRAFT}"
@@ -535,64 +543,57 @@ update_ready() {
 
 # --- catalog ----------------------------------------------------------------------------------
 
-# Parse the SUITE array of the official launcher: id, name, tagline, group and the three brand colours
-# (surface, ink on light, ink on dark) of each app(…) call. Two layouts are read: the one before
-# 2026-11-06 (each argument on its own line, an AppGroup:: argument) and the one since (one-line
-# app("id", "Name", "Tagline", [[…]], "owner/repo") records, no group, and a community app written as
-# CraftApp { kind: AppKind::Community, …, ..app(…) }). The whole call, from app( to its closing bracket,
-# is read as one record; brackets inside quoted strings do not count. The group is the AppGroup when the
-# record has one, "community" inside a CraftApp block of kind Community, "suite" otherwise. A record is
-# kept only when every field is well formed and within bounds (no control characters, NAME_MAX and
-# TAGLINE_MAX), and at most MAX_APPS are.
+# Parse ArtCraft's list (crates/core/catalog.toml of the official launcher, 2026-11-11 on): id, name,
+# tagline, kind and the three brand colours (surface, ink on light, ink on dark) of each [[apps]] entry. Only
+# an entry's own keys are read, never those of its sub-tables ([apps.details], [[apps.details.features]]),
+# which come after them. kind "official" is group suite, "community" is community; an entry of another kind
+# is left out. A value is kept only when it is well formed: a one-line "…" string whose only escapes are \"
+# and \\, or three numbers from 0 to 255; a comment may follow it. An entry is kept only when every field is
+# there and within bounds (no control characters, NAME_MAX and TAGLINE_MAX), and at most MAX_APPS are.
 parse_upstream_catalog() {
   awk -v max_apps="$MAX_APPS" -v name_max="$NAME_MAX" -v tagline_max="$TAGLINE_MAX" '
     function ok(v, max) { return length(v) > 0 && length(v) <= max && v !~ /[[:cntrl:]]/ }
-    function strip(s) { gsub(/"([^"\\]|\\.)*"/, "", s); return s }
-    function flush(   s, n, f, bare, grp, k, hex) {
-      in_rec = 0
-      if (length(rec) > 4096 || kept >= max_apps) return
-      s = rec; n = 0
-      while (n < 3 && match(s, /"([^"\\]|\\.)*"/)) {
-        f[++n] = substr(s, RSTART + 1, RLENGTH - 2)
-        s = substr(s, RSTART + RLENGTH)
-      }
-      bare = strip(rec)
-      grp = ""
-      if (match(bare, /AppGroup::[A-Za-z]+/)) grp = tolower(substr(bare, RSTART + 10, RLENGTH - 10))
-      if (grp == "") grp = community ? "community" : "suite"
-      k = 0; hex = ""
-      while (k < 9 && match(bare, /0x[0-9a-fA-F][0-9a-fA-F]/)) {
-        k++
-        hex = hex ((k == 1 || k == 4 || k == 7) ? "\t#" : "") tolower(substr(bare, RSTART + 2, 2))
-        bare = substr(bare, RSTART + RLENGTH)
-      }
-      if (n == 3 && k == 9 && f[1] ~ /^[a-z0-9-]+$/ && length(f[1]) <= 32 && ok(f[2], name_max) \
-          && ok(f[3], tagline_max) && length(grp) <= 16) {
-        print f[1] "\t" f[2] "\t" f[3] "\t" grp hex
+    function str(v,   s, rest) {
+      if (!match(v, /^"([^"\\]|\\["\\])*"/)) return ""
+      rest = substr(v, RLENGTH + 1)
+      if (rest !~ /^[[:space:]]*(#.*)?$/) return ""
+      s = substr(v, 2, RLENGTH - 2)
+      gsub(/\\"/, "\"", s); gsub(/\\\\/, "\\", s)
+      return s
+    }
+    function rgb(v,   a, i, out) {
+      sub(/[[:space:]]*#.*$/, "", v)
+      if (v !~ /^\[[[:space:]]*[0-9][0-9]?[0-9]?[[:space:]]*,[[:space:]]*[0-9][0-9]?[0-9]?[[:space:]]*,[[:space:]]*[0-9][0-9]?[0-9]?[[:space:]]*\]$/) return ""
+      gsub(/[][[:space:]]/, "", v)
+      split(v, a, ",")
+      out = "#"
+      for (i = 1; i <= 3; i++) { if (a[i] + 0 > 255) return ""; out = out sprintf("%02x", a[i] + 0) }
+      return out
+    }
+    function flush(   grp) {
+      if (!in_app) return
+      in_app = 0
+      if (kept >= max_apps) return
+      if (f["kind"] == "official") grp = "suite"
+      else if (f["kind"] == "community") grp = "community"
+      else return
+      if (f["id"] ~ /^[a-z0-9-]+$/ && length(f["id"]) <= 32 && ok(f["name"], name_max) && ok(f["tagline"], tagline_max) \
+          && f["color"] != "" && f["ink_light"] != "" && f["ink_dark"] != "") {
+        print f["id"] "\t" f["name"] "\t" f["tagline"] "\t" grp "\t" f["color"] "\t" f["ink_light"] "\t" f["ink_dark"]
         kept++
       }
     }
-    /pub const SUITE/ { in_suite = 1; next }
-    !in_suite { next }
-    /^\];/ { exit }
-    /^[[:space:]]*\/\// { next }
-    !in_rec && /CraftApp[[:space:]]*\{/ { in_struct = 1; community = 0 }
-    in_struct && !in_rec && /AppKind::Community/ { community = 1 }
-    {
-      part = ""
-      if (in_rec) part = $0
-      else if (match($0, /(^|[^A-Za-z0-9_])app\(/)) {
-        part = substr($0, RSTART); sub(/^[^a]*/, "", part)
-        in_rec = 1; rec = ""; depth = 0
-      }
-      if (in_rec) {
-        rec = rec " " part
-        t = strip(part)
-        depth += gsub(/\(/, "(", t) - gsub(/\)/, ")", t)
-        if (depth <= 0) flush()
-      }
+    /^[[:space:]]*\[\[[[:space:]]*apps[[:space:]]*\]\][[:space:]]*(#.*)?$/ { flush(); in_app = 1; top = 1; split("", f); next }
+    /^[[:space:]]*\[/ { top = 0; next }
+    !in_app || !top || length($0) > 4096 { next }
+    /^[[:space:]]*(#|$)/ { next }
+    match($0, /^[[:space:]]*[A-Za-z_]+[[:space:]]*=[[:space:]]*/) {
+      key = $0; sub(/^[[:space:]]*/, "", key); sub(/[[:space:]]*=.*$/, "", key)
+      val = substr($0, RLENGTH + 1); sub(/[[:space:]]+$/, "", val)
+      if (key == "id" || key == "name" || key == "tagline" || key == "kind") f[key] = str(val)
+      else if (key == "color" || key == "ink_light" || key == "ink_dark") f[key] = rgb(val)
     }
-    !in_rec && in_struct && /^[[:space:]]*\},?[[:space:]]*$/ { in_struct = 0; community = 0 }
+    END { flush() }
   '
 }
 
@@ -748,8 +749,9 @@ refresh() {
   if [[ -n $raw ]]; then
     upstream=$(parse_upstream_catalog <<<"$raw" || true)
     # A list that downloaded and holds no app this parser can read is a failure, not a quiet fallback
-    # (2026-11-06: a new layout went unnoticed for three days).
-    if [[ -z $upstream ]]; then now_iso >"$PARSE_FAILED"; else rm -f "$PARSE_FAILED"; fi
+    # (2026-11-06: a new layout went unnoticed for three days; 2026-11-11: for eleven). The first such check
+    # is the one recorded, so "since" stays true.
+    if [[ -z $upstream ]]; then [[ -s $PARSE_FAILED ]] || now_iso >"$PARSE_FAILED"; else rm -f "$PARSE_FAILED"; fi
   fi
   [[ -n $upstream ]] || upstream="$BUILTIN_CATALOG"
   upstream+=$'\n'"$EXTRA_CATALOG"
@@ -1252,6 +1254,7 @@ state() {
     --arg generated "$(now_iso)" \
     --argjson age "$(catalog_age_seconds)" \
     --argjson offline "$([[ -f $REFRESH_FAILED ]] && echo true || echo false)" \
+    --argjson unreadable "$([[ -f $PARSE_FAILED ]] && echo true || echo false)" \
     --argjson refreshing "$(refreshing && echo true || echo false)" \
     --argjson job "$job" --argjson last "$last" \
     --argjson office "$office_json" '
@@ -1264,6 +1267,7 @@ state() {
     }] as $apps
     | {
         generatedAt: $generated, catalogAgeSeconds: $age, offline: $offline, refreshing: $refreshing,
+        listUnreadable: $unreadable,
         counts: {
           installed: ($apps | map(select(.installed)) | length),
           available: ($apps | map(select((.installed | not) and .aurVersion != "")) | length),

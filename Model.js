@@ -1,7 +1,7 @@
 // Pure helpers for the OmarCraft panel. No QML, no I/O: everything here is a function of the
 // state JSON that bin/omarcraft prints, so it can be read, and tested, without the shell.
 
-var SUITE_SIZE = 20
+var SUITE_SIZE = 22
 var COLUMNS = 3
 
 // The panel's categories (0.5.8, the author's choice), in the order shown, each with the key that installs what is
@@ -217,14 +217,21 @@ function updateNames(apps) {
   return names.join(" · ")
 }
 
-// After a successful update, one line naming what was updated, until it is seen (0.5.8).
+// After a successful update, one line naming what was updated, until it is seen (0.5.8). Only the apps whose
+// newer build is installed now, as the state read after the job says, never the job's exit status alone
+// (0.5.9: an update that reinstalled the old version exited 0, OmarCraft#1). None of them: no line.
 function summaryLine(craft) {
   var lj = craft ? craft.lastJob : null
   if (!lj || craft.job || lj.seen || Number(lj.exit) !== 0) return ""
   if (lj.verb !== "update" && lj.verb !== "system-update") return ""
   var ids = Array.isArray(lj.ids) ? lj.ids : []
-  if (ids.length === 0) return ""
-  return "Updated " + joinNames(namesFor(craft.apps, ids))
+  var landed = []
+  for (var i = 0; i < ids.length; i++) {
+    var a = appById(craft.apps, ids[i])
+    if (a && a.installed && !a.updateReady) landed.push(ids[i])
+  }
+  if (landed.length === 0) return ""
+  return "Updated " + joinNames(namesFor(craft.apps, landed))
 }
 
 function verbFor(kind) {
@@ -269,8 +276,8 @@ function ageText(seconds) {
 // The hero's uppercase line, first part. Short: it shares the line with the updates part.
 function metaLine(craft) {
   var c = craft.counts || {}
-  // The tools the panel shows: an app in ArtCraft's list that nobody packaged yet (MailCraft, 2026-11-10)
-  // is not counted.
+  // The tools the panel shows: an app in ArtCraft's list that nobody packaged yet (MailCraft until
+  // 2026-11-11) is not counted.
   var total = 0
   for (var t = 0; t < (craft.apps || []).length; t++) if (shown(craft.apps[t])) total++
   if (total === 0) total = SUITE_SIZE
@@ -308,6 +315,9 @@ function standingLine(craft) {
                           : "Last job exited with status " + lj.exit + " · see the terminal"
   }
   if (craft.offline) return "Could not reach the AUR · list from " + ageText(craft.catalogAgeSeconds)
+  // ArtCraft's list downloaded but could not be read (its layout changed): the built-in list is shown, so a
+  // new ArtCraft app may be missing (0.5.9; `omarcraft list` says since when).
+  if (craft.listUnreadable) return "Could not read ArtCraft's app list"
   return ""
 }
 

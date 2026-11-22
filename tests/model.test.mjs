@@ -104,8 +104,14 @@ eq("Update is the urgent badge", [M.badgeIsUpdate(apps[0]), M.badgeIsUpdate(apps
 eq("the UPDATES strip names the apps", M.updateNames(apps), "PhotoCraft · WordCraft");
 eq("names joined", [["A"], ["A", "B"], ["A", "B", "C"], ["A", "B", "C", "D", "E"]].map((n) => M.joinNames(n)),
   ["A", "A and B", "A, B and C", "A, B, C and 2 more"]);
-const done = (o = {}) => ({ apps, job: null, lastJob: { verb: "update", ids: ["photocraft", "wordcraft"], exit: 0, endedAt: "t1", ...o } });
+// The state read after the update: PhotoCraft and WordCraft have their newer builds now.
+const after = apps.map((a) => (a.updateReady ? { ...a, updateReady: false, installedVersion: a.aurVersion } : a));
+const done = (o = {}) => ({ apps: after, job: null, lastJob: { verb: "update", ids: ["photocraft", "wordcraft"], exit: 0, endedAt: "t1", ...o } });
 eq("after a successful update: one line naming them", M.summaryLine(done()), "Updated PhotoCraft and WordCraft");
+eq("0.5.9: an update that left the old versions names nothing (OmarCraft#1: it exited 0)", M.summaryLine({ ...done(), apps }), "");
+eq("0.5.9: only the apps whose newer build is installed",
+  M.summaryLine({ ...done(), apps: apps.map((a) => (a.id === "photocraft" ? { ...a, updateReady: false } : a)) }), "Updated PhotoCraft");
+eq("0.5.9: nor an app that is not installed any more", M.summaryLine({ ...done(), apps: after.filter((a) => a.id !== "wordcraft") }), "Updated PhotoCraft");
 eq("after Omarchy's update too", M.summaryLine(done({ verb: "system-update", ids: ["typesetter"] })), "Updated Typesetter");
 eq("not once seen", M.summaryLine(done({ seen: true })), "");
 eq("not after a failure", M.summaryLine(done({ exit: 1 })), "");
@@ -122,11 +128,23 @@ for (const a of apps) {
 for (const kind of ["install", "update", "system-update", "remove"]) {
   texts.push(M.confirmText(kind, apps, ["photocraft"]), M.confirmText(kind, apps, ["photocraft", "wordcraft", "typesetter", "planify"]));
 }
-texts.push(M.updateNames(apps), M.metaLine(craft), M.metaUpdates(craft), M.summaryLine(done()), M.standingLine(craft));
+texts.push(M.updateNames(apps), M.metaLine(craft), M.metaUpdates(craft), M.summaryLine(done()), M.standingLine(craft),
+  M.standingLine({ ...craft, listUnreadable: true }));
 const versioned = texts.filter((t) => /\d+\.\d+/.test(String(t)) || /1\.2\.3|1\.3\.0/.test(String(t)));
 eq("no panel text carries a version", versioned, []);
 eq("the update confirm names the app", M.confirmText("update", apps, ["photocraft"]), "Update PhotoCraft · a terminal will open and ask for your password");
 eq("the install subtext", M.subtext(apps[13], craft), "New · install · prebuilt, no compiling");
+
+// --- ArtCraft's list unreadable: the panel says so (0.5.9; it went unseen from 2026-11-11 to 11-22) -------
+eq("0.5.9: an unreadable list is said under the hero", M.standingLine({ ...craft, listUnreadable: true }), "Could not read ArtCraft's app list");
+eq("0.5.9: a running job, a failed job and offline come first",
+  [M.standingLine({ ...craft, listUnreadable: true, job: { verb: "update", ids: ["photocraft"] } }),
+   M.standingLine({ ...craft, listUnreadable: true, lastJob: { verb: "update", ids: ["photocraft"], exit: 1 } }),
+   M.standingLine({ ...craft, listUnreadable: true, offline: true })],
+  ["A terminal is open and may ask for your password.", "Last job exited with status 1 · see the terminal",
+   "Could not reach the AUR · list from just now"]);
+eq("0.5.9: nothing is said once the list reads", M.standingLine({ ...craft, listUnreadable: false }), "");
+eq("0.5.9: the hero counts twenty-two tools before the first read", M.metaLine({ ...craft, apps: [], counts: { installed: 3 } }), "3 of 22 installed");
 
 // --- a click opens the app, also with an update pending (the author's rule, 0.5.9) ------------------
 // SolidCraft, 2026-11-22: a click on a tile with an update asked Update / Launch instead / Cancel, a

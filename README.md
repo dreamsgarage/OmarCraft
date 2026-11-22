@@ -10,12 +10,13 @@ is not, what has a newer build, and one action per tool to launch, install, upda
 a prebuilt package, from a package repo (Omarchy's own or the Arch repos) or a `-bin` from the AUR,
 installed through Omarchy's own package commands, so pacman owns it and nothing is ever compiled.
 
-It carries the apps in [ArtCraft](https://getartcraft.com)'s own list, seventeen in November 2026, plus three
+It carries the apps in [ArtCraft](https://getartcraft.com)'s own list, nineteen in November 2026, plus three
 tools that do what ArtCraft does not (see *Beyond ArtCraft*), in three categories:
 
-- **Office:** WordCraft, GridCraft, DeckCraft, PdfCraft, Typesetter, Memospot, Planify, and MailCraft (a
-  community app ArtCraft added on 2026-11-10) once it has a package
-- **Creative:** PhotoCraft, VectorCraft, LightCraft, DesignCraft, FigCraft, FilmCraft, EffectCraft, SoundCraft
+- **Office:** WordCraft, GridCraft, DeckCraft, PdfCraft, Typesetter, Memospot, Planify, and MailCraft (mail,
+  calendar and contacts; a community app by UCS Care Group, in ArtCraft's list)
+- **Creative:** PhotoCraft, VectorCraft, LightCraft, DesignCraft, FigCraft, FilmCraft, EffectCraft, SoundCraft,
+  AniCraft (2D vector animation)
 - **3D Art:** CADCraft, SolidCraft (a community app by Tangency Labs, in ArtCraft's list), TextureCraft,
   MaterialCraft
 
@@ -115,12 +116,15 @@ omarchy restart shell
 Left-click the icon (or `Tab` from a neighbouring panel). No version numbers anywhere: an app has an
 update or it does not (the command line still shows versions, see below).
 
-- **Hero.** The rocket logo, then the one-line situation: `16 OF 20 INSTALLED · 2 UPDATES` (the
+- **Hero.** The rocket logo, then the one-line situation: `16 OF 22 INSTALLED · 2 UPDATES` (the
   updates part in the urgent colour), `INSTALLING WORDCRAFT…`, `NOTHING INSTALLED YET`, `OFFLINE · CACHED
   LIST`, `LAST JOB FAILED`. The circular arrow at the right checks the AUR now; its tooltip says how old
-  the list is. A line under the hero appears only while something needs saying (a job, an error, offline).
-- **After an update**, one line: `✓ Updated PhotoCraft and WordCraft`. It goes on the next key, after a
-  few seconds, or when the panel closes.
+  the list is. A line under the hero appears only while something needs saying (a job, an error, offline,
+  or *Could not read ArtCraft's app list*: ArtCraft changed how it publishes its list, and until OmarCraft
+  reads it again the panel shows its built-in copy, so a newer ArtCraft app may be missing).
+- **After an update**, one line: `✓ Updated PhotoCraft and WordCraft`, naming only the apps whose newer
+  build is really installed now (an update that left the old version names nothing, and its badge stays).
+  It goes on the next key, after a few seconds, or when the panel closes.
 - **UPDATES · N.** Shown only when newer builds exist: the apps' names and an *Update all · u* button.
   The apps stay in their category with an **Update** badge. A click or `Enter` on one opens the version
   you have, as on any installed app; only *Update all* or `u` updates (one question, then one terminal).
@@ -281,7 +285,8 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   job cut short (terminal closed, `Ctrl+C`) is reported as interrupted. Before an AUR install or update,
   OmarCraft checks the package's declared dependencies: if one is neither installed nor in the Arch repos,
   the AUR helper would compile it, so the job stops before anything is installed and says which one.
-- Network use: the app catalog from `raw.githubusercontent.com` (storytold/craft-launcher) and versions
+- Network use: the app catalog (`crates/core/catalog.toml` of storytold/craft-launcher, the list ArtCraft's
+  own launcher is built from) from `raw.githubusercontent.com`, and versions
   from the AUR RPC, every six hours, with bounded timeouts; the package lists of the configured repos through `checkupdates`, into a private copy. Every part
   has a deadline: the downloads 10 and 15 seconds, `checkupdates` 2 minutes in all (a slow mirror cannot
   hold it longer), a background check 5 minutes as a whole, and the panel ends any check still running

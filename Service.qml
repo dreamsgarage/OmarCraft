@@ -18,6 +18,8 @@ Item {
   property var job: null
   property var lastJob: null
   property bool offline: false
+  // ArtCraft's list downloaded but could not be read: the built-in list is shown (0.5.9).
+  property bool listUnreadable: false
   property bool refreshing: false
   property int catalogAgeSeconds: -1
   property bool loaded: false
@@ -91,6 +93,7 @@ Item {
     job = s.job || null
     lastJob = s.lastJob || null
     offline = s.offline === true
+    listUnreadable = s.listUnreadable === true
     refreshing = s.refreshing === true
     catalogAgeSeconds = Number(s.catalogAgeSeconds)
     lastError = ""

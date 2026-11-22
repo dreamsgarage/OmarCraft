@@ -2,7 +2,7 @@
 
 ## 0.5.9 — unreleased
 
-Opening an app opens it. Plan in `docs/v0.5.9-plan.md`.
+Opening an app opens it, and ArtCraft's list is read again. Plan in `docs/v0.5.9-plan.md`.
 
 - **Fixed: a click on an app with an update did not open it.** It asked *Update ⏎ / Launch instead /
   Cancel* in the strip at the top of the panel, far from the tile, and a second click on the tile ran the
@@ -17,6 +17,21 @@ Opening an app opens it. Plan in `docs/v0.5.9-plan.md`.
 - The *Launch instead* button is gone, and an app's row action is always launch (▶), never update.
 - Tests: the rule lives in `Model.primaryAction`, with 16 panel-logic tests and 3 checks that the panel
   goes through it.
+- **Fixed: ArtCraft's app list was not read since 2026-11-11.** ArtCraft moved its list from the launcher's
+  `catalog.rs` to `crates/core/catalog.toml` that day; OmarCraft read no app from it and showed its built-in
+  list, so MailCraft and AniCraft, both packaged in the AUR since 2026-11-11, never appeared. OmarCraft reads
+  the new file now, within the same bounds as before (an entry's own keys only, every field checked), and
+  its built-in list has all nineteen apps. Cache format 7: the first read after the update fetches the list.
+- **New apps:** MailCraft (mail, calendar and contacts; a community app by UCS Care Group in ArtCraft's list)
+  in Office, AniCraft (2D vector animation, ArtCraft) in Creative. Twenty-two tools in all.
+- **The panel says when ArtCraft's list cannot be read**: *Could not read ArtCraft's app list* under the
+  hero, while the built-in copy is shown. `list` and `check` give the time of the first failed read, which
+  until now was overwritten by each later one.
+- **Fixed: `✓ Updated` trusted the job's exit status.** It names only the apps whose newer build is installed
+  after the job, as the package database says; an update that left the old version (OmarCraft#1) names
+  nothing, and its badge stays.
+- Tests: the fixtures of the old Rust list are replaced by a copy of `catalog.toml` (19 apps); 331 offline
+  tests (12 more than at the first 0.5.9 build) and 72 panel-logic tests (7 more).
 
 ## 0.5.8 — 2026-11-11
 

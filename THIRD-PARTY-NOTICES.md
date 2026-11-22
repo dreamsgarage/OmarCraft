@@ -29,11 +29,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ## ArtCraft Launcher (MIT)
 
-The offline test fixtures `tests/fixtures/catalog.rs` (an excerpt) and `tests/fixtures/catalog-2026-11-09.rs`
-(a full copy) are taken from `crates/core/src/catalog.rs` of
-[ArtCraft Launcher](https://github.com/storytold/craft-launcher), offered under the MIT License or the Apache
-License 2.0; OmarCraft uses them under the MIT License. They are test data for the catalog parser, not part of
-the plugin's code. Source: https://github.com/storytold/craft-launcher/blob/a6eee0ca2922c7a5bf90c4d2773a6aa4fe90d3dc/crates/core/src/catalog.rs
+The offline test fixture `tests/fixtures/catalog-2026-11-22.toml` (a full copy) is taken from
+`crates/core/catalog.toml` of [ArtCraft Launcher](https://github.com/storytold/craft-launcher), offered under the
+MIT License or the Apache License 2.0; OmarCraft uses it under the MIT License. It is test data for the catalog
+parser, not part of the plugin's code. Source: https://github.com/storytold/craft-launcher/blob/bbb3844954d90e64c70a89ea493d0e7270478553/crates/core/catalog.toml
+(Until 0.5.8 the fixtures were copies of the launcher's earlier `crates/core/src/catalog.rs`, under the same
+terms.)
 
 ```
 MIT License

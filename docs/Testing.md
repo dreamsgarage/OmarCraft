@@ -26,7 +26,7 @@ audio, monitor, power. Nothing installed, nothing written under `~/.config`. If 
 
 | Do | Expect |
 |---|---|
-| Left-click the icon | Panel under the icon within a second: rocket logo, `OmarCraft`, `N OF 20 INSTALLED`; no line under the hero unless something is happening; three category headers (Creative, 3D Art, Office) and the Craft Anything line at the bottom |
+| Left-click the icon | Panel under the icon within a second: rocket logo, `OmarCraft`, `N OF 22 INSTALLED`; no line under the hero unless something is happening; three category headers (Creative, 3D Art, Office) and the Craft Anything line at the bottom |
 | Make an app new: remove CADCraft first if it is installed, then `sed -i '/cadcraft/d' ~/.local/state/omarchy/omarcraft/seen` and right-click the icon | Bar icon in the urgent colour; open the panel: 3D Art has opened by itself, its header says *New*, CADCraft carries a *New* badge; close the panel: icon back to normal, `cadcraft` back in the seen file |
 | `Enter` on a category header | It opens: installed tiles in each app's colour, the missing ones outlined and dimmed, and the header carries *Install N* with the category's key while apps are missing, open or closed; `Enter` again closes it. No version number anywhere |
 | `t` | Inside each open category, rows instead of tiles (`Installed`, `Install · prebuilt, no compiling`, no versions); `t` again returns to tiles |
@@ -80,7 +80,7 @@ omarchy-shell omarcraft.productivity refresh
 | Do | Expect |
 |---|---|
 | Look at the bar | Rocket and a `1` before it, both in the urgent colour |
-| Open the panel | Hero `N OF 20 INSTALLED · 1 UPDATE`; an UPDATES · 1 strip naming FigCraft, with an *Update all · u* button; Creative's header has the update dot, and inside it FigCraft carries an *Update* badge |
+| Open the panel | Hero `N OF 22 INSTALLED · 1 UPDATE`; an UPDATES · 1 strip naming FigCraft, with an *Update all · u* button; Creative's header has the update dot, and inside it FigCraft carries an *Update* badge |
 | A click or `Enter` on the tile | FigCraft opens (or comes to the front): no question, no terminal; the badge stays (0.5.9) |
 | `u` or *Update all* | Confirm line `Update FigCraft · a terminal will open and ask for your password` with *Update ⏎* and *Cancel*; `Esc` cancels (don't run it: 99.0.0 does not exist) |
 | `$P/bin/omarcraft check --notify` twice | One notification "OmarCraft updates available" naming FigCraft (no version) the first time, none the second. The panel runs this check at shell start and every six hours; a manual refresh (`r`, right-click) only shows the badge |
