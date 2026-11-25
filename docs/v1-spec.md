@@ -167,3 +167,14 @@ notifications) applies to extras unchanged. A cache written by an older version 
 the next read, without a version, and is made stale so the version arrives at once. Qualification rule
 for a tool: prebuilt `<id>-bin` on the AUR with a desktop entry, maintained upstream, permissive licence,
 something an office, design or creative user launches. First extra: Memospot (`memospot-bin`).
+
+## Amendment 2026-11-25: quiet updates (0.6.7)
+
+The author's choice (option A, `docs/v0.6.7-plan.md`): an opt-in command, `omarcraft quiet-updates on|off|status`,
+lists each ArtCraft app installed as a package in the ArtCraft Launcher's own version file
+(`~/.local/share/ArtCraft/versions/versions.json`, or the file `CRAFT_VERSIONS_FILE` names), with OmarCraft's
+own entry. An app listed there offers no update itself (craft-update reads that file); its updates come
+through OmarCraft and Omarchy. The list follows every job while it is on; `off` takes out exactly OmarCraft's
+entries. It is the one file outside the plugin's cache and state folders that OmarCraft ever writes, and only
+after that command, as the non-goals above require. A stopgap until ArtCraft's switch for managed installs
+(RFC-0082) ships.

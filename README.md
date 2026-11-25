@@ -162,9 +162,10 @@ the catalog since you last opened the panel, and after a job that failed.
 Every six hours, and whenever you press `r` or right-click the icon, OmarCraft compares your installed
 AUR `-bin` packages with the AUR. Newer builds show on the tiles or rows and on the icon; the six-hourly check
 also sends one desktop notification per new set, which opens the panel. If the AUR cannot be reached the
-hero says `OFFLINE · CACHED LIST` and the panel retries on its own every ten minutes. Updates are package-exact: `Enter` on the app updates that
-one, *Update all* (`u`) every app with a newer build, each on its own, in a floating terminal that asks for
-your password; only when nothing but tools from the Arch repos is pending does it run Omarchy's update.
+hero says `OFFLINE · CACHED LIST` and the panel retries on its own every ten minutes. Updates are package-exact: *Update all* (`u`)
+updates every app with a newer build, each on its own, in a floating terminal that asks for your password;
+only when nothing but tools from the Arch repos is pending does it run Omarchy's update. A click or `Enter` on
+an app always opens it, update or not; `omarcraft update <id>` updates one app from the command line.
 `omarchy update` updates them too. "Newer" means a newer
 AUR build exists, which can trail an ArtCraft release by a day or so.
 
@@ -192,7 +193,29 @@ are pending.
 **The apps' own update prompts.** A Craft app may announce a new version itself ("Update and restart")
 as soon as ArtCraft releases it. Its own updater cannot replace a package that pacman installed (it fails
 with "Permission denied"): update the app from OmarCraft instead. The AUR package usually has the new build
-within hours of the release; until it does, OmarCraft shows none.
+within hours of the release; until it does, OmarCraft shows none. Quiet updates, below, stop these prompts
+for ArtCraft's own apps.
+
+**Quiet updates (optional, 0.6.7).** Let ArtCraft's apps leave their updates to OmarCraft and Omarchy:
+
+```
+omarcraft quiet-updates on       # off to undo, status to see which apps
+```
+
+It writes one file, the ArtCraft Launcher's own version file (`~/.local/share/ArtCraft/versions/versions.json`,
+or the file `CRAFT_VERSIONS_FILE` names), with an entry for each ArtCraft app installed as a package, and keeps
+that list in step after every install, update and removal from OmarCraft. An app it lists offers no update
+itself, neither at start nor in *Help › Check for Updates*, which says the app "follows the version chosen in
+the launcher, so it does not update itself". `off` takes out exactly OmarCraft's entries and leaves the rest
+of the file as it is (an app you pinned in the ArtCraft Launcher, for example); a file left with nothing in it
+goes. Off by default: OmarCraft writes nothing outside its own folders unless you turn this on.
+
+Limits: the apps still look up their latest version when they start; they only stop offering it. A community
+app with an updater of its own (MailCraft) does not read this file and keeps its prompt; SolidCraft has none.
+The file is the launcher's: if you install the ArtCraft Launcher, it shows these apps as kept on a choice it
+does not know. This is a stopgap until ArtCraft's own switch for managed installs ships
+([RFC-0082](https://github.com/storytold/craft-contrib/pull/82), craft-libs#2629 and #572); OmarCraft will
+use that switch then.
 
 ## Apps installed some other way
 
@@ -226,6 +249,7 @@ $P install-group all|creative|3d|office   # notes: office, as before 0.5.8
 $P remove <id>...             # floating terminal, Omarchy's pkg drop; your files stay
 $P update [id...]             # the named apps, or every app with a newer build; floating terminal
 $P check [--notify]           # pending updates; exit 0 if any
+$P quiet-updates on|off|status   # opt in: ArtCraft's apps offer no update themselves (Updates)
                               # list and check show versions; while ArtCraft's list cannot be read
                               # (its layout changed), both say so on stderr
 $P refresh [-f]               # fetch catalog and AUR versions now
@@ -300,7 +324,9 @@ plus `$P remove-menu` before removing if you ran `setup-menu`, and the keybindin
   bounded again on the way out, so neither a hostile nor a broken answer can fill the shell's memory.
 - Files: `~/.cache/omarchy/omarcraft/` (catalog, what the configured repos ship of it, and the private copy
   of the package lists the repo check uses) and `~/.local/state/omarchy/omarcraft/` (job records,
-  seen apps, notification state). Nothing under `~/.config` without the opt-in commands. Where 0.5.0
+  seen apps, notification state). Nothing under `~/.config` without the opt-in commands, and nothing else
+  outside these two folders unless you turn on quiet updates, which writes only its own entries in ArtCraft's
+  version file (`~/.local/share/ArtCraft/versions/versions.json`). Where 0.5.0
   installed Vikunja, 0.5.1 deletes, once, the two files 0.5.0 wrote for it: its desktop entry in
   `~/.local/share/applications` and that entry's launcher.
 

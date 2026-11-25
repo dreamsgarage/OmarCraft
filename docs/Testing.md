@@ -264,3 +264,16 @@ the README's development steps) and `omarchy restart shell`:
 | *Update all* with two updates pending | One job; afterwards `✓ Updated A and B` under the hero, gone on the next key |
 | An opted-in menu from 0.5.7: its *Install Notes* entry | Installs what Office is missing; `$P/bin/omarcraft setup-menu` replaces it with *Install 3D Art* |
 
+
+## 0.6.7: quiet updates
+
+`P=~/.config/omarchy/plugins/omarcraft.productivity`, `V=~/.local/share/ArtCraft/versions/versions.json`.
+
+| Do | Expect |
+|---|---|
+| `$P/bin/omarcraft quiet-updates status` | `Quiet updates are off: ArtCraft's apps offer their own updates.`; no `$V` unless the ArtCraft Launcher wrote one |
+| `$P/bin/omarcraft quiet-updates on` | `Quiet updates are on for PhotoCraft, …` naming the ArtCraft apps installed (not MailCraft, SolidCraft or the tools beyond ArtCraft); `jq . $V` shows each with `{"ManagedBy":"OmarCraft"}` |
+| Start an ArtCraft app; its log (`~/.config/<id>/logs/<id>.log`) | `follows the launcher's choice (Unknown); no update offered here` once its check has run; no update prompt |
+| *Help › Check for Updates* in that app | `<App> <version> follows the version chosen in the launcher, so it does not update itself.` |
+| Install or remove an ArtCraft app from the panel | `$V` gains or loses that app's entry |
+| `$P/bin/omarcraft quiet-updates off` | OmarCraft's entries gone; `$V` gone if nothing else was in it; the apps offer their updates again |

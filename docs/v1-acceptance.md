@@ -187,3 +187,9 @@ commit hash. Nothing ships with a FAIL in the *Must* rows.
 | 91 | 0.5.9 · An app ArtCraft lists before it has a package is not recorded as seen; the update forgets, once, those recorded by 0.5.8, so MailCraft and AniCraft show as *New* | | PASS | 2026-11-22, offline tests (a hidden last app, the one-time forgetting, the author's 0.5.8 state); on the author's machine see row 87 |
 | 92 | 0.5.9 · Upgrade from every earlier release, back online with every tool | fde38a4 | PASS | 2026-11-22, `tests/upgrade-paths.sh` (memory-capped): 0.1.0, 0.2.0, 0.5.0, 0.5.1, 0.5.2, 0.5.3, 0.5.4, 0.5.5, 0.5.6 and 0.5.8 all `ok`, online, 22 tools; also on 697532f, before the seen fix |
 | 93 | 0.5.9 · Rows (`t`): an app with a newer build reads *Update ready* in red, as a tile shows its red *Update* badge | 10dbbf4 | PASS (user) | 2026-11-25, the author: in rows the five apps read *Update ready* in red |
+| 94 | 0.6.7 · Quiet updates are off by default: no command writes ArtCraft's version file until `quiet-updates on` | | PASS | 2026-11-25, offline tests (every earlier command of the suite ran, no file) |
+| 95 | 0.6.7 · `on` lists the installed ArtCraft apps only (no community app, no tool beyond ArtCraft), keeps what others wrote, records its own; `status` names them | | pending | Offline tests pass; on the author's machine to come |
+| 96 | 0.6.7 · An ArtCraft app it lists offers no update itself; its log says it follows the launcher's choice | | pending | |
+| 97 | 0.6.7 · Installs and removals from OmarCraft keep the list in step; a version file that is not the launcher's never fails a job and is left as it is | | PASS | 2026-11-25, offline tests |
+| 98 | 0.6.7 · `off` takes out exactly OmarCraft's entries, and a file left empty goes; the file `CRAFT_VERSIONS_FILE` names is the one used | | PASS | 2026-11-25, offline tests |
+| 99 | 0.6.7 · Upgrade from every earlier release, back online with every tool | | pending | |

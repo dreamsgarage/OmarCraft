@@ -1234,6 +1234,61 @@ cmp -s "$MENU_FILE" "$TMP/once.jsonc" && ok "setup-menu is idempotent" || fail "
 remove_menu
 cmp -s "$MENU_FILE" "$TMP/original.jsonc" && ok "remove-menu restores the file" || fail "remove-menu restores the file"
 
+# --- 0.6.7: quiet updates, opt-in: ArtCraft's apps leave their updates to OmarCraft and Omarchy ----------
+# The apps read the ArtCraft Launcher's version file; an entry other than "Stable" makes an app offer no update
+# itself (craft-update's pins.rs). OmarCraft writes it only when asked, and only its own entries.
+
+VF="$XDG_DATA_HOME/ArtCraft/versions/versions.json"
+expect_true "0.6.7: no command so far wrote ArtCraft's version file (quiet updates are off by default)" "[[ ! -e '$VF' ]]"
+expect_eq "0.6.7: status says off" "$("$ROOT/bin/omarcraft" quiet-updates status)" "Quiet updates are off: ArtCraft's apps offer their own updates."
+installed_now "photocraft-bin 1.0.0-1" "wordcraft-bin 1.0.0-1" "solidcraft-bin 1.0.0-1" "mailcraft-bin 1.0.0-1" "typesetter 0.15.2-1"
+"$ROOT/bin/omarcraft" quiet-updates on >/dev/null
+expect_eq "0.6.7: on lists the installed ArtCraft apps only: no community app, no tool beyond ArtCraft" \
+  "$(jq -c .apps "$VF")" '{"photocraft":{"ManagedBy":"OmarCraft"},"wordcraft":{"ManagedBy":"OmarCraft"}}'
+expect_eq "0.6.7: and records them as its own" "$(tr '\n' ' ' <"$QUIET_FILE")" "photocraft wordcraft "
+expect_true "0.6.7: status names them" "\"\$ROOT/bin/omarcraft\" quiet-updates status | grep -q 'on for PhotoCraft, WordCraft:'"
+cp "$VF" "$TMP/vf.once"
+"$ROOT/bin/omarcraft" quiet-updates on >/dev/null
+expect_true "0.6.7: on again changes nothing" "cmp -s '$VF' '$TMP/vf.once'"
+
+rm -f "$QUIET_FILE"
+printf '{"apps":{"wordcraft":{"Pinned":"v0.1.0"},"x-craft":"Nightly"},"future":1}\n' >"$VF"
+"$ROOT/bin/omarcraft" quiet-updates on >/dev/null
+expect_eq "0.6.7: an app pinned in the launcher, another app's entry and keys it does not know are kept" \
+  "$(jq -c . "$VF")" '{"apps":{"wordcraft":{"Pinned":"v0.1.0"},"x-craft":"Nightly","photocraft":{"ManagedBy":"OmarCraft"}},"future":1}'
+expect_eq "0.6.7: only its own entry is recorded" "$(tr '\n' ' ' <"$QUIET_FILE")" "photocraft "
+
+installed_now "photocraft-bin 1.0.0-1" "wordcraft-bin 1.0.0-1" "deckcraft-bin 1.0.0-1"
+write_job install deckcraft; end_job 0
+expect_eq "0.6.7: after an install, the new app is listed" "$(jq -c .apps.deckcraft "$VF")" '{"ManagedBy":"OmarCraft"}'
+installed_now "wordcraft-bin 1.0.0-1" "deckcraft-bin 1.0.0-1"
+write_job remove photocraft; end_job 0
+expect_eq "0.6.7: after a removal its entry goes; the launcher's pin stays" "$(jq -c '[.apps.photocraft, .apps.wordcraft]' "$VF")" '[null,{"Pinned":"v0.1.0"}]'
+printf 'not json\n' >"$VF"
+write_job update wordcraft; end_job 0
+expect_eq "0.6.7: a version file that is not the launcher's never changes how a job ended, and is left as it is" \
+  "$(jq -c .exit "$LAST_JOB_FILE")|$(cat "$VF")" "0|not json"
+rm -f "$QUIET_FILE"
+"$ROOT/bin/omarcraft" quiet-updates on >/dev/null 2>&1
+expect_eq "0.6.7: on refuses such a file and stays off" "$?|$(cat "$VF")|$([[ -e $QUIET_FILE ]] && echo on || echo off)" "1|not json|off"
+
+rm -f "$VF" "$QUIET_FILE"; installed_now "photocraft-bin 1.0.0-1"
+"$ROOT/bin/omarcraft" quiet-updates on >/dev/null
+"$ROOT/bin/omarcraft" quiet-updates off >/dev/null
+expect_eq "0.6.7: off takes its entries out; a file with nothing else goes" \
+  "$([[ -e $VF ]] && echo kept || echo gone)|$([[ -e $QUIET_FILE ]] && echo on || echo off)" "gone|off"
+printf '{"apps":{"wordcraft":{"Pinned":"v0.1.0"}}}\n' >"$VF"
+"$ROOT/bin/omarcraft" quiet-updates on >/dev/null
+"$ROOT/bin/omarcraft" quiet-updates off >/dev/null
+expect_eq "0.6.7: and leaves what it did not write" "$(jq -c . "$VF")" '{"apps":{"wordcraft":{"Pinned":"v0.1.0"}}}'
+rm -f "$VF" "$QUIET_FILE"
+CRAFT_VERSIONS_FILE="$TMP/alt-versions.json" "$ROOT/bin/omarcraft" quiet-updates on >/dev/null
+expect_eq "0.6.7: the file CRAFT_VERSIONS_FILE names is the one written, as the apps read that one" \
+  "$(jq -c .apps "$TMP/alt-versions.json")|$([[ -e $VF ]] && echo default || echo none)" '{"photocraft":{"ManagedBy":"OmarCraft"}}|none'
+CRAFT_VERSIONS_FILE="$TMP/alt-versions.json" "$ROOT/bin/omarcraft" quiet-updates off >/dev/null
+expect_true "0.6.7: and the one off cleans" "[[ ! -e '$TMP/alt-versions.json' && ! -e '$QUIET_FILE' ]]"
+rm -f "$LAST_JOB_FILE" "$TMP/vf.once"
+
 # --- the panel's logic (Model.js), in Node -------------------------------------------------------
 
 if [[ -n $NODE_BIN && -x $NODE_BIN ]]; then

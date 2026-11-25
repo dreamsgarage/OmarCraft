@@ -216,6 +216,11 @@ validated by the cache trick in `docs/Testing.md` § 6 and, when it happens, by 
    mature desktop app exists (its compiler has nothing to launch; the only AUR desktop wrapper is a stale
    3-star project); typst.app as a web-app tile is a possible later kind of entry. Release 0.2.0.
 
+> **Amended 2026-11-25 (the author, 0.6.7):** quiet updates, an opt-in command
+> (`omarcraft quiet-updates on`), let ArtCraft's apps leave their updates to OmarCraft and Omarchy by listing
+> them in the ArtCraft Launcher's version file; capability 9 holds: nothing is written there, or anywhere else
+> outside the plugin's folders, unless the user runs that command. See `docs/v0.6.7-plan.md`.
+
 ## Out of scope until asked
 
 Remove-from-panel, AppImage path, settings schema, a search field, per-app pages, theme-coloured glyphs,

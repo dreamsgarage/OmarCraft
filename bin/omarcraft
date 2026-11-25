@@ -18,6 +18,9 @@
 #   omarcraft seen                  Mark every catalog app as seen (clears "new"; the panel runs it on close)
 #   omarcraft setup-menu            Opt in: add an ArtCraft section to the Omarchy menu
 #   omarcraft remove-menu           Remove that section again
+#   omarcraft quiet-updates on|off|status
+#                                   Opt in: ArtCraft's apps stop offering their own updates, which come
+#                                   through OmarCraft and Omarchy instead (README, Quiet updates)
 #
 # Only prebuilt packages are ever installed, so nothing is compiled: packages a configured repo ships
 # (Omarchy's own repo or the Arch repos) through omarchy-pkg-add, AUR -bin packages through Omarchy's
@@ -948,6 +951,9 @@ end_job() {
     rm -f "$JOB_FILE"
   fi
   (( rc == 0 )) && rm -f "$NOTIFIED"
+  # Quiet updates on: the version file follows what is installed now (an install lists its app, a removal
+  # takes OmarCraft's entry out). It never changes how the job ended.
+  if [[ -f $QUIET_FILE ]]; then INSTALLED_LOADED=0; INSTALLED=(); quiet_sync >/dev/null 2>&1 || true; fi
   poke_panel
 }
 
@@ -1439,6 +1445,115 @@ remove_menu() {
   rm -f "$tmp"
 }
 
+# --- Quiet updates (0.6.7, opt-in): ArtCraft's apps leave their updates to OmarCraft and Omarchy ----------
+# Each ArtCraft app reads the ArtCraft Launcher's version file, ArtCraft/versions/versions.json in the per-user
+# data folder (or the file CRAFT_VERSIONS_FILE names). An app the file lists with anything but "Stable" follows
+# that entry and offers no update itself, neither at start nor in Help ▸ Check for Updates, which then says it
+# "follows the version chosen in the launcher" (craft-update's pins.rs and updater.rs, checked 2026-11-25; an
+# entry it cannot read counts as chosen elsewhere, never as stable, and the launcher keeps such an entry as it
+# is). With quiet updates on, OmarCraft lists each ArtCraft app installed as a package there, with QUIET_MARK,
+# and keeps the list in step after every job; off takes out exactly its own entries. Nothing else in the file
+# is touched: an app pinned in the launcher, or anything a newer launcher wrote, stays as it is. Off by default:
+# the plugin writes nothing outside its own folders unless asked (docs/approved-plan.md). A stopgap until
+# ArtCraft's own switch ships (storytold/craft-contrib#82, craft-libs#2629 and #572). A community app with an
+# updater of its own (MailCraft) does not read this file, so it is not listed.
+QUIET_FILE="$STATE_DIR/quiet-updates"      # quiet updates are on while it exists; it lists OmarCraft's entries
+QUIET_MARK='{"ManagedBy":"OmarCraft"}'
+VERSIONS_MAX_BYTES=1048576                 # the launcher's version file; a few hundred bytes in 2026-11
+
+versions_file() {
+  local file=${CRAFT_VERSIONS_FILE:-}
+  if [[ $file == /* ]]; then printf '%s' "$file"; else printf '%s' "$DATA_HOME/ArtCraft/versions/versions.json"; fi
+}
+
+# The apps quiet updates list: ArtCraft's own (upstream group suite), installed as packages.
+quiet_ids() {
+  local id ugroup
+  load_installed
+  while IFS=$'\037' read -r id _ _ ugroup _; do
+    if [[ $ugroup == suite ]] && is_installed "$id"; then printf '%s\n' "$id"; fi
+  done < <(catalog_rows)
+}
+
+# Brings the version file in step with what is installed: an ArtCraft app it does not name is listed, an
+# entry of OmarCraft's for an app no longer installed is taken out. Writes only when something changes, in
+# one step (a reader never sees half a file). A file that is not the launcher's JSON is left as it is.
+quiet_sync() {
+  local file cur want ours next tmp
+  file=$(versions_file)
+  cur='{"apps":{}}'
+  if [[ -e $file ]]; then
+    if [[ ! -f $file ]] || (( $(wc -c <"$file") > VERSIONS_MAX_BYTES )) \
+        || ! cur=$(jq -c 'if type == "object" and ((.apps // {}) | type == "object") then . else error("not the version file") end' "$file" 2>/dev/null) \
+        || [[ -z $cur ]]; then
+      echo "omarcraft: $file is not the ArtCraft Launcher's version file; it is left as it is" >&2
+      return 1
+    fi
+  fi
+  want=$(quiet_ids | jq -Rn '[inputs | select(length > 0)]')
+  ours='[]'
+  [[ -s $QUIET_FILE ]] && ours=$(jq -Rn '[inputs | select(length > 0)]' <"$QUIET_FILE")
+  next=$(jq -c --argjson mark "$QUIET_MARK" --argjson want "$want" --argjson ours "$ours" '
+    .apps = (.apps // {})
+    | reduce ($ours[] | select(. as $i | any($want[]; . == $i) | not)) as $i (.; if .apps[$i] == $mark then del(.apps[$i]) else . end)
+    | reduce $want[] as $i (.; if .apps[$i] == null then .apps[$i] = $mark else . end)' <<<"$cur")
+  if [[ $next != "$cur" ]] && { [[ -e $file ]] || [[ $(jq '.apps | length' <<<"$next") != 0 ]]; }; then
+    mkdir -p "$(dirname "$file")"
+    tmp=$(mktemp "$file.XXXXXX")
+    if ! jq . <<<"$next" >"$tmp" || ! mv -f "$tmp" "$file"; then rm -f "$tmp"; return 1; fi
+  fi
+  mkdir -p "$STATE_DIR"
+  jq -r --argjson mark "$QUIET_MARK" '.apps | to_entries[] | select(.value == $mark) | .key' <<<"$next" >"$QUIET_FILE.tmp" \
+    && mv -f "$QUIET_FILE.tmp" "$QUIET_FILE"
+}
+
+quiet_status() {
+  local id joined names=()
+  if [[ ! -f $QUIET_FILE ]]; then
+    echo "Quiet updates are off: ArtCraft's apps offer their own updates."
+    return 0
+  fi
+  while read -r id; do [[ -n $id ]] && names+=("$(app_name "$id")"); done <"$QUIET_FILE"
+  if (( ${#names[@]} == 0 )); then
+    echo "Quiet updates are on; no ArtCraft app is installed yet."
+  else
+    joined=$(printf '%s, ' "${names[@]}")
+    echo "Quiet updates are on for ${joined%, }: their updates come through OmarCraft and Omarchy ($(versions_file))."
+  fi
+}
+
+quiet_on() {
+  mkdir -p "$STATE_DIR"
+  [[ -f $QUIET_FILE ]] || : >"$QUIET_FILE"
+  if ! quiet_sync; then
+    rm -f "$QUIET_FILE"
+    die "quiet updates stay off"
+  fi
+  quiet_status
+}
+
+# Takes out OmarCraft's entries; the file goes when nothing else is in it (no file means every app follows
+# stable releases, as an empty one does).
+quiet_off() {
+  local file next tmp
+  if [[ ! -f $QUIET_FILE ]]; then quiet_status; return 0; fi
+  file=$(versions_file)
+  if [[ -f $file ]]; then
+    if next=$(jq -c --argjson mark "$QUIET_MARK" 'if type == "object" then .apps = ((.apps // {}) | with_entries(select(.value != $mark))) else error("not the version file") end' "$file" 2>/dev/null) && [[ -n $next ]]; then
+      if [[ $next == '{"apps":{}}' ]]; then
+        rm -f "$file"
+      else
+        tmp=$(mktemp "$file.XXXXXX")
+        { jq . <<<"$next" >"$tmp" && mv -f "$tmp" "$file"; } || rm -f "$tmp"
+      fi
+    else
+      echo "omarcraft: $file is not the ArtCraft Launcher's version file; it is left as it is" >&2
+    fi
+  fi
+  rm -f "$QUIET_FILE"
+  quiet_status
+}
+
 # Sourcing the script (tests) loads the functions without running a command.
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
   case "${1:-state}" in
@@ -1459,7 +1574,15 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
     vikunja-session | vikunja-stop | tray-sync) legacy_vikunja_cleanup ;;
     setup-menu) setup_menu ;;
     remove-menu) remove_menu ;;
-    -h | --help | help) sed -n '3,24p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    quiet-updates)
+      case "${2:-status}" in
+        on) quiet_on ;;
+        off) quiet_off ;;
+        status) quiet_status ;;
+        *) die "usage: omarcraft quiet-updates on|off|status" ;;
+      esac
+      ;;
+    -h | --help | help) sed -n '3,27p' "$SELF" | sed 's/^# \{0,1\}//' ;;
     *) die "unknown command: $1 (see omarcraft --help)" ;;
   esac
 fi

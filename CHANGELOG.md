@@ -1,9 +1,20 @@
 # Changelog
 
-## 0.5.9 — unreleased
+## 0.6.7 — 2026-11-25
 
-Opening an app opens it, and ArtCraft's list is read again. Plan in `docs/v0.5.9-plan.md`.
+Opening an app opens it, ArtCraft's list is read again, and ArtCraft's apps can leave their updates to
+OmarCraft. 0.5.9 was built and accepted on the author's machine and is released here, not on its own (the
+author's choice: one review). Plans in `docs/v0.5.9-plan.md` and `docs/v0.6.7-plan.md`.
 
+- **New, optional: quiet updates.** `omarcraft quiet-updates on` lists each ArtCraft app installed as a package
+  in the ArtCraft Launcher's own version file (`~/.local/share/ArtCraft/versions/versions.json`); an app listed
+  there offers no update itself, neither at start nor in *Help › Check for Updates*, so its updates come only
+  through OmarCraft and Omarchy. The list follows every install, update and removal from OmarCraft; `off` takes
+  out exactly OmarCraft's entries and leaves the rest of the file as it is. Off by default: nothing is written
+  outside OmarCraft's folders unless it is turned on. MailCraft, a community app with an updater of its own,
+  does not read that file. A stopgap until ArtCraft's switch for managed installs ships (RFC-0082).
+- The README's *Updates* still said `Enter` updates an app; it opens it. The documentation page
+  (`docs/README.html`) lists twenty-two tools and quiet updates.
 - **Fixed: a click on an app with an update did not open it.** It asked *Update ⏎ / Launch instead /
   Cancel* in the strip at the top of the panel, far from the tile, and a second click on the tile ran the
   update. A click, `Enter` or the rows' ▶ on an installed app now opens the version you have, always, also
@@ -36,8 +47,8 @@ Opening an app opens it, and ArtCraft's list is read again. Plan in `docs/v0.5.9
   as seen when the panel closed (MailCraft and AniCraft, listed on 2026-11-10, packaged on 11-11). Only apps
   the panel shows are recorded and announced now, and the update to 0.5.9 forgets, once, the hidden ones
   recorded before: both show as *New* and their categories open by themselves.
-- Tests: the fixtures of the old Rust list are replaced by a copy of `catalog.toml` (19 apps); 338 offline
-  tests (19 more than at the first 0.5.9 build) and 72 panel-logic tests (7 more).
+- Tests: the fixtures of the old Rust list are replaced by a copy of `catalog.toml` (19 apps). 356 offline
+  tests and 72 panel-logic tests in all (0.5.8: 316 and 49).
 
 ## 0.5.8 — 2026-11-11
 
