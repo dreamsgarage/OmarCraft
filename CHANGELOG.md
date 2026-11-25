@@ -15,6 +15,7 @@ author's choice: one review). Plans in `docs/v0.5.9-plan.md` and `docs/v0.6.7-pl
   does not read that file. A stopgap until ArtCraft's switch for managed installs ships (RFC-0082).
 - The README's *Updates* still said `Enter` updates an app; it opens it. The documentation page
   (`docs/README.html`) lists twenty-two tools and quiet updates.
+- New `preview.png`: the 0.6.7 panel, twenty-two tools.
 - **Fixed: a click on an app with an update did not open it.** It asked *Update ⏎ / Launch instead /
   Cancel* in the strip at the top of the panel, far from the tile, and a second click on the tile ran the
   update. A click, `Enter` or the rows' ▶ on an installed app now opens the version you have, always, also
