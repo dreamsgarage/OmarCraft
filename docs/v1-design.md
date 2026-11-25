@@ -354,6 +354,9 @@ No update action, never counted in `counts.updates`; the group chips skip it.
   state: launch `󰐊`, install `󰇚`, open `󰖟`. An update-ready row keeps launch; its subtext carries the
   `old → new` and the hero's *Update all* carries the action.
 - Subtext collapses to height 0 when empty, as in Network.
+- 0.5.9 (the author, 2026-11-25): the caption of an app with a newer build (*Update ready*, *Update with the
+  system*) takes `bar.urgent`, like the tiles' *Update* badge; the row's action is launch, so the caption is
+  the row's one update mark.
 
 ## Keyboard
 

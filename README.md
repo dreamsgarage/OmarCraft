@@ -133,7 +133,8 @@ update or it does not (the command line still shows versions, see below).
   it is missing, an *Install N* button with the category's key (`o`, `c`, `3`), open or closed. `Enter` or a click on the header opens or closes it, and the panel remembers.
   A category opens by itself when it gets a new app. Inside, the apps show as **tiles** (default: three per
   line, each the app's glyph in its own ArtCraft colour over its name; installed ones tinted, the others
-  outlined) or **rows** (one per line with a caption), switched live with `t` or
+  outlined) or **rows** (one per line with a caption; an app with a newer build reads *Update ready* in red,
+  as a tile shows its red *Update* badge), switched live with `t` or
   `omarchy bar set omarcraft.productivity layout tiles|rows`. `Enter` or a click launches an installed app
   (or focuses its window) and opens a one-line confirm for one that is not (`Install PhotoCraft · a
   terminal will open and ask for your password`); `Enter` again runs it, `Esc` cancels. *Install N* on the header, or its key, installs everything the

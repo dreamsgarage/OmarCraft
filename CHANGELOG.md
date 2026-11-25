@@ -14,7 +14,9 @@ Opening an app opens it, and ArtCraft's list is read again. Plan in `docs/v0.5.9
   opens it and closes any open question; `Enter` and the *Remove ⏎* button still remove.
 - While a job works on an app (its update, say), a click on it waits for the job instead of starting the
   app half-replaced.
-- The *Launch instead* button is gone, and an app's row action is always launch (▶), never update.
+- The *Launch instead* button is gone, and an app's row action is always launch (▶), never update. In the
+  rows layout, an app with a newer build reads *Update ready* in red, as a tile shows its red *Update* badge
+  (the row's ↻ button was its only mark until now).
 - Tests: the rule lives in `Model.primaryAction`, with 16 panel-logic tests and 3 checks that the panel
   goes through it.
 - **Fixed: ArtCraft's app list was not read since 2026-11-11.** ArtCraft moved its list from the launcher's

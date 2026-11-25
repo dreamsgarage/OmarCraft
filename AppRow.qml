@@ -16,6 +16,9 @@ CursorSurface {
   property bool dimmed: false
   property bool busy: false
   property bool failed: false
+  // A newer build is ready: the caption ("Update ready") takes the urgent colour, as the tiles' badge does
+  // (0.5.9, the author: the row's action is launch now, so the caption is the row's only update mark).
+  property bool updateReady: false
   property bool actionsEnabled: true
   property bool isCursor: false
   property color urgent: Color.urgent
@@ -28,7 +31,7 @@ CursorSurface {
 
   hasCursor: isCursor
   readonly property color glyphColor: failed ? urgent : (dimmed && !busy ? Qt.darker(foreground, 1.5) : foreground)
-  readonly property color subtextColor: failed ? urgent : (busy ? foreground : Qt.darker(foreground, 1.5))
+  readonly property color subtextColor: failed ? urgent : (busy ? foreground : (updateReady ? urgent : Qt.darker(foreground, 1.5)))
 
   implicitHeight: body.implicitHeight + (extraLoader.item ? extraLoader.implicitHeight + Style.spacing.md : 0)
 

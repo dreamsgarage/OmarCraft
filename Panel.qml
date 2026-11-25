@@ -507,6 +507,7 @@ Panel {
         actionIcon: Model.actionIcon(modelData)
         actionTip: root.scrolling ? "" : Model.actionTip(modelData)
         dimmed: !modelData.installed
+        updateReady: Model.badgeIsUpdate(modelData)
         busy: Model.jobCovers(craft.job, modelData.id)
         failed: root.jobFailed && Model.jobCovers(craft.lastJob, modelData.id)
         actionsEnabled: modelData.installed || !root.jobRunning

@@ -1251,6 +1251,9 @@ expect_true "0.5.9: the panel's click goes through Model.primaryAction" "grep -q
 expect_true "0.5.9: and opens nothing but an install question from it" \
   "[[ \$(grep -o 'openConfirm([^,]*' <<<\"\$primary_body\" | tr '\n' '|') == 'openConfirm(\"install\"|' ]]"
 expect_true "0.5.9: no Launch instead button any more" "! grep -q 'Launch instead' '$ROOT/Panel.qml'"
+# The rows' action is launch, so a row's caption carries its update in the urgent colour (the author, 2026-11-25).
+expect_true "0.5.9: a row with an update gets its mark" "grep -q 'updateReady: Model.badgeIsUpdate(modelData)' '$ROOT/Panel.qml'"
+expect_true "0.5.9: and shows its caption in the urgent colour" "grep -q 'subtextColor:.*updateReady ? urgent' '$ROOT/AppRow.qml'"
 
 echo
 echo "$passed passed, $failed failed"
